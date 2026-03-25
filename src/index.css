@@ -1,0 +1,212 @@
+@import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+==========================================================================
+【AI HANDOVER NOTE】
+1. DESIGN PHILOSOPHY:
+   - Military Command Center Aesthetic: Inspired by CIA/NSA war rooms, DEFCON terminals, and tactical operations centers
+   - Dark Military Interface: Near-black backgrounds with high-contrast neon accents (radar green, alert red, warning amber)
+   - Geopolitical Crisis Dashboard: Designed for 'Linea Rossa' board game tracking Iranian nuclear crisis, sanctions, global opinion, DEFCON levels, economic resources, and internal stability
+   - Information Density with Clarity: Six interactive tracks (1-15 Nuclear, 1-10 Sanctions/Stability, -10/+10 Global Opinion, DEFCON 5-1, 1-10 Economic Resources, 1-10 Internal Stability) displayed with color-coded zones and detailed drill-down panels
+
+2. TYPOGRAPHY:
+   - Rajdhani: Military-grade sans-serif with technical precision, excellent for dashboard headers and data labels, conveys authority and operational readiness
+   - Share Tech Mono: Monospace display font for large tactical headings, evokes terminal/radar screen aesthetics
+   - JetBrains Mono: Code-quality monospace for numerical data, coordinates, and tabular information - ensures perfect alignment in data grids
+
+3. COLOR SYSTEM:
+   - Brand Primary (Red Alert): oklch(0.50 0.22 25) - Blood red for critical zones, nuclear threat levels, and destructive actions
+   - Brand Secondary (Tactical Gold): oklch(0.72 0.12 85) - Military brass/gold for accents, highlights, and strategic markers
+   - Radar Green: oklch(0.65 0.20 145) - Success/safe zones, operational status indicators
+   - Warning Amber: oklch(0.70 0.18 65) - Elevated threat levels, caution zones
+   - Background: Near-black (#0a0c10) for maximum contrast and reduced eye strain in tactical environments
+   - Foreground: Ivory (#e8e4d8) for primary text, ensuring WCAG AAA readability on dark backgrounds
+   - --brand maps to --destructive (red alert system), --accent uses tactical gold, --ring uses radar green for focus states
+
+4. USAGE GUIDE:
+   - Layout: Full-width dashboard with modular panels, central map visualization surrounded by data tracks and status indicators
+   - Interactive Tracks: Each of 6 tracks rendered as segmented progress bars with color zones (green→yellow→orange→red→critical), click segments to reveal detail panels with scenarios, activated cards, victory conditions, costs
+   - Visual Effects: Glow effects on active levels (box-shadow with brand colors), pulse animations on critical thresholds, hover states with rim-light borders
+   - Color-Coded Data Tables: Maintain spreadsheet color groupings (green/blue/pink/yellow/purple sections) for route categorization
+   - Backdrop Effects: Use subtle backdrop-blur on overlay panels to maintain tactical aesthetic while ensuring content legibility
+   - Typography Hierarchy: Monospace for all numerical data and coordinates, Rajdhani for labels and UI text, Share Tech Mono for section headers
+==========================================================================
+*/
+
+:root {
+  /* Typography */
+  --font-sans: 'Rajdhani', 'Share Tech Mono', ui-monospace, monospace;
+  --font-mono: 'JetBrains Mono', 'Share Tech Mono', 'Courier New', monospace;
+  
+  /* Radius */
+  --radius: 0.25rem;
+
+  /* Core UI Tokens */
+  --background: oklch(0.98 0.01 120);
+  --foreground: oklch(0.20 0.02 120);
+  --card: oklch(0.96 0.01 120);
+  --card-foreground: oklch(0.22 0.02 120);
+  --popover: oklch(0.97 0.01 120);
+  --popover-foreground: oklch(0.20 0.02 120);
+  --primary: oklch(0.50 0.22 25);
+  --primary-foreground: oklch(0.98 0.01 25);
+  --secondary: oklch(0.72 0.12 85);
+  --secondary-foreground: oklch(0.20 0.02 85);
+  --muted: oklch(0.92 0.01 120);
+  --muted-foreground: oklch(0.48 0.02 120);
+  --accent: oklch(0.72 0.12 85);
+  --accent-foreground: oklch(0.20 0.02 85);
+  --destructive: oklch(0.50 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 25);
+  --border: oklch(0.88 0.01 120);
+  --input: oklch(0.88 0.01 120);
+  --ring: oklch(0.65 0.20 145);
+  
+  /* Chart Tokens */
+  --chart-1: oklch(0.65 0.20 145);
+  --chart-2: oklch(0.70 0.18 65);
+  --chart-3: oklch(0.50 0.22 25);
+  --chart-4: oklch(0.72 0.12 85);
+  --chart-5: oklch(0.55 0.18 220);
+  
+  /* Sidebar Tokens */
+  --sidebar: oklch(0.96 0.01 120);
+  --sidebar-foreground: oklch(0.22 0.02 120);
+  --sidebar-primary: oklch(0.50 0.22 25);
+  --sidebar-primary-foreground: oklch(0.98 0.01 25);
+  --sidebar-accent: oklch(0.72 0.12 85);
+  --sidebar-accent-foreground: oklch(0.20 0.02 85);
+  --sidebar-border: oklch(0.88 0.01 120);
+  --sidebar-ring: oklch(0.65 0.20 145);
+}
+
+.dark {
+  --background: oklch(0.12 0.02 240);
+  --foreground: oklch(0.90 0.01 85);
+  --card: oklch(0.15 0.02 240);
+  --card-foreground: oklch(0.90 0.01 85);
+  --popover: oklch(0.14 0.02 240);
+  --popover-foreground: oklch(0.90 0.01 85);
+  --primary: oklch(0.55 0.24 25);
+  --primary-foreground: oklch(0.98 0.01 25);
+  --secondary: oklch(0.75 0.14 85);
+  --secondary-foreground: oklch(0.15 0.02 85);
+  --muted: oklch(0.22 0.02 240);
+  --muted-foreground: oklch(0.58 0.02 240);
+  --accent: oklch(0.75 0.14 85);
+  --accent-foreground: oklch(0.15 0.02 85);
+  --destructive: oklch(0.55 0.24 25);
+  --destructive-foreground: oklch(0.98 0.01 25);
+  --border: oklch(0.25 0.02 240);
+  --input: oklch(0.25 0.02 240);
+  --ring: oklch(0.68 0.22 145);
+  
+  /* Chart Tokens */
+  --chart-1: oklch(0.68 0.22 145);
+  --chart-2: oklch(0.72 0.20 65);
+  --chart-3: oklch(0.55 0.24 25);
+  --chart-4: oklch(0.75 0.14 85);
+  --chart-5: oklch(0.60 0.20 220);
+  
+  /* Sidebar Tokens */
+  --sidebar: oklch(0.14 0.02 240);
+  --sidebar-foreground: oklch(0.88 0.01 85);
+  --sidebar-primary: oklch(0.55 0.24 25);
+  --sidebar-primary-foreground: oklch(0.98 0.01 25);
+  --sidebar-accent: oklch(0.75 0.14 85);
+  --sidebar-accent-foreground: oklch(0.15 0.02 85);
+  --sidebar-border: oklch(0.25 0.02 240);
+  --sidebar-ring: oklch(0.68 0.22 145);
+}
+
+@theme inline {
+  /* Shadcn Core Mapping */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Charts Mapping */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar Mapping */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Typography */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Radius */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply scroll-smooth antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans min-h-screen;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  code, pre {
+    @apply font-mono;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-primary;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40;
+  }
+}
