@@ -1,284 +1,200 @@
-import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrackCard } from '@/components/TrackCard';
-import { PrintTabellone } from '@/components/PrintTabellone';
+import { useGameStore } from '@/store/gameStore';
 import { TUTTI_TRACCIATI } from '@/data/tracciati';
+import { TrackCard } from '@/components/TrackCard';
+import { Sidebar } from '@/components/Sidebar';
+import { TurnLog } from '@/components/TurnLog';
+import { useState } from 'react';
 
-// ── Status badge ───────────────────────────────────────────────────
-function StatusBadge({ label, color }: { label: string; color: string }) {
+// ── Game Over Overlay ────────────────────────────────────────────────
+function GameOverOverlay() {
+  const { gameOver, gameOverMotivo, nuovaPartita, punteggioIran, punteggioCoalizione, turnoCorrente, log } = useGameStore();
+
+  if (!gameOver) return null;
+
+  const isCatastrofe = gameOverMotivo.includes('DEFCON');
   return (
-    <div className="flex items-center gap-1.5 text-xs" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#7a8a9a' }}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ backgroundColor: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(4px)' }}
+    >
       <motion.div
-        className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ backgroundColor: color }}
-        animate={{ opacity: [1, 0.4, 1] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-      />
-      <span>{label}</span>
-    </div>
+        initial={{ scale: 0.8, y: 20 }}
+        animate={{ scale: 1, y: 0 }}
+        transition={{ type: 'spring', bounce: 0.35 }}
+        className="max-w-lg w-full mx-4 p-8 rounded border text-center"
+        style={{ backgroundColor: '#0a0c10', borderColor: isCatastrofe ? '#cc2222' : '#c8a55a', boxShadow: isCatastrofe ? '0 0 60px rgba(204,34,34,0.4)' : '0 0 60px rgba(200,165,90,0.3)' }}
+      >
+        <div className="text-5xl mb-4">{isCatastrofe ? '💀' : '☢️'}</div>
+        <div className="text-2xl font-black mb-2" style={{ color: isCatastrofe ? '#ff4444' : '#c8a55a', fontFamily: 'Share Tech Mono, monospace', letterSpacing: '0.1em' }}>
+          PARTITA TERMINATA
+        </div>
+        <div className="text-sm mb-6 leading-relaxed" style={{ color: '#d0c8b4', fontFamily: 'JetBrains Mono, monospace' }}>
+          {gameOverMotivo}
+        </div>
+
+        {/* Riepilogo */}
+        <div className="grid grid-cols-3 gap-3 mb-6 text-center">
+          <div className="p-3 rounded" style={{ backgroundColor: '#14532d33', border: '1px solid #22c55e44' }}>
+            <div className="text-2xl font-black" style={{ color: '#4ade80', fontFamily: 'JetBrains Mono, monospace' }}>{punteggioIran}</div>
+            <div className="text-xs" style={{ color: '#4ade80' }}>🇮🇷 Iran</div>
+          </div>
+          <div className="p-3 rounded" style={{ backgroundColor: '#c8a55a11', border: '1px solid #c8a55a44' }}>
+            <div className="text-xl font-black" style={{ color: '#c8a55a', fontFamily: 'JetBrains Mono, monospace' }}>{turnoCorrente}</div>
+            <div className="text-xs" style={{ color: '#c8a55a' }}>Turni</div>
+          </div>
+          <div className="p-3 rounded" style={{ backgroundColor: '#1e3a5f33', border: '1px solid #3b82f644' }}>
+            <div className="text-2xl font-black" style={{ color: '#60a5fa', fontFamily: 'JetBrains Mono, monospace' }}>{punteggioCoalizione}</div>
+            <div className="text-xs" style={{ color: '#60a5fa' }}>🌐 Coaliz.</div>
+          </div>
+        </div>
+
+        <div className="text-xs mb-6" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
+          {log.length} azioni registrate in {turnoCorrente} turni
+        </div>
+
+        <button onClick={nuovaPartita}
+          className="py-3 px-8 rounded border font-bold tracking-widest text-sm transition-all hover:scale-105"
+          style={{ borderColor: '#c8a55a', color: '#c8a55a', backgroundColor: '#c8a55a11', fontFamily: 'Share Tech Mono, monospace' }}>
+          ↺ NUOVA PARTITA
+        </button>
+      </motion.div>
+    </motion.div>
   );
 }
 
-// ── Header ─────────────────────────────────────────────────────────
-function Header({ onPrint }: { onPrint: () => void }) {
+// ── Header ───────────────────────────────────────────────────────────
+function AppHeader() {
+  const { turnoCorrente, nuovaPartita, gameOver, log } = useGameStore();
+  const [confirmNew, setConfirmNew] = useState(false);
+
   return (
-    <header
-      className="w-full border-b px-4 md:px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-3"
-      style={{ backgroundColor: '#060910', borderColor: '#1a2030', boxShadow: '0 2px 20px rgba(0,0,0,0.6)' }}
-    >
-      {/* Logo + titolo */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-shrink-0">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-lg border"
-            style={{ background: 'radial-gradient(circle, #7f0000, #3a0000)', borderColor: '#cc2222', boxShadow: '0 0 18px rgba(204,34,34,0.5)' }}
-          >☢️</div>
-          <motion.div
-            className="absolute inset-0 rounded-full border"
-            style={{ borderColor: '#cc2222' }}
-            animate={{ scale: [1, 1.35, 1], opacity: [0.6, 0, 0.6] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        </div>
+    <header className="flex items-center gap-4 px-4 py-2.5 border-b"
+      style={{ backgroundColor: '#08090d', borderColor: '#1e2a3a' }}>
+      <div className="flex items-center gap-2">
+        <span className="text-xl">☢️</span>
         <div>
-          <h1 className="text-xl font-bold tracking-[0.15em]"
-            style={{ color: '#e8e4d8', fontFamily: 'Share Tech Mono, monospace', textShadow: '0 0 18px rgba(204,34,34,0.35)' }}>
+          <div className="font-black tracking-widest text-sm" style={{ color: '#e8e4d8', fontFamily: 'Share Tech Mono, monospace' }}>
             LINEA ROSSA
-          </h1>
-          <p className="text-xs tracking-[0.1em]" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
-            CRISI NUCLEARE IRANIANA — PANNELLO DI CONTROLLO
-          </p>
+          </div>
+          <div className="text-xs" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
+            Crisis Tracker — Tracciato Nucleare Iraniano
+          </div>
         </div>
       </div>
 
-      {/* Destra: badge + pulsanti */}
-      <div className="flex items-center gap-4 flex-wrap justify-center">
-        <StatusBadge label="IRAN" color="#4ade80" />
-        <StatusBadge label="COALIZIONE" color="#60a5fa" />
-        <StatusBadge label="ONU" color="#c8a55a" />
-        <div className="w-px h-4 bg-white/10" />
-        <div className="px-3 py-1 rounded border text-xs"
-          style={{ backgroundColor: 'rgba(204,34,34,0.08)', borderColor: 'rgba(204,34,34,0.3)', color: '#cc2222', fontFamily: 'JetBrains Mono, monospace' }}>
-          6 TRACCIATI ATTIVI
+      <div className="ml-auto flex items-center gap-2">
+        <div className="px-3 py-1 rounded border text-xs" style={{ borderColor: '#c8a55a44', color: '#c8a55a', fontFamily: 'JetBrains Mono, monospace' }}>
+          TURNO {turnoCorrente}
         </div>
-
-        {/* ── PULSANTE STAMPA ── */}
-        <motion.button
-          onClick={onPrint}
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.97 }}
-          className="flex items-center gap-2 px-4 py-2 rounded border text-xs font-bold tracking-widest transition-all"
-          style={{
-            backgroundColor: 'rgba(200,165,90,0.12)',
-            borderColor: '#c8a55a',
-            color: '#c8a55a',
-            fontFamily: 'Share Tech Mono, monospace',
-            boxShadow: '0 0 12px rgba(200,165,90,0.2)',
-          }}
-        >
-          🖨️ STAMPA TABELLONE
-        </motion.button>
+        <div className="px-3 py-1 rounded border text-xs" style={{ borderColor: '#1e2a3a', color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
+          {log.length} azioni
+        </div>
+        {gameOver && (
+          <div className="px-3 py-1 rounded border text-xs" style={{ borderColor: '#cc222244', color: '#ff4444', fontFamily: 'JetBrains Mono, monospace' }}>
+            ● GAME OVER
+          </div>
+        )}
+        {confirmNew ? (
+          <div className="flex gap-1 items-center">
+            <span className="text-xs" style={{ color: '#f87171', fontFamily: 'JetBrains Mono, monospace' }}>Sei sicuro?</span>
+            <button onClick={() => { nuovaPartita(); setConfirmNew(false); }}
+              className="px-2 py-1 rounded text-xs" style={{ backgroundColor: '#7f1d1d', color: '#fca5a5', fontFamily: 'JetBrains Mono, monospace' }}>Sì</button>
+            <button onClick={() => setConfirmNew(false)}
+              className="px-2 py-1 rounded text-xs" style={{ backgroundColor: '#1e2a3a', color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>No</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmNew(true)}
+            className="px-3 py-1.5 rounded border text-xs font-bold tracking-wider transition-all hover:bg-red-950/40"
+            style={{ borderColor: '#cc222244', color: '#f87171', fontFamily: 'JetBrains Mono, monospace' }}>
+            ↺ Nuova Partita
+          </button>
+        )}
       </div>
     </header>
   );
 }
 
-// ── Legenda compatta ───────────────────────────────────────────────
-function LegendaZone() {
-  const voci = [
-    { col: '#22c55e', label: 'SICURO' },
-    { col: '#eab308', label: 'ATTENZIONE' },
-    { col: '#f97316', label: 'ALLERTA' },
-    { col: '#ef4444', label: 'PERICOLO' },
-    { col: '#dc2626', label: 'CRITICO / FINE PARTITA' },
-    { col: '#94a3b8', label: 'NEUTRALE' },
-    { col: '#3b82f6', label: 'VANTAGGIO COALIZIONE' },
+// ── Legenda ─────────────────────────────────────────────────────────
+function Legenda() {
+  const items = [
+    { c: '#22c55e', label: 'Sicuro' },
+    { c: '#eab308', label: 'Attenzione' },
+    { c: '#f97316', label: 'Allerta' },
+    { c: '#ef4444', label: 'Pericolo' },
+    { c: '#cc2222', label: 'Critico' },
+    { c: '#64748b', label: 'Neutro' },
+    { c: '#3b82f6', label: 'Coalizione' },
   ];
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-6 py-2 border-b"
-      style={{ backgroundColor: '#080b12', borderColor: '#1a2030' }}>
-      <span className="text-xs mr-2" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>LEGENDA ZONE:</span>
-      {voci.map((v) => (
-        <div key={v.label} className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: v.col + '55', border: `1px solid ${v.col}88` }} />
-          <span style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px' }}>{v.label}</span>
+    <div className="flex flex-wrap gap-3 px-4 py-2 border-b" style={{ borderColor: '#131820', backgroundColor: '#08090d' }}>
+      {items.map(it => (
+        <div key={it.label} className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: it.c }} />
+          <span className="text-xs" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace', fontSize: '9px' }}>{it.label}</span>
         </div>
       ))}
-      <div className="ml-auto text-xs" style={{ color: '#3a4a5a', fontFamily: 'JetBrains Mono, monospace', fontSize: '10px' }}>
-        ← CLICCA SU UN SEGMENTO O SU UN BADGE ZONA PER I DETTAGLI →
-      </div>
+      <span className="ml-auto text-xs" style={{ color: '#2a3a4a', fontFamily: 'JetBrains Mono, monospace', fontSize: '9px' }}>
+        🇮🇷 = Iran ± tracciato | 🌐 = Coalizione ± tracciato | clic su zona → dettagli
+      </span>
     </div>
   );
 }
 
-// ── Info panel ─────────────────────────────────────────────────────
-function InfoPanel() {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="fixed bottom-4 right-4 z-50">
-      <button onClick={() => setOpen(!open)}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-sm border transition-all"
-        style={{
-          backgroundColor: open ? 'rgba(200,165,90,0.2)' : '#0d1117',
-          borderColor: open ? '#c8a55a' : '#1e2a3a',
-          color: '#c8a55a',
-          boxShadow: open ? '0 0 14px rgba(200,165,90,0.3)' : 'none',
-        }}>ℹ</button>
-      {open && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.92, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="absolute bottom-12 right-0 w-64 rounded border p-4"
-          style={{ backgroundColor: '#0d1117', borderColor: '#1e2a3a', boxShadow: '0 8px 32px rgba(0,0,0,0.7)' }}>
-          <p className="text-xs font-bold mb-2" style={{ color: '#c8a55a', fontFamily: 'Share Tech Mono, monospace' }}>COME USARE LA PLANCIA</p>
-          <ul className="space-y-2 text-xs" style={{ color: '#7a8a9a', fontFamily: 'JetBrains Mono, monospace' }}>
-            <li>◆ <span style={{ color: '#e8e4d8' }}>Clicca su un segmento</span> della barra colorata per vedere gli effetti.</li>
-            <li>◆ <span style={{ color: '#e8e4d8' }}>Clicca sui badge</span> zona per accesso rapido.</li>
-            <li>◆ <span style={{ color: '#e8e4d8' }}>🖨️ STAMPA TABELLONE</span> per il layout da tavolo.</li>
-            <li>◆ Le zone <span style={{ color: '#dc2626' }}>CRITICHE</span> pulsano in rosso.</li>
-          </ul>
-        </motion.div>
-      )}
-    </div>
-  );
-}
+// ── Tab Log mobile ────────────────────────────────────────────────────
+type Tab = 'tracker' | 'sidebar' | 'log';
 
-// ── Modal tabellone stampabile ─────────────────────────────────────
-function PrintModal({ onClose }: { onClose: () => void }) {
-  const handlePrint = () => window.print();
+// ── Layout principale ────────────────────────────────────────────────
+export default function Index() {
+  const [activeTab, setActiveTab] = useState<Tab>('tracker');
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex flex-col"
-      style={{ backgroundColor: '#040608' }}
-    >
-      {/* Toolbar stampa */}
-      <div
-        className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-b no-print"
-        style={{ backgroundColor: '#060910', borderColor: '#1a2030' }}
-      >
-        <div className="flex items-center gap-3">
-          <span className="text-base" style={{ color: '#e8e4d8', fontFamily: 'Share Tech Mono, monospace', fontSize: '13px', letterSpacing: '0.1em' }}>
-            🖨️ ANTEPRIMA TABELLONE — PRONTO PER LA STAMPA
-          </span>
-          <span className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(200,165,90,0.12)', color: '#c8a55a', fontFamily: 'JetBrains Mono, monospace' }}>
-            FORMATO CONSIGLIATO: A2 LANDSCAPE
-          </span>
-        </div>
+    <div className="min-h-screen flex flex-col dark" style={{ backgroundColor: '#08090d', color: '#e8e4d8' }}>
+      <AppHeader />
+      <Legenda />
 
-        <div className="flex items-center gap-3">
-          {/* Istruzioni stampa */}
-          <div className="text-xs" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
-            Usa Ctrl+P (o ⌘+P su Mac) · Imposta: A2 landscape · Scala: Adatta pagina · Colori di sfondo: ON
-          </div>
-
-          {/* Pulsante stampa */}
-          <motion.button
-            onClick={handlePrint}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="flex items-center gap-2 px-5 py-2 rounded border font-bold text-xs tracking-widest"
+      {/* Tab mobile */}
+      <div className="flex lg:hidden border-b" style={{ borderColor: '#1e2a3a', backgroundColor: '#0a0c10' }}>
+        {([['tracker', '📊 Tracciati'], ['sidebar', '⚡ Stato'], ['log', '📋 Log']] as [Tab, string][]).map(([t, label]) => (
+          <button key={t} onClick={() => setActiveTab(t)}
+            className="flex-1 py-2 text-xs font-bold tracking-wider transition-all"
             style={{
-              backgroundColor: 'rgba(204,34,34,0.15)',
-              borderColor: '#cc2222',
-              color: '#ff6b6b',
               fontFamily: 'Share Tech Mono, monospace',
-              boxShadow: '0 0 14px rgba(204,34,34,0.3)',
-            }}
-          >
-            🖨️ STAMPA / SALVA PDF
-          </motion.button>
-
-          {/* Chiudi */}
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded border text-sm transition-colors hover:bg-white/5"
-            style={{ borderColor: '#1e2a3a', color: '#7a8a9a' }}
-          >✕</button>
-        </div>
+              color: activeTab === t ? '#c8a55a' : '#3a4a5a',
+              backgroundColor: activeTab === t ? '#c8a55a11' : 'transparent',
+              borderBottom: activeTab === t ? '2px solid #c8a55a' : '2px solid transparent',
+            }}>{label}</button>
+        ))}
       </div>
 
-      {/* Preview scrollabile */}
-      <div className="flex-1 overflow-auto p-4" style={{ backgroundColor: '#1a1a2e' }}>
-        <div
-          className="mx-auto rounded shadow-2xl"
-          style={{
-            minWidth: 1100,
-            maxWidth: 1600,
-            boxShadow: '0 0 60px rgba(0,0,0,0.8)',
-          }}
-        >
-          <PrintTabellone />
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ── Pagina principale ──────────────────────────────────────────────
-export default function Dashboard() {
-  const [showPrint, setShowPrint] = useState(false);
-
-  return (
-    <>
-      {/* ── CSS DI STAMPA ── */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden !important; }
-          #print-tabellone, #print-tabellone * { visibility: visible !important; }
-          #print-tabellone { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; }
-          .no-print { display: none !important; }
-          @page { size: A2 landscape; margin: 8mm; }
-        }
-      `}</style>
-
-      <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#070a10' }}>
-        <Header onPrint={() => setShowPrint(true)} />
-        <LegendaZone />
-
-        <main className="flex-1 px-4 md:px-6 py-6">
-          {/* Titolo sezione */}
-          <div className="mb-6 flex items-center gap-3">
-            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, #1e2a3a, transparent)' }} />
-            <span className="text-xs tracking-[0.2em]" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
-              ● TRACCIATI ATTIVI — CLICCA SUI SEGMENTI PER I DETTAGLI ●
-            </span>
-            <div className="h-px flex-1" style={{ background: 'linear-gradient(90deg, transparent, #1e2a3a)' }} />
-          </div>
-
-          {/* Griglia tracciati */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            {TUTTI_TRACCIATI.map((tracciato, i) => (
-              <motion.div
-                key={tracciato.id}
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06, duration: 0.28, ease: 'easeOut' }}
-              >
-                <TrackCard tracciato={tracciato} />
-              </motion.div>
+      {/* Layout desktop 3 colonne */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Colonna sinistra: tracciati (2 colonne su schermi larghi) */}
+        <div className={`flex-1 overflow-y-auto p-3 ${activeTab !== 'tracker' ? 'hidden lg:block' : ''}`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-3">
+            {TUTTI_TRACCIATI.map(t => (
+              <TrackCard key={t.id} tracciato={t} />
             ))}
           </div>
+        </div>
 
-          <div className="mt-8 p-4 rounded border text-center"
-            style={{ backgroundColor: '#0a0e16', borderColor: '#1a2030' }}>
-            <p className="text-xs" style={{ color: '#2a3a4a', fontFamily: 'JetBrains Mono, monospace' }}>
-              LINEA ROSSA · TNI ◆ TSE ◆ TOG ◆ DEFCON ◆ RE ◆ SI
-              · 🖨️ USA IL PULSANTE "STAMPA TABELLONE" PER IL FORMATO FISICO
-            </p>
-          </div>
-        </main>
+        {/* Colonna centrale: sidebar punteggi/alert */}
+        <div className={`w-72 border-l overflow-y-auto p-3 flex-shrink-0 ${activeTab !== 'sidebar' ? 'hidden lg:block' : 'w-full'}`}
+          style={{ borderColor: '#1e2a3a', backgroundColor: '#0a0c10' }}>
+          <Sidebar />
+        </div>
 
-        <InfoPanel />
+        {/* Colonna destra: turn log */}
+        <div className={`w-80 border-l overflow-hidden p-3 flex flex-col flex-shrink-0 ${activeTab !== 'log' ? 'hidden lg:flex' : 'flex w-full'}`}
+          style={{ borderColor: '#1e2a3a', backgroundColor: '#0a0c10' }}>
+          <TurnLog />
+        </div>
       </div>
 
-      {/* Modal tabellone */}
-      <AnimatePresence>
-        {showPrint && <PrintModal onClose={() => setShowPrint(false)} />}
-      </AnimatePresence>
-    </>
+      {/* Game Over overlay */}
+      <GameOverOverlay />
+    </div>
   );
 }

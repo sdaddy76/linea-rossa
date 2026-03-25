@@ -1,395 +1,232 @@
-import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { Tracciato, ZonaTracciato } from '@/data/tracciati';
-import { ZONA_COLORS } from '@/lib/colors';
+import { useState } from 'react';
+import { ChevronUp, ChevronDown, Minus, Plus } from 'lucide-react';
+import type { Tracciato } from '@/data/tracciati';
+import { getZonaAttiva, ZONA_COLORS } from '@/data/tracciati';
+import { useGameStore, type LogEntry } from '@/store/gameStore';
 
-interface TrackSegmentProps {
-  zona: ZonaTracciato;
-  isActive: boolean;
-  isSelected: boolean;
-  onClick: () => void;
-  widthPct: number;
-  label?: string;
-}
-
-function TrackSegment({ zona, isActive, isSelected, onClick, widthPct, label }: TrackSegmentProps) {
-  const [hovered, setHovered] = useState(false);
-  const colors = ZONA_COLORS[zona.colore];
+// ── Barra segmentata interattiva ────────────────────────────────────
+function SegmentBar({ tracciato, valore }: { tracciato: Tracciato; valore: number }) {
+  const { aggiornaTracciato } = useGameStore();
+  const total = tracciato.max - tracciato.min || 1;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="relative cursor-pointer transition-all duration-200 flex flex-col items-center"
-      style={{
-        width: `${widthPct}%`,
-        minWidth: '2px',
-      }}
-      title={zona.label}
-    >
-      {/* Segmento barra */}
-      <div
-        className="h-10 w-full relative overflow-hidden transition-all duration-200"
-        style={{
-          backgroundColor: isSelected
-            ? colors.text
-            : hovered
-              ? colors.segHover
-              : colors.segBg,
-          boxShadow: isSelected ? colors.glow : hovered ? `0 0 10px ${colors.text}55` : 'none',
-          border: isSelected ? `1px solid ${colors.text}` : hovered ? `1px solid ${colors.text}88` : '1px solid transparent',
-        }}
-      >
-        {/* Scan line effect */}
-        {(isSelected || hovered) && (
+    <div className="flex gap-0.5 h-5 mt-2">
+      {tracciato.zone.map(zona => {
+        const n = zona.a - zona.da + 1;
+        const pct = (n / total) * 100;
+        const c = ZONA_COLORS[zona.colore];
+        const isActive = valore >= zona.da && valore <= zona.a;
+        return (
           <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: `repeating-linear-gradient(0deg, transparent, transparent 2px, ${colors.text}06 2px, ${colors.text}06 4px)`,
+            key={zona.da}
+            onClick={() => {
+              const mid = Math.round((zona.da + zona.a) / 2);
+              aggiornaTracciato(tracciato.id, mid, 'evento');
             }}
-          />
-        )}
-        {/* Pulse per zone critiche */}
-        {zona.colore === 'critical' && (
-          <motion.div
-            className="absolute inset-0"
-            style={{ backgroundColor: colors.text }}
-            animate={{ opacity: [0, 0.12, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        )}
-      </div>
-
-      {/* Label sotto il segmento */}
-      {label && (
-        <span
-          className="mt-1 text-center leading-tight select-none"
-          style={{
-            fontSize: '9px',
-            color: isSelected ? colors.text : hovered ? colors.text : colors.text + '88',
-            fontFamily: 'JetBrains Mono, monospace',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            maxWidth: '100%',
-            transition: 'color 0.2s',
-          }}
-        >
-          {label}
-        </span>
-      )}
+            title={`${zona.label} (${zona.da === zona.a ? zona.da : `${zona.da}–${zona.a}`})`}
+            className="cursor-pointer rounded-sm relative overflow-hidden transition-all duration-200"
+            style={{
+              width: `${pct}%`,
+              backgroundColor: isActive ? c.barFill : c.barBg,
+              border: `1px solid ${isActive ? c.text : c.border}`,
+              boxShadow: isActive ? c.glow : 'none',
+              opacity: isActive ? 1 : 0.55,
+            }}
+          >
+            {isActive && (
+              <motion.div
+                className="absolute inset-0"
+                style={{ backgroundColor: c.text }}
+                animate={zona.colore === 'critical' ? { opacity: [0.15, 0.32, 0.15] } : { opacity: 0 }}
+                transition={{ duration: 1.2, repeat: Infinity }}
+              />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-// ───────────────────────────────────────────────────────────────────
-// Pannello dettaglio zona selezionata
-// ───────────────────────────────────────────────────────────────────
-interface ZonaDetailProps {
-  zona: ZonaTracciato;
-  onClose: () => void;
-}
-
-function ZonaDetail({ zona, onClose }: ZonaDetailProps) {
-  const colors = ZONA_COLORS[zona.colore];
-
+// ── Dettaglio zona ──────────────────────────────────────────────────
+function ZonaDetail({ tracciato, valore, onClose }: {
+  tracciato: Tracciato; valore: number; onClose: () => void;
+}) {
+  const zona = getZonaAttiva(tracciato, valore);
+  const c = ZONA_COLORS[zona.colore];
   return (
     <motion.div
-      initial={{ opacity: 0, y: -8 }}
+      initial={{ opacity: 0, y: -6 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.18, ease: 'easeOut' }}
-      className="mt-3 rounded border p-4 relative"
-      style={{
-        backgroundColor: colors.bg,
-        borderColor: colors.border,
-        boxShadow: colors.glow,
-      }}
+      exit={{ opacity: 0, y: -6 }}
+      className="mt-3 rounded border p-3 relative"
+      style={{ backgroundColor: c.bg, borderColor: c.border, boxShadow: c.glow }}
     >
-      {/* Chiudi */}
-      <button
-        onClick={onClose}
-        className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded text-xs transition-colors hover:bg-white/10"
-        style={{ color: '#7a8a9a', fontFamily: 'JetBrains Mono, monospace' }}
-        aria-label="Chiudi pannello"
-      >
-        ✕
-      </button>
+      <button onClick={onClose}
+        className="absolute top-2 right-2 w-6 h-6 text-xs flex items-center justify-center rounded hover:bg-white/10 transition-colors"
+        style={{ color: '#6a7a8a' }}>✕</button>
 
-      {/* Header */}
-      <div className="flex items-start gap-3 mb-4 pr-6">
-        <span className="text-2xl leading-none mt-0.5">{zona.icona}</span>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xl">{zona.icona}</span>
         <div>
-          <h3
-            className="font-bold text-base tracking-wide leading-tight"
-            style={{ color: colors.text, fontFamily: 'Share Tech Mono, monospace' }}
-          >
-            {zona.label}
-          </h3>
-          <p className="text-xs mt-0.5" style={{ color: '#7a8a9a', fontFamily: 'JetBrains Mono, monospace' }}>
-            {zona.sottotitolo}
-          </p>
+          <div className="font-bold text-sm tracking-wide" style={{ color: c.text, fontFamily: 'Share Tech Mono, monospace' }}>
+            {zona.label.toUpperCase()}
+          </div>
+          <div className="text-xs" style={{ color: '#6a7a8a', fontFamily: 'JetBrains Mono, monospace' }}>{zona.sottotitolo}</div>
+        </div>
+        <span className="ml-auto text-xs px-2 py-0.5 rounded" style={{ backgroundColor: c.badge, color: c.badgeText, fontFamily: 'JetBrains Mono, monospace' }}>
+          LIV. {zona.da === zona.a ? zona.da : `${zona.da}–${zona.a}`}
+        </span>
+      </div>
+
+      <p className="text-xs leading-relaxed mb-3" style={{ color: '#d0c8b4' }}>{zona.scenario}</p>
+
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <div className="p-2 rounded border text-xs" style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderColor: '#1e2a3a' }}>
+          <div className="font-bold mb-1" style={{ color: c.text, fontFamily: 'JetBrains Mono, monospace' }}>🃏 Carte chiave</div>
+          {zona.carteChiave.map((c2, i) => <div key={i} style={{ color: '#a0a8b8' }}>› {c2}</div>)}
+        </div>
+        <div className="p-2 rounded border text-xs" style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderColor: '#1e2a3a' }}>
+          <div className="font-bold mb-1" style={{ color: '#fbbf24', fontFamily: 'JetBrains Mono, monospace' }}>🏆 Vittoria</div>
+          <div style={{ color: '#a0a8b8' }}>{zona.condizioniVittoria}</div>
+        </div>
+        <div className="p-2 rounded border text-xs" style={{ backgroundColor: 'rgba(74,222,128,0.05)', borderColor: 'rgba(74,222,128,0.2)' }}>
+          <div className="font-bold mb-1" style={{ color: '#4ade80', fontFamily: 'JetBrains Mono, monospace' }}>🇮🇷 Iran</div>
+          <div style={{ color: '#a0a8b8' }}>{zona.costoIran}</div>
+        </div>
+        <div className="p-2 rounded border text-xs" style={{ backgroundColor: 'rgba(96,165,250,0.05)', borderColor: 'rgba(96,165,250,0.2)' }}>
+          <div className="font-bold mb-1" style={{ color: '#60a5fa', fontFamily: 'JetBrains Mono, monospace' }}>🌐 Coalizione</div>
+          <div style={{ color: '#a0a8b8' }}>{zona.costoCoalizione}</div>
         </div>
       </div>
 
-      {/* Range */}
-      <div className="mb-3 inline-block px-2 py-0.5 rounded text-xs" style={{ backgroundColor: colors.badge, color: colors.badgeText, fontFamily: 'JetBrains Mono, monospace' }}>
-        LIVELLI {zona.da === zona.a ? zona.da : `${zona.da} → ${zona.a}`}
-      </div>
-
-      {/* Scenario */}
-      <p className="text-xs mb-4 leading-relaxed" style={{ color: '#c5cdd8' }}>
-        {zona.scenario}
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Carte chiave */}
-        <DetailBlock
-          titolo="🃏 Carte Chiave Attivate"
-          colore={colors.text}
-          borderColore={colors.border}
-        >
-          <ul className="space-y-1">
-            {zona.carteChiave.map((c, i) => (
-              <li key={i} className="flex items-start gap-2 text-xs" style={{ color: '#b0bec5' }}>
-                <span style={{ color: colors.badgeText, flexShrink: 0 }}>›</span>
-                <span>{c}</span>
-              </li>
-            ))}
-          </ul>
-        </DetailBlock>
-
-        {/* Condizioni vittoria */}
-        <DetailBlock
-          titolo="🏆 Condizioni Vittoria / Sconfitta"
-          colore={colors.text}
-          borderColore={colors.border}
-        >
-          <p className="text-xs leading-relaxed" style={{ color: '#b0bec5' }}>
-            {zona.condizioniVittoria}
-          </p>
-        </DetailBlock>
-
-        {/* Impatto Iran */}
-        <DetailBlock
-          titolo="🇮🇷 Impatto su Iran"
-          colore="#4ade80"
-          borderColore="rgba(74,222,128,0.3)"
-        >
-          <p className="text-xs leading-relaxed" style={{ color: '#b0bec5' }}>
-            {zona.costoIran}
-          </p>
-        </DetailBlock>
-
-        {/* Impatto Coalizione */}
-        <DetailBlock
-          titolo="🌐 Impatto su Coalizione"
-          colore="#60a5fa"
-          borderColore="rgba(96,165,250,0.3)"
-        >
-          <p className="text-xs leading-relaxed" style={{ color: '#b0bec5' }}>
-            {zona.costoCoalizione}
-          </p>
-        </DetailBlock>
-      </div>
-
-      {/* Note strategiche */}
-      <div
-        className="mt-3 p-3 rounded border-l-2 text-xs leading-relaxed"
-        style={{
-          backgroundColor: 'rgba(200,165,90,0.08)',
-          borderLeftColor: '#c8a55a',
-          color: '#c8a55a',
-          fontFamily: 'JetBrains Mono, monospace',
-        }}
-      >
-        <span className="font-bold">⚡ NOTA STRATEGICA: </span>
-        {zona.noteStrategiche}
+      <div className="p-2 rounded text-xs leading-relaxed" style={{ backgroundColor: 'rgba(200,165,90,0.08)', borderLeft: '2px solid #c8a55a', paddingLeft: '8px' }}>
+        <span style={{ color: '#c8a55a', fontFamily: 'JetBrains Mono, monospace' }}>⚡ {zona.noteStrategiche}</span>
       </div>
     </motion.div>
   );
 }
 
-interface DetailBlockProps {
-  titolo: string;
-  colore: string;
-  borderColore: string;
-  children: React.ReactNode;
-}
+// ── Card tracciato principale ───────────────────────────────────────
+export function TrackCard({ tracciato }: { tracciato: Tracciato }) {
+  const { valori, aggiornaTracciato, gameOver } = useGameStore();
+  const [showDetail, setShowDetail] = useState(false);
+  const valore = valori[tracciato.id] ?? tracciato.defaultVal;
+  const zona = getZonaAttiva(tracciato, valore);
+  const c = ZONA_COLORS[zona.colore];
+  const isCritical = zona.colore === 'critical';
 
-function DetailBlock({ titolo, colore, borderColore, children }: DetailBlockProps) {
-  return (
-    <div
-      className="p-3 rounded border"
-      style={{
-        backgroundColor: 'rgba(255,255,255,0.03)',
-        borderColor: borderColore,
-      }}
-    >
-      <p className="text-xs font-bold mb-2" style={{ color: colore, fontFamily: 'Share Tech Mono, monospace' }}>
-        {titolo}
-      </p>
-      {children}
-    </div>
-  );
-}
-
-// ───────────────────────────────────────────────────────────────────
-// TrackCard principale
-// ───────────────────────────────────────────────────────────────────
-interface TrackCardProps {
-  tracciato: Tracciato;
-}
-
-export function TrackCard({ tracciato }: TrackCardProps) {
-  const [selectedZona, setSelectedZona] = useState<ZonaTracciato | null>(null);
-
-  const handleZonaClick = useCallback((zona: ZonaTracciato) => {
-    setSelectedZona(prev => (prev?.da === zona.da ? null : zona));
-  }, []);
-
-  const totalRange = tracciato.max - tracciato.min;
-  const totalRange2 = totalRange === 0 ? 1 : totalRange;
+  const step = (delta: number, fazione: LogEntry['fazione']) => {
+    if (!gameOver) aggiornaTracciato(tracciato.id, valore + delta, fazione);
+  };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="rounded border p-4"
+      className="rounded border p-3 relative"
       style={{
         backgroundColor: '#0d1117',
-        borderColor: '#1e2a3a',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+        borderColor: isCritical ? '#cc222288' : '#1e2a3a',
+        boxShadow: isCritical ? '0 0 20px rgba(204,34,34,0.25)' : 'none',
       }}
     >
-      {/* Header tracciato */}
-      <div className="flex items-center justify-between mb-3">
+      {/* Pulse critico */}
+      {isCritical && (
+        <motion.div className="absolute inset-0 rounded" style={{ border: '1px solid #cc2222' }}
+          animate={{ opacity: [0.4, 0, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} />
+      )}
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-xl">{tracciato.icona}</span>
+          <span className="text-lg">{tracciato.icona}</span>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-bold text-sm tracking-wider" style={{ color: '#e8e4d8', fontFamily: 'Share Tech Mono, monospace' }}>
-                {tracciato.nome.toUpperCase()}
-              </h2>
-              <span
-                className="px-2 py-0.5 rounded text-xs font-bold"
-                style={{ backgroundColor: 'rgba(200,165,90,0.15)', color: '#c8a55a', fontFamily: 'JetBrains Mono, monospace' }}
-              >
-                {tracciato.sigla}
-              </span>
+            <div className="font-bold text-xs tracking-wider" style={{ color: '#e8e4d8', fontFamily: 'Share Tech Mono, monospace' }}>
+              {tracciato.sigla}
             </div>
-            <p className="text-xs mt-0.5" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
-              {tracciato.descrizione}
-            </p>
+            <div className="text-xs" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
+              {tracciato.nome}
+            </div>
           </div>
         </div>
-        {/* Range */}
-        <div className="text-right">
-          <span className="text-xs" style={{ color: '#4a5a6a', fontFamily: 'JetBrains Mono, monospace' }}>
+
+        {/* Zona badge */}
+        <div
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-xs cursor-pointer transition-all"
+          style={{ backgroundColor: c.badge, color: c.text, border: `1px solid ${c.border}`, fontFamily: 'JetBrains Mono, monospace' }}
+          onClick={() => setShowDetail(d => !d)}
+        >
+          <span>{zona.icona}</span>
+          <span className="font-bold">{zona.label}</span>
+          {showDetail ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+        </div>
+      </div>
+
+      {/* Controlli valore */}
+      <div className="flex items-center gap-2 mb-1">
+        {/* Bottone Iran –1 */}
+        <button onClick={() => step(-1, 'iran')} disabled={gameOver || valore <= tracciato.min}
+          className="w-7 h-7 flex items-center justify-center rounded border text-xs transition-all hover:bg-green-900/30 disabled:opacity-30"
+          style={{ borderColor: '#22c55e44', color: '#4ade80' }} title="Iran –1">
+          <Minus size={11} />
+        </button>
+
+        {/* Display valore */}
+        <div className="flex-1 flex flex-col items-center">
+          <motion.div
+            key={valore}
+            initial={{ scale: 1.25, opacity: 0.7 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.18 }}
+            className="text-3xl font-black"
+            style={{ color: c.text, fontFamily: 'JetBrains Mono, monospace', textShadow: c.glow, lineHeight: 1 }}
+          >
+            {valore > 0 && tracciato.min < 0 ? `+${valore}` : valore}
+          </motion.div>
+          <div className="text-xs mt-0.5" style={{ color: '#3a4a5a', fontFamily: 'JetBrains Mono, monospace' }}>
             {tracciato.min} — {tracciato.max}
-          </span>
+          </div>
         </div>
+
+        {/* Bottone Iran +1 */}
+        <button onClick={() => step(1, 'iran')} disabled={gameOver || valore >= tracciato.max}
+          className="w-7 h-7 flex items-center justify-center rounded border text-xs transition-all hover:bg-green-900/30 disabled:opacity-30"
+          style={{ borderColor: '#22c55e44', color: '#4ade80' }} title="Iran +1">
+          <Plus size={11} />
+        </button>
       </div>
 
-      {/* Direzioni */}
-      <div className="flex items-center justify-between mb-3 text-xs gap-2">
-        <div className="flex items-center gap-1.5" style={{ color: '#4ade80' }}>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>🇮🇷</span>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{tracciato.direzioneIran}</span>
-        </div>
-        <div className="w-px h-4 bg-white/10 flex-shrink-0" />
-        <div className="flex items-center gap-1.5 text-right" style={{ color: '#60a5fa' }}>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>{tracciato.direzioneCoalizione}</span>
-          <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>🌐</span>
-        </div>
+      {/* Barra segmentata */}
+      <SegmentBar tracciato={tracciato} valore={valore} />
+
+      {/* Label zona attiva + direzioni */}
+      <div className="flex items-center justify-between mt-1.5 text-xs" style={{ fontFamily: 'JetBrains Mono, monospace' }}>
+        <span style={{ color: '#4ade80', fontSize: '9px' }}>🇮🇷 {tracciato.direzioneIran.split('→')[0]}→</span>
+        <span style={{ color: '#60a5fa', fontSize: '9px' }}>←🌐 {tracciato.direzioneCoalizione.split('→')[0]}</span>
       </div>
 
-      {/* Separatore */}
-      <div className="mb-3 h-px" style={{ background: 'linear-gradient(90deg, transparent, #1e2a3a, transparent)' }} />
-
-      {/* Barra tracciato con segmenti */}
-      <div className="mb-1">
-        {/* Scala numerica sopra */}
-        <div className="flex items-end mb-1">
-          {tracciato.zone.map((zona) => {
-            const zoneRange = zona.a - zona.da + 1;
-            const widthPct = (zoneRange / totalRange2) * 100;
-            const midVal = zona.da === zona.a ? zona.da : Math.round((zona.da + zona.a) / 2);
-            return (
-              <div key={zona.da} className="flex flex-col items-center" style={{ width: `${widthPct}%` }}>
-                <span
-                  className="text-center"
-                  style={{
-                    fontSize: '9px',
-                    color: '#4a5a6a',
-                    fontFamily: 'JetBrains Mono, monospace',
-                  }}
-                >
-                  {midVal}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Barra segmentata */}
-        <div className="flex gap-0.5 items-stretch">
-          {tracciato.zone.map((zona) => {
-            const zoneRange = zona.a - zona.da + 1;
-            const widthPct = (zoneRange / totalRange2) * 100;
-            return (
-              <TrackSegment
-                key={zona.da}
-                zona={zona}
-                isActive={false}
-                isSelected={selectedZona?.da === zona.da}
-                onClick={() => handleZonaClick(zona)}
-                widthPct={widthPct}
-                label={zona.da === zona.a ? `${zona.da}` : `${zona.da}-${zona.a}`}
-              />
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Legenda zone compatta */}
-      <div className="flex flex-wrap gap-1.5 mt-3">
-        {tracciato.zone.map((zona) => {
-          const colors = ZONA_COLORS[zona.colore];
-          const isSelected = selectedZona?.da === zona.da;
-          return (
-            <button
-              key={zona.da}
-              onClick={() => handleZonaClick(zona)}
-              className="px-2 py-0.5 rounded text-xs transition-all duration-150 border"
-              style={{
-                backgroundColor: isSelected ? colors.badge : 'transparent',
-                borderColor: isSelected ? colors.text : colors.border,
-                color: isSelected ? colors.text : colors.text + '88',
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '10px',
-                boxShadow: isSelected ? colors.glow : 'none',
-              }}
-            >
-              {zona.icona} {zona.label}
-            </button>
-          );
-        })}
+      {/* Bottoni Coalizione */}
+      <div className="flex gap-1 mt-2">
+        <button onClick={() => step(-1, 'coalizione')} disabled={gameOver || valore <= tracciato.min}
+          className="flex-1 py-1 rounded border text-xs flex items-center justify-center gap-1 transition-all hover:bg-blue-900/20 disabled:opacity-30"
+          style={{ borderColor: '#3b82f644', color: '#60a5fa', fontFamily: 'JetBrains Mono, monospace' }}>
+          <ChevronDown size={10} /> Coalizione –
+        </button>
+        <button onClick={() => step(1, 'coalizione')} disabled={gameOver || valore >= tracciato.max}
+          className="flex-1 py-1 rounded border text-xs flex items-center justify-center gap-1 transition-all hover:bg-blue-900/20 disabled:opacity-30"
+          style={{ borderColor: '#3b82f644', color: '#60a5fa', fontFamily: 'JetBrains Mono, monospace' }}>
+          Coalizione + <ChevronUp size={10} />
+        </button>
       </div>
 
       {/* Pannello dettaglio */}
       <AnimatePresence>
-        {selectedZona && (
-          <ZonaDetail zona={selectedZona} onClose={() => setSelectedZona(null)} />
+        {showDetail && (
+          <ZonaDetail tracciato={tracciato} valore={valore} onClose={() => setShowDetail(false)} />
         )}
       </AnimatePresence>
     </motion.div>
   );
 }
-
-export default TrackCard;
