@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useOnlineGameStore } from "@/store/onlineGameStore";
+import { supabase } from "@/integrations/supabase/client";
 
 // Pagine
 import Index from "./pages/home/Index";
@@ -19,11 +20,29 @@ const queryClient = new QueryClient();
 // Router principale con autenticazione + navigazione
 // ------------------------------------------------
 function AppRouter() {
-  const { profile, session, game, gameState, loading, initAuth, loadGame, subscribeToGame, logout } = useOnlineGameStore();
+  const { profile, session, game, initAuth, loadGame, subscribeToGame, logout } = useOnlineGameStore();
   const [view, setView] = useState<'home' | 'auth' | 'lobby' | 'game'>('home');
 
   useEffect(() => {
     initAuth();
+
+    // Gestione redirect da conferma email:
+    // Supabase inserisce i token nell'hash (#access_token=...) o come query param
+    // Il client con detectSessionInUrl:true li gestisce automaticamente,
+    // ma dobbiamo ascoltare l'evento per navigare alla lobby
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
+        // Se l'utente arriva dalla conferma email, portalo alla lobby
+        const hash = window.location.hash;
+        if (hash.includes('access_token') || hash.includes('type=signup')) {
+          // Pulisci l'URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setView('lobby');
+        }
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Quando cambia la sessione/profilo, reindirizza

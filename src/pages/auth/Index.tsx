@@ -1,7 +1,7 @@
 // =============================================
 // LINEA ROSSA — Pagina Auth (Login / Registrazione)
 // =============================================
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function AuthPage() {
@@ -13,6 +13,22 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
+  // Rileva se l'utente arriva da un link di conferma email
+  useEffect(() => {
+    const hash = window.location.hash;
+    const search = window.location.search;
+    if (hash.includes('error=') || search.includes('error=')) {
+      const params = new URLSearchParams(hash.replace('#', '') || search);
+      const desc = params.get('error_description') ?? 'Link non valido o scaduto';
+      setError(`❌ ${desc.replace(/\+/g, ' ')}`);
+    }
+    if (hash.includes('type=signup') || search.includes('type=signup')) {
+      setMessage('✅ Email confermata! Accedi con le tue credenziali.');
+      setMode('login');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setMessage(''); setLoading(true);
@@ -21,7 +37,11 @@ export default function AuthPage() {
         if (!username.trim()) { setError('Scegli un nome utente'); setLoading(false); return; }
         const { error: signUpError } = await supabase.auth.signUp({
           email, password,
-          options: { data: { username: username.trim() } },
+          options: {
+            data: { username: username.trim() },
+            // Reindirizza alla pagina corrente dopo la conferma email
+            emailRedirectTo: window.location.origin + window.location.pathname,
+          },
         });
         if (signUpError) throw signUpError;
         setMessage('✅ Registrazione completata! Controlla la tua email per confermare.');
