@@ -598,6 +598,26 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       {myCards.map(card => {
                         const typeColor = CARD_TYPE_COLORS[card.card_type] ?? '#8899aa';
                         const isSelected = selectedCard === card.card_id;
+
+                        // ── Calcola effetti contestualizzati col valore corrente dei tracciati ──
+                        const eff = card.effects;
+                        const dN = eff.nucleare?.(gameState.nucleare) ?? 0;
+                        const dS = eff.sanzioni?.(gameState.sanzioni) ?? 0;
+                        const dD = eff.defcon?.(gameState.defcon) ?? 0;
+                        const dO = eff.opinione?.(gameState.opinione) ?? 0;
+                        const myRis = (gameState[`risorse_${(myFaction ?? 'iran').toLowerCase()}` as keyof GameState] as number) ?? 5;
+                        const myStab = (gameState[`stabilita_${(myFaction ?? 'iran').toLowerCase()}` as keyof GameState] as number) ?? 5;
+                        const dR = eff.risorse?.(myRis) ?? 0;
+                        const dSt = eff.stabilita?.(myStab) ?? 0;
+                        const effPills: { icon: string; val: number; pos: string; neg: string }[] = [
+                          { icon: '☢️', val: dN,  pos: '#22c55e', neg: '#ef4444' },
+                          { icon: '💰', val: dS,  pos: '#3b82f6', neg: '#f59e0b' },
+                          { icon: '🎯', val: dD,  pos: '#22c55e', neg: '#ef4444' },
+                          { icon: '🌍', val: dO,  pos: '#8b5cf6', neg: '#ec4899' },
+                          { icon: '📦', val: dR,  pos: '#f59e0b', neg: '#8899aa' },
+                          { icon: '🏛️', val: dSt, pos: '#22c55e', neg: '#ef4444' },
+                        ].filter(e => e.val !== 0);
+
                         return (
                           <button key={card.card_id}
                             onClick={() => setSelectedCard(isSelected ? null : card.card_id)}
@@ -615,6 +635,19 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                                 <p className="font-mono text-[10px] text-[#8899aa] mt-0.5 line-clamp-2">
                                   {card.description}
                                 </p>
+                                {/* Effetti contestualizzati */}
+                                {effPills.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {effPills.map((p, i) => (
+                                      <span key={i}
+                                        title={`${p.icon} ${p.val > 0 ? '+' : ''}${p.val} (valore corrente tracciato)`}
+                                        style={{ color: p.val > 0 ? p.pos : p.neg, backgroundColor: `${p.val > 0 ? p.pos : p.neg}20` }}
+                                        className="text-[10px] font-mono px-1 rounded cursor-default">
+                                        {p.icon}{p.val > 0 ? '+' : ''}{p.val}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
                               <div className="flex flex-col items-end gap-1 shrink-0">
                                 <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"

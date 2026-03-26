@@ -5,6 +5,8 @@
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { supabase } from '@/integrations/supabase/client';
+import { normalizeSeq, describeSeq, type SeqDelta } from '@/lib/sequenceDelta';
+import { serializeRowForDb } from '@/lib/libraryToGameCard';
 
 // ─── Tipi ────────────────────────────────────
 export interface CardLibraryRow {
@@ -15,43 +17,43 @@ export interface CardLibraryRow {
   deck_type: string;
   op_points: number;
   description: string;
-  // Tracciati globali
-  delta_nucleare: number;
-  delta_sanzioni: number;
-  delta_opinione: number;
-  delta_defcon: number;
-  delta_risorse: number;
-  delta_stabilita: number;
+  // Tracciati globali — accettano numero fisso o sequenza semicolon es. "1;1;2;2;3"
+  delta_nucleare: SeqDelta;
+  delta_sanzioni: SeqDelta;
+  delta_opinione: SeqDelta;
+  delta_defcon: SeqDelta;
+  delta_risorse: SeqDelta;
+  delta_stabilita: SeqDelta;
   // Plancia Iran
-  iran_risorse_eco: number;
-  iran_forze_mil: number;
-  iran_stab_int: number;
-  iran_tech_nucleare: number;
-  iran_asse_resist: number;
+  iran_risorse_eco: SeqDelta;
+  iran_forze_mil: SeqDelta;
+  iran_stab_int: SeqDelta;
+  iran_tech_nucleare: SeqDelta;
+  iran_asse_resist: SeqDelta;
   // Plancia Coalizione
-  coal_risorse_mil: number;
-  coal_infl_dipl: number;
-  coal_tech_avanz: number;
-  coal_supp_pubblico: number;
-  coal_alleanze: number;
+  coal_risorse_mil: SeqDelta;
+  coal_infl_dipl: SeqDelta;
+  coal_tech_avanz: SeqDelta;
+  coal_supp_pubblico: SeqDelta;
+  coal_alleanze: SeqDelta;
   // Plancia Europa
-  ue_infl_dipl: number;
-  ue_aiuti_uman: number;
-  ue_stab_energ: number;
-  ue_coesione_int: number;
-  ue_pol_multilat: number;
+  ue_infl_dipl: SeqDelta;
+  ue_aiuti_uman: SeqDelta;
+  ue_stab_energ: SeqDelta;
+  ue_coesione_int: SeqDelta;
+  ue_pol_multilat: SeqDelta;
   // Plancia Cina
-  cina_pot_eco: number;
-  cina_infl_comm: number;
-  cina_cyber: number;
-  cina_stab_rotte: number;
-  cina_progetti_bri: number;
+  cina_pot_eco: SeqDelta;
+  cina_infl_comm: SeqDelta;
+  cina_cyber: SeqDelta;
+  cina_stab_rotte: SeqDelta;
+  cina_progetti_bri: SeqDelta;
   // Plancia Russia
-  russia_infl_mil: number;
-  russia_energia: number;
-  russia_veto_onu: number;
-  russia_stab_eco: number;
-  russia_op_spec: number;
+  russia_infl_mil: SeqDelta;
+  russia_energia: SeqDelta;
+  russia_veto_onu: SeqDelta;
+  russia_stab_eco: SeqDelta;
+  russia_op_spec: SeqDelta;
   // Carte collegate
   linked_card_id: string;
   linked_effect: string;
@@ -129,6 +131,8 @@ const toInt = (v: unknown): number => {
 };
 const toStr = (v: unknown): string =>
   v == null ? '' : String(v).trim();
+// toSeq: accetta sia numero che stringa con ';' (es. "1;1;2;2;3")
+const toSeq = (v: unknown): SeqDelta => normalizeSeq(v);
 
 // ─── Parse riga Excel → CardLibraryRow ────────
 function parseRow(row: Record<string, unknown>): CardLibraryRow {
@@ -147,42 +151,42 @@ function parseRow(row: Record<string, unknown>): CardLibraryRow {
     op_points:           toInt(g('Punti OP',            'op_points')),
     description:         toStr(g('Descrizione',         'description')),
     // Globali
-    delta_nucleare:      toInt(g('Δ Nucleare (1-15)',   'delta_nucleare')),
-    delta_sanzioni:      toInt(g('Δ Sanzioni (1-10)',   'delta_sanzioni')),
-    delta_opinione:      toInt(g('Δ Opinione (-10/+10)','delta_opinione')),
-    delta_defcon:        toInt(g('Δ DEFCON (5-1)',      'delta_defcon')),
-    delta_risorse:       toInt(g('Δ Risorse (1-10)',    'delta_risorse')),
-    delta_stabilita:     toInt(g('Δ Stab.Int (1-10)',   'delta_stabilita')),
+    delta_nucleare:      toSeq(g('Δ Nucleare (1-15)',   'delta_nucleare')),
+    delta_sanzioni:      toSeq(g('Δ Sanzioni (1-10)',   'delta_sanzioni')),
+    delta_opinione:      toSeq(g('Δ Opinione (-10/+10)','delta_opinione')),
+    delta_defcon:        toSeq(g('Δ DEFCON (5-1)',      'delta_defcon')),
+    delta_risorse:       toSeq(g('Δ Risorse (1-10)',    'delta_risorse')),
+    delta_stabilita:     toSeq(g('Δ Stab.Int (1-10)',   'delta_stabilita')),
     // Iran
-    iran_risorse_eco:    toInt(g('Risorse Eco',         'iran_risorse_eco') || g('Risorse Economiche', '')),
-    iran_forze_mil:      toInt(g('Forze Mil',           'iran_forze_mil')),
-    iran_stab_int:       toInt(g('Stab Int',            'iran_stab_int')    || g('Indicatore Stabilità interna', '')),
-    iran_tech_nucleare:  toInt(g('Tech Nucleare',       'iran_tech_nucleare')),
-    iran_asse_resist:    toInt(g('Asse Resist',         'iran_asse_resist')),
+    iran_risorse_eco:    toSeq(g('Risorse Eco',         'iran_risorse_eco') || g('Risorse Economiche', '')),
+    iran_forze_mil:      toSeq(g('Forze Mil',           'iran_forze_mil')),
+    iran_stab_int:       toSeq(g('Stab Int',            'iran_stab_int')    || g('Indicatore Stabilità interna', '')),
+    iran_tech_nucleare:  toSeq(g('Tech Nucleare',       'iran_tech_nucleare')),
+    iran_asse_resist:    toSeq(g('Asse Resist',         'iran_asse_resist')),
     // Coalizione
-    coal_risorse_mil:    toInt(g('Risorse Mil',         'coal_risorse_mil')),
-    coal_infl_dipl:      toInt(g('Infl Dipl',           'coal_infl_dipl')),
-    coal_tech_avanz:     toInt(g('Tech Avanz',          'coal_tech_avanz')),
-    coal_supp_pubblico:  toInt(g('Supp Pubblico',       'coal_supp_pubblico')),
-    coal_alleanze:       toInt(g('Alleanze',            'coal_alleanze')),
+    coal_risorse_mil:    toSeq(g('Risorse Mil',         'coal_risorse_mil')),
+    coal_infl_dipl:      toSeq(g('Infl Dipl',           'coal_infl_dipl')),
+    coal_tech_avanz:     toSeq(g('Tech Avanz',          'coal_tech_avanz')),
+    coal_supp_pubblico:  toSeq(g('Supp Pubblico',       'coal_supp_pubblico')),
+    coal_alleanze:       toSeq(g('Alleanze',            'coal_alleanze')),
     // Europa — accetta sia 'Infl Dipl UE' (file compilato) sia 'Infl Dipl' (template sito)
-    ue_infl_dipl:        toInt(g('Infl Dipl UE', '') || g('Infl Dipl', 'ue_infl_dipl')),
-    ue_aiuti_uman:       toInt(g('Aiuti Uman',          'ue_aiuti_uman')),
-    ue_stab_energ:       toInt(g('Stab Energ',          'ue_stab_energ')),
-    ue_coesione_int:     toInt(g('Coesione Int',        'ue_coesione_int')),
-    ue_pol_multilat:     toInt(g('Pol Multilat',        'ue_pol_multilat')),
+    ue_infl_dipl:        toSeq(g('Infl Dipl UE', '') || g('Infl Dipl', 'ue_infl_dipl')),
+    ue_aiuti_uman:       toSeq(g('Aiuti Uman',          'ue_aiuti_uman')),
+    ue_stab_energ:       toSeq(g('Stab Energ',          'ue_stab_energ')),
+    ue_coesione_int:     toSeq(g('Coesione Int',        'ue_coesione_int')),
+    ue_pol_multilat:     toSeq(g('Pol Multilat',        'ue_pol_multilat')),
     // Cina
-    cina_pot_eco:        toInt(g('Pot Eco',             'cina_pot_eco')),
-    cina_infl_comm:      toInt(g('Infl Comm',           'cina_infl_comm')),
-    cina_cyber:          toInt(g('Cyber',               'cina_cyber') || g('Cyber Warfare', '')),
-    cina_stab_rotte:     toInt(g('Stab Rotte',          'cina_stab_rotte')),
-    cina_progetti_bri:   toInt(g('Progetti BRI',        'cina_progetti_bri')),
+    cina_pot_eco:        toSeq(g('Pot Eco',             'cina_pot_eco')),
+    cina_infl_comm:      toSeq(g('Infl Comm',           'cina_infl_comm')),
+    cina_cyber:          toSeq(g('Cyber',               'cina_cyber') || g('Cyber Warfare', '')),
+    cina_stab_rotte:     toSeq(g('Stab Rotte',          'cina_stab_rotte')),
+    cina_progetti_bri:   toSeq(g('Progetti BRI',        'cina_progetti_bri')),
     // Russia
-    russia_infl_mil:     toInt(g('Infl Mil',            'russia_infl_mil') || g('Influenza Militare', '')),
-    russia_energia:      toInt(g('Energia',             'russia_energia')   || g('Energia/Risorse', '')),
-    russia_veto_onu:     toInt(g('Veto ONU',            'russia_veto_onu')  || g('Vero Onu', '')),
-    russia_stab_eco:     toInt(g('Stab Eco',            'russia_stab_eco')  || g('Stab. Econo.', '')),
-    russia_op_spec:      toInt(g('Op Spec',             'russia_op_spec')),
+    russia_infl_mil:     toSeq(g('Infl Mil',            'russia_infl_mil') || g('Influenza Militare', '')),
+    russia_energia:      toSeq(g('Energia',             'russia_energia')   || g('Energia/Risorse', '')),
+    russia_veto_onu:     toSeq(g('Veto ONU',            'russia_veto_onu')  || g('Vero Onu', '')),
+    russia_stab_eco:     toSeq(g('Stab Eco',            'russia_stab_eco')  || g('Stab. Econo.', '')),
+    russia_op_spec:      toSeq(g('Op Spec',             'russia_op_spec')),
     // Collegate
     linked_card_id:      toStr(g('Codice Carta Coll.',  'linked_card_id')),
     linked_effect:       toStr(g('Effetto Collegato',   'linked_effect')),
@@ -363,7 +367,7 @@ export default function CardLibraryManager({ onClose }: Props) {
     const { data: { user } } = await supabase.auth.getUser();
     const userId = user?.id;
 
-    const rows = parsedCards.map(c => ({
+    const rows = parsedCards.map(c => serializeRowForDb({
       ...c,
       uploaded_by: userId ?? null,
       // Normalizza: se linked_card_id è vuoto, metti null
@@ -422,14 +426,21 @@ export default function CardLibraryManager({ onClose }: Props) {
 
   const hasErrors = validationErrors.length > 0;
 
-  // ── Delta badge ──────────────────────────────
-  const DeltaBadge = ({ label, val }: { label: string; val: number }) => {
-    if (val === 0) return null;
+  // ── Delta badge (supporta SeqDelta: numero fisso o sequenza semicolon) ──
+  const DeltaBadge = ({ label, val, minVal = 1 }: { label: string; val: SeqDelta; minVal?: number }) => {
+    if (!val && val !== 0) return null;
+    if (val === 0 || val === '0') return null;
+    const isSeq   = typeof val === 'string' && val.includes(';');
+    const display = isSeq ? describeSeq(val, minVal) : (Number(val) > 0 ? `+${val}` : `${val}`);
+    if (display === '—') return null;
     return (
-      <span className={`text-[10px] font-mono px-1 rounded ${
-        val > 0 ? 'text-[#22c55e] bg-[#22c55e20]' : 'text-[#ef4444] bg-[#ef444420]'
-      }`}>
-        {label}{val > 0 ? '+' : ''}{val}
+      <span
+        title={isSeq ? `Sequenza: ${val}` : undefined}
+        className={`text-[10px] font-mono px-1 rounded cursor-default ${
+          isSeq ? 'text-[#f59e0b] bg-[#f59e0b20] border border-[#f59e0b40]'
+                : (Number(val) > 0 ? 'text-[#22c55e] bg-[#22c55e20]' : 'text-[#ef4444] bg-[#ef444420]')
+        }`}>
+        {label}{display}
       </span>
     );
   };
@@ -663,12 +674,12 @@ export default function CardLibraryManager({ onClose }: Props) {
                             </td>
                             <td className="px-2 py-1.5 text-[#8899aa]">{c.deck_type}</td>
                             <td className="px-2 py-1.5 text-[#f59e0b] font-bold">{c.op_points}</td>
-                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_nucleare} /></td>
-                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_sanzioni} /></td>
-                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_defcon} /></td>
-                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_opinione} /></td>
-                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_risorse} /></td>
-                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_stabilita} /></td>
+                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_nucleare}  minVal={1}   /></td>
+                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_sanzioni}  minVal={1}   /></td>
+                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_defcon}    minVal={1}   /></td>
+                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_opinione}  minVal={-10} /></td>
+                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_risorse}   minVal={1}   /></td>
+                            <td className="px-2 py-1.5"><DeltaBadge label="" val={c.delta_stabilita} minVal={1}   /></td>
                             <td className="px-2 py-1.5 text-[#8b5cf6]">{c.linked_card_id || '—'}</td>
                             <td className="px-2 py-1.5 text-[#8899aa] max-w-[140px] truncate" title={c.description}>{c.description || '—'}</td>
                           </tr>
