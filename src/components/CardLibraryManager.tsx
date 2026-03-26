@@ -15,7 +15,6 @@ export interface CardLibraryRow {
   deck_type: string;
   op_points: number;
   description: string;
-  categoria_tni: string;
   // Tracciati globali
   delta_nucleare: number;
   delta_sanzioni: number;
@@ -69,7 +68,6 @@ const EXCEL_COLUMNS: { key: keyof CardLibraryRow; label: string; example: string
   { key: 'deck_type',        label: 'Mazzo',             example: 'base'         },
   { key: 'op_points',        label: 'Punti OP',          example: '3'            },
   { key: 'description',      label: 'Descrizione',       example: 'Accelerazione programma nucleare' },
-  { key: 'categoria_tni',    label: 'Categoria TNI',     example: 'Militare'     },
   // TRACCIATI GLOBALI
   { key: 'delta_nucleare',   label: 'Δ Nucleare (1-15)',  example: '2'            },
   { key: 'delta_sanzioni',   label: 'Δ Sanzioni (1-10)',  example: ''             },
@@ -148,7 +146,6 @@ function parseRow(row: Record<string, unknown>): CardLibraryRow {
     deck_type:           toStr(g('Mazzo',               'deck_type')) || 'base',
     op_points:           toInt(g('Punti OP',            'op_points')),
     description:         toStr(g('Descrizione',         'description')),
-    categoria_tni:       toStr(g('Categoria TNI',       'categoria_tni')),
     // Globali
     delta_nucleare:      toInt(g('Δ Nucleare (1-15)',   'delta_nucleare')),
     delta_sanzioni:      toInt(g('Δ Sanzioni (1-10)',   'delta_sanzioni')),
