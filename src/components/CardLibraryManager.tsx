@@ -15,46 +15,101 @@ export interface CardLibraryRow {
   deck_type: string;
   op_points: number;
   description: string;
+  categoria_tni: string;
+  // Tracciati globali
   delta_nucleare: number;
   delta_sanzioni: number;
-  delta_defcon: number;
   delta_opinione: number;
+  delta_defcon: number;
   delta_risorse: number;
   delta_stabilita: number;
+  // Plancia Iran
+  iran_risorse_eco: number;
+  iran_forze_mil: number;
+  iran_stab_int: number;
+  iran_tech_nucleare: number;
+  iran_asse_resist: number;
+  // Plancia Coalizione
+  coal_risorse_mil: number;
+  coal_infl_dipl: number;
+  coal_tech_avanz: number;
+  coal_supp_pubblico: number;
+  coal_alleanze: number;
+  // Plancia Europa
+  ue_infl_dipl: number;
+  ue_aiuti_uman: number;
+  ue_stab_energ: number;
+  ue_coesione_int: number;
+  ue_pol_multilat: number;
+  // Plancia Cina
+  cina_pot_eco: number;
+  cina_infl_comm: number;
+  cina_cyber: number;
+  cina_stab_rotte: number;
+  cina_progetti_bri: number;
+  // Plancia Russia
+  russia_infl_mil: number;
+  russia_energia: number;
+  russia_veto_onu: number;
+  russia_stab_eco: number;
+  russia_op_spec: number;
+  // Carte collegate
   linked_card_id: string;
-  linked_delta_nucleare: number;
-  linked_delta_sanzioni: number;
-  linked_delta_defcon: number;
-  linked_delta_opinione: number;
-  linked_delta_risorse: number;
-  linked_delta_stabilita: number;
-  linked_description: string;
+  linked_effect: string;
 }
 
 // ─── Colonne del template ─────────────────────
 // L'ordine corrisponde alle colonne del file Excel
 const EXCEL_COLUMNS: { key: keyof CardLibraryRow; label: string; example: string }[] = [
-  { key: 'card_id',                label: 'Codice Carta',             example: 'C001'         },
-  { key: 'card_name',              label: 'Nome Carta',               example: 'Arricchimento Uranio 60%' },
-  { key: 'faction',                label: 'Fazione',                  example: 'Iran'         },
-  { key: 'card_type',              label: 'Tipo Carta',               example: 'Militare'     },
-  { key: 'deck_type',              label: 'Mazzo',                    example: 'base'         },
-  { key: 'op_points',              label: 'Punti Operazione',         example: '3'            },
-  { key: 'description',            label: 'Descrizione',              example: 'Testo carta'  },
-  { key: 'delta_nucleare',         label: 'Δ Nucleare',               example: '2'            },
-  { key: 'delta_sanzioni',         label: 'Δ Sanzioni',               example: '-1'           },
-  { key: 'delta_defcon',           label: 'Δ DEFCON',                 example: '0'            },
-  { key: 'delta_opinione',         label: 'Δ Opinione Globale',       example: '0'            },
-  { key: 'delta_risorse',          label: 'Δ Risorse',                example: '-1'           },
-  { key: 'delta_stabilita',        label: 'Δ Stabilità',              example: '0'            },
-  { key: 'linked_card_id',         label: 'Carta Collegata (codice)', example: 'C025'         },
-  { key: 'linked_delta_nucleare',  label: 'Δ Nucleare (collegata)',   example: '1'            },
-  { key: 'linked_delta_sanzioni',  label: 'Δ Sanzioni (collegata)',   example: '0'            },
-  { key: 'linked_delta_defcon',    label: 'Δ DEFCON (collegata)',     example: '0'            },
-  { key: 'linked_delta_opinione',  label: 'Δ Opinione (collegata)',   example: '0'            },
-  { key: 'linked_delta_risorse',   label: 'Δ Risorse (collegata)',    example: '0'            },
-  { key: 'linked_delta_stabilita', label: 'Δ Stabilità (collegata)',  example: '0'            },
-  { key: 'linked_description',     label: 'Descrizione Effetto Coll.', example: 'Bonus attivato da C025' },
+  // INFO CARTA
+  { key: 'card_id',          label: 'Codice',           example: 'C001'         },
+  { key: 'card_name',        label: 'Nome Carta',        example: 'Arricchimento Uranio 60%' },
+  { key: 'faction',          label: 'Fazione',           example: 'Iran'         },
+  { key: 'card_type',        label: 'Tipo Carta',        example: 'Militare'     },
+  { key: 'deck_type',        label: 'Mazzo',             example: 'base'         },
+  { key: 'op_points',        label: 'Punti OP',          example: '3'            },
+  { key: 'description',      label: 'Descrizione',       example: 'Accelerazione programma nucleare' },
+  { key: 'categoria_tni',    label: 'Categoria TNI',     example: 'Militare'     },
+  // TRACCIATI GLOBALI
+  { key: 'delta_nucleare',   label: 'Δ Nucleare (1-15)',  example: '2'            },
+  { key: 'delta_sanzioni',   label: 'Δ Sanzioni (1-10)',  example: ''             },
+  { key: 'delta_opinione',   label: 'Δ Opinione (-10/+10)', example: ''           },
+  { key: 'delta_defcon',     label: 'Δ DEFCON (5-1)',     example: ''             },
+  { key: 'delta_risorse',    label: 'Δ Risorse (1-10)',   example: ''             },
+  { key: 'delta_stabilita',  label: 'Δ Stab.Int (1-10)', example: ''             },
+  // IRAN
+  { key: 'iran_risorse_eco',  label: 'Risorse Eco',       example: ''   },
+  { key: 'iran_forze_mil',    label: 'Forze Mil',         example: '+1' },
+  { key: 'iran_stab_int',     label: 'Stab Int',          example: ''   },
+  { key: 'iran_tech_nucleare',label: 'Tech Nucleare',     example: ''   },
+  { key: 'iran_asse_resist',  label: 'Asse Resist',       example: '+1' },
+  // COALIZIONE
+  { key: 'coal_risorse_mil',  label: 'Risorse Mil',       example: '-1' },
+  { key: 'coal_infl_dipl',    label: 'Infl Dipl',         example: ''   },
+  { key: 'coal_tech_avanz',   label: 'Tech Avanz',        example: ''   },
+  { key: 'coal_supp_pubblico',label: 'Supp Pubblico',     example: ''   },
+  { key: 'coal_alleanze',     label: 'Alleanze',          example: ''   },
+  // EUROPA
+  { key: 'ue_infl_dipl',      label: 'Infl Dipl',         example: ''   },
+  { key: 'ue_aiuti_uman',     label: 'Aiuti Uman',        example: ''   },
+  { key: 'ue_stab_energ',     label: 'Stab Energ',        example: ''   },
+  { key: 'ue_coesione_int',   label: 'Coesione Int',      example: ''   },
+  { key: 'ue_pol_multilat',   label: 'Pol Multilat',      example: ''   },
+  // CINA
+  { key: 'cina_pot_eco',      label: 'Pot Eco',           example: ''   },
+  { key: 'cina_infl_comm',    label: 'Infl Comm',         example: ''   },
+  { key: 'cina_cyber',        label: 'Cyber',             example: ''   },
+  { key: 'cina_stab_rotte',   label: 'Stab Rotte',        example: ''   },
+  { key: 'cina_progetti_bri', label: 'Progetti BRI',      example: ''   },
+  // RUSSIA
+  { key: 'russia_infl_mil',   label: 'Infl Mil',          example: ''   },
+  { key: 'russia_energia',    label: 'Energia',           example: ''   },
+  { key: 'russia_veto_onu',   label: 'Veto ONU',          example: ''   },
+  { key: 'russia_stab_eco',   label: 'Stab Eco',          example: ''   },
+  { key: 'russia_op_spec',    label: 'Op Spec',           example: ''   },
+  // CARTE COLLEGATE
+  { key: 'linked_card_id',    label: 'Codice Carta Coll.', example: 'C025' },
+  { key: 'linked_effect',     label: 'Effetto Collegato',  example: 'Se giocata con C025: +1 TNI' },
 ];
 
 // ─── Valori validi per fazione e tipo ─────────
@@ -79,35 +134,61 @@ const toStr = (v: unknown): string =>
 
 // ─── Parse riga Excel → CardLibraryRow ────────
 function parseRow(row: Record<string, unknown>): CardLibraryRow {
-  // Supporta sia nomi colonna italiani (intestazioni) sia indici A,B,C...
-  const g = (label: string, fallback: string = '') => {
-    const col = EXCEL_COLUMNS.find(c => c.label === label);
-    if (col && row[label] !== undefined) return row[label];
-    if (col && row[col.key] !== undefined) return row[col.key];
-    return row[label] ?? row[fallback] ?? '';
+  // g() cerca prima per label italiano, poi per key
+  const g = (label: string, key: string = '') => {
+    if (row[label] !== undefined && row[label] !== '') return row[label];
+    if (key && row[key] !== undefined) return row[key];
+    return '';
   };
   return {
-    card_id:                toStr(g('Codice Carta',             'card_id')),
-    card_name:              toStr(g('Nome Carta',               'card_name')),
-    faction:                toStr(g('Fazione',                  'faction')),
-    card_type:              toStr(g('Tipo Carta',               'card_type')),
-    deck_type:              toStr(g('Mazzo',                    'deck_type')) || 'base',
-    op_points:              toInt(g('Punti Operazione',         'op_points')),
-    description:            toStr(g('Descrizione',              'description')),
-    delta_nucleare:         toInt(g('Δ Nucleare',               'delta_nucleare')),
-    delta_sanzioni:         toInt(g('Δ Sanzioni',               'delta_sanzioni')),
-    delta_defcon:           toInt(g('Δ DEFCON',                 'delta_defcon')),
-    delta_opinione:         toInt(g('Δ Opinione Globale',       'delta_opinione')),
-    delta_risorse:          toInt(g('Δ Risorse',                'delta_risorse')),
-    delta_stabilita:        toInt(g('Δ Stabilità',              'delta_stabilita')),
-    linked_card_id:         toStr(g('Carta Collegata (codice)', 'linked_card_id')),
-    linked_delta_nucleare:  toInt(g('Δ Nucleare (collegata)',   'linked_delta_nucleare')),
-    linked_delta_sanzioni:  toInt(g('Δ Sanzioni (collegata)',   'linked_delta_sanzioni')),
-    linked_delta_defcon:    toInt(g('Δ DEFCON (collegata)',     'linked_delta_defcon')),
-    linked_delta_opinione:  toInt(g('Δ Opinione (collegata)',   'linked_delta_opinione')),
-    linked_delta_risorse:   toInt(g('Δ Risorse (collegata)',    'linked_delta_risorse')),
-    linked_delta_stabilita: toInt(g('Δ Stabilità (collegata)', 'linked_delta_stabilita')),
-    linked_description:     toStr(g('Descrizione Effetto Coll.','linked_description')),
+    card_id:             toStr(g('Codice',              'card_id')),
+    card_name:           toStr(g('Nome Carta',          'card_name')),
+    faction:             toStr(g('Fazione',             'faction')),
+    card_type:           toStr(g('Tipo Carta',          'card_type')),
+    deck_type:           toStr(g('Mazzo',               'deck_type')) || 'base',
+    op_points:           toInt(g('Punti OP',            'op_points')),
+    description:         toStr(g('Descrizione',         'description')),
+    categoria_tni:       toStr(g('Categoria TNI',       'categoria_tni')),
+    // Globali
+    delta_nucleare:      toInt(g('Δ Nucleare (1-15)',   'delta_nucleare')),
+    delta_sanzioni:      toInt(g('Δ Sanzioni (1-10)',   'delta_sanzioni')),
+    delta_opinione:      toInt(g('Δ Opinione (-10/+10)','delta_opinione')),
+    delta_defcon:        toInt(g('Δ DEFCON (5-1)',      'delta_defcon')),
+    delta_risorse:       toInt(g('Δ Risorse (1-10)',    'delta_risorse')),
+    delta_stabilita:     toInt(g('Δ Stab.Int (1-10)',   'delta_stabilita')),
+    // Iran
+    iran_risorse_eco:    toInt(g('Risorse Eco',         'iran_risorse_eco')),
+    iran_forze_mil:      toInt(g('Forze Mil',           'iran_forze_mil')),
+    iran_stab_int:       toInt(g('Stab Int',            'iran_stab_int')),
+    iran_tech_nucleare:  toInt(g('Tech Nucleare',       'iran_tech_nucleare')),
+    iran_asse_resist:    toInt(g('Asse Resist',         'iran_asse_resist')),
+    // Coalizione
+    coal_risorse_mil:    toInt(g('Risorse Mil',         'coal_risorse_mil')),
+    coal_infl_dipl:      toInt(g('Infl Dipl',           'coal_infl_dipl')),
+    coal_tech_avanz:     toInt(g('Tech Avanz',          'coal_tech_avanz')),
+    coal_supp_pubblico:  toInt(g('Supp Pubblico',       'coal_supp_pubblico')),
+    coal_alleanze:       toInt(g('Alleanze',            'coal_alleanze')),
+    // Europa
+    ue_infl_dipl:        toInt(g('Infl Dipl',           'ue_infl_dipl')),
+    ue_aiuti_uman:       toInt(g('Aiuti Uman',          'ue_aiuti_uman')),
+    ue_stab_energ:       toInt(g('Stab Energ',          'ue_stab_energ')),
+    ue_coesione_int:     toInt(g('Coesione Int',        'ue_coesione_int')),
+    ue_pol_multilat:     toInt(g('Pol Multilat',        'ue_pol_multilat')),
+    // Cina
+    cina_pot_eco:        toInt(g('Pot Eco',             'cina_pot_eco')),
+    cina_infl_comm:      toInt(g('Infl Comm',           'cina_infl_comm')),
+    cina_cyber:          toInt(g('Cyber',               'cina_cyber')),
+    cina_stab_rotte:     toInt(g('Stab Rotte',          'cina_stab_rotte')),
+    cina_progetti_bri:   toInt(g('Progetti BRI',        'cina_progetti_bri')),
+    // Russia
+    russia_infl_mil:     toInt(g('Infl Mil',            'russia_infl_mil')),
+    russia_energia:      toInt(g('Energia',             'russia_energia')),
+    russia_veto_onu:     toInt(g('Veto ONU',            'russia_veto_onu')),
+    russia_stab_eco:     toInt(g('Stab Eco',            'russia_stab_eco')),
+    russia_op_spec:      toInt(g('Op Spec',             'russia_op_spec')),
+    // Collegate
+    linked_card_id:      toStr(g('Codice Carta Coll.',  'linked_card_id')),
+    linked_effect:       toStr(g('Effetto Collegato',   'linked_effect')),
   };
 }
 
