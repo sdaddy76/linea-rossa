@@ -164,30 +164,15 @@ function downloadTemplate() {
   wsGuide['!cols'] = [{ wch: 22 }, { wch: 60 }, { wch: 40 }];
   XLSX.utils.book_append_sheet(wb, wsGuide, 'Guida');
 
-  // Genera il file come Blob e apre in nuova scheda
-  // (evita il blocco sandbox iframe che impedisce download diretti)
-  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  });
-  const url = URL.createObjectURL(blob);
+  // Genera il file come base64 data URI
+  // (l'unico metodo che funziona sia da iframe sandbox che dal browser diretto)
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+  const dataUri =
+    'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + wbout;
 
-  // Prova prima il download diretto, fallback su nuova scheda
-  try {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'Template_Carte_LineaRossa.xlsx';
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  } catch {
-    // Fallback: apri in nuova scheda (funziona anche da iframe)
-    window.open(url, '_blank', 'noopener,noreferrer');
-  }
-
-  // Revoca URL dopo 60s
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  // Apre il data URI in una nuova scheda tramite window.top per uscire dall'iframe sandbox
+  const target = (window.top ?? window);
+  target.open(dataUri, '_blank');
 }
 
 // ─── COMPONENTE PRINCIPALE ────────────────────
@@ -207,11 +192,37 @@ export default function CardLibraryManager({ onClose }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [filterFaction, setFilterFaction] = useState('Tutte');
   const [existingCount, setExistingCount] = useState<number | null>(null);
+  const [templateDataUri, setTemplateDataUri] = useState<string>('');
 
-  // Carica il conteggio carte esistenti all'apertura
+  // Genera il data URI del template una volta al mount (per il link diretto)
+  // e carica il conteggio carte esistenti
   useState(() => {
     supabase.from('cards_library').select('card_id', { count: 'exact', head: true })
       .then(({ count }) => setExistingCount(count ?? 0));
+
+    // Pre-genera il template come data URI scaricabile direttamente via <a href>
+    try {
+      const headers = EXCEL_COLUMNS.map(c => c.label);
+      const example = EXCEL_COLUMNS.map(c => c.example);
+      const ws = XLSX.utils.aoa_to_sheet([headers, example]);
+      ws['!cols'] = EXCEL_COLUMNS.map((_, i) => ({ wch: i === 1 ? 30 : i === 6 ? 35 : 18 }));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Carte');
+      const guideData = [
+        ['CAMPO', 'VALORI AMMESSI', 'NOTE'],
+        ['Fazione', 'Iran | Coalizione | Russia | Cina | Europa | Neutrale', 'Sensibile alle maiuscole'],
+        ['Tipo Carta', 'Militare | Diplomatico | Economico | Segreto | Media | Evento | Politico', ''],
+        ['Mazzo', 'base | speciale', ''],
+        ['Punti Operazione', '1 – 5', 'Numero intero'],
+        ['Δ Tracciati', 'Numero intero (positivo o negativo)', '0 = nessun effetto'],
+        ['Carta Collegata', 'Codice carta (es. C001)', 'Lascia vuoto se non applicabile'],
+      ];
+      const wsGuide = XLSX.utils.aoa_to_sheet(guideData);
+      wsGuide['!cols'] = [{ wch: 22 }, { wch: 60 }, { wch: 40 }];
+      XLSX.utils.book_append_sheet(wb, wsGuide, 'Guida');
+      const b64 = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+      setTemplateDataUri('data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + b64);
+    } catch (_) { /* silently ignore */ }
   });
 
   // ── Parsing file Excel ────────────────────────
@@ -408,13 +419,30 @@ export default function CardLibraryManager({ onClose }: Props) {
               {/* Azioni secondarie */}
               <div className="flex flex-wrap gap-3 items-center justify-between">
                 <div className="flex gap-2">
-                  <button onClick={downloadTemplate}
-                    className="flex items-center gap-2 px-4 py-2 border border-[#1e3a5f]
-                      hover:border-[#00ff88] text-[#8899aa] hover:text-[#00ff88]
-                      font-mono text-xs rounded-lg transition-colors">
-                    ⬇️ Template Excel
-                    <span className="text-[10px] opacity-60">(↗ nuova scheda)</span>
-                  </button>
+                  {/* Link diretto: click utente su <a href> non è mai bloccato dal sandbox */}
+                  {templateDataUri ? (
+                    <a
+                      href={templateDataUri}
+                      download="Template_Carte_LineaRossa.xlsx"
+                      onClick={(e) => {
+                        // Piano B: se il download viene bloccato, apri in nuova scheda
+                        try {
+                          (window.top ?? window).open(templateDataUri, '_blank');
+                        } catch (_) { /* usa il comportamento default dell'<a> */ }
+                        e.preventDefault();
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 border border-[#1e3a5f]
+                        hover:border-[#00ff88] text-[#8899aa] hover:text-[#00ff88]
+                        font-mono text-xs rounded-lg transition-colors cursor-pointer no-underline">
+                      ⬇️ Scarica Template Excel
+                    </a>
+                  ) : (
+                    <button disabled
+                      className="flex items-center gap-2 px-4 py-2 border border-[#1e3a5f]
+                        text-[#334455] font-mono text-xs rounded-lg opacity-50 cursor-wait">
+                      ⏳ Preparazione template...
+                    </button>
+                  )}
                   {existingCount !== null && existingCount > 0 && (
                     <button onClick={handleDeleteAll}
                       className="flex items-center gap-2 px-4 py-2 border border-[#ef444440]
