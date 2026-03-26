@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useOnlineGameStore } from '@/store/onlineGameStore';
 import type { Faction, GameState } from '@/types/game';
 import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } from '@/data/mazzi';
+import type { GameCard } from '@/types/game';
 
 // ─── Colori fazione ───────────────────────────
 const FACTION_FLAGS: Record<string, string> = {
@@ -228,7 +229,7 @@ function FactionResourceBar({
 // ─── PAGINA PRINCIPALE ────────────────────────
 export default function GamePage({ onBack }: { onBack: () => void }) {
   const {
-    game, gameState, players, myFaction, moves,
+    game, gameState, players, myFaction, moves, deckCards,
     loading, isBotThinking, error, gameOverInfo, notification,
     playCard, startGame, clearError, setNotification,
   } = useOnlineGameStore();
@@ -266,10 +267,36 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const isMyTurn = gameState.active_faction === myFaction;
   const activeColor = FACTION_COLORS[gameState.active_faction] ?? '#00ff88';
 
-  // Carte del giocatore
-  const myCards = myFaction
-    ? [...(MAZZI_PER_FAZIONE[myFaction] ?? []), ...(MAZZI_SPECIALI[myFaction] ?? [])].slice(0, 6)
-    : [];
+  // ── Costruisce la mano del giocatore da deckCards (DB) ──────────────────
+  // deckCards contiene le carte con status='available' caricate da Supabase.
+  // Se la partita non è ancora avviata (lobby), mostra l'anteprima statica.
+  const buildHand = (): GameCard[] => {
+    if (!myFaction) return [];
+
+    if (game.status === 'active') {
+      // Partita avviata: usa le carte reali del mazzo (filtrate per fazione)
+      const availableIds = new Set(
+        deckCards
+          .filter(dc => dc.faction === myFaction)
+          .map(dc => dc.card_id)
+      );
+      if (availableIds.size === 0) return []; // mazzo esaurito
+
+      // Recupera le definizioni complete (effetti) dall'array statico
+      const allDefs = [
+        ...(MAZZI_PER_FAZIONE[myFaction] ?? []),
+        ...(MAZZI_SPECIALI[myFaction] ?? []),
+      ];
+      return allDefs.filter(c => availableIds.has(c.card_id));
+    } else {
+      // Partita non ancora avviata: mostra anteprima prime 6 carte
+      return [
+        ...(MAZZI_PER_FAZIONE[myFaction] ?? []),
+        ...(MAZZI_SPECIALI[myFaction] ?? []),
+      ].slice(0, 6);
+    }
+  };
+  const myCards = buildHand();
 
   const getRisorse = (f: string) =>
     (gameState[`risorse_${f.toLowerCase()}` as keyof GameState] as number) ?? 5;
@@ -539,10 +566,18 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                     <div className="flex items-center gap-2">
                       <span className="text-sm">{FACTION_FLAGS[myFaction]}</span>
                       <span className="font-mono text-xs font-bold text-white">
-                        Le tue carte
+                        Le tue carte — {myFaction}
                       </span>
-                      <span className="font-mono text-[10px] text-[#8899aa]">
-                        ({myCards.length} disponibili)
+                      <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                        myCards.length === 0
+                          ? 'text-[#ef4444] bg-[#ef444420]'
+                          : myCards.length <= 3
+                          ? 'text-[#f59e0b] bg-[#f59e0b20]'
+                          : 'text-[#22c55e] bg-[#22c55e20]'
+                      }`}>
+                        {game.status === 'active'
+                          ? `${myCards.length} rimaste`
+                          : `${myCards.length} in mazzo`}
                       </span>
                     </div>
                     <span className="text-[#8899aa] font-mono text-xs">
@@ -550,8 +585,13 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                     </span>
                   </button>
 
-                  {showHand && (
-                    <div className="p-3 space-y-2 max-h-72 overflow-y-auto">
+                    {showHand && (
+                      <div className="p-3 space-y-2 max-h-72 overflow-y-auto">
+                        {myCards.length === 0 && (
+                          <p className="text-[#ef4444] font-mono text-xs text-center py-4">
+                            🃏 Mazzo esaurito — nessuna carta disponibile
+                          </p>
+                        )}
                       {myCards.map(card => {
                         const typeColor = CARD_TYPE_COLORS[card.card_type] ?? '#8899aa';
                         const isSelected = selectedCard === card.card_id;

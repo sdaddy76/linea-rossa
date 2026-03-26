@@ -89,11 +89,13 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   loadGame: async (gameId: string) => {
     set({ loading: true, error: null });
     try {
-      const [gameRes, playersRes, stateRes, movesRes] = await Promise.all([
+      const [gameRes, playersRes, stateRes, movesRes, deckRes] = await Promise.all([
         supabase.from('games').select('*').eq('id', gameId).single(),
         supabase.from('game_players').select('*, profile:profiles(*)').eq('game_id', gameId),
         supabase.from('game_state').select('*').eq('game_id', gameId).single(),
         supabase.from('moves_log').select('*').eq('game_id', gameId).order('created_at', { ascending: false }).limit(20),
+        // Carica SOLO le carte disponibili della partita (tutte le fazioni)
+        supabase.from('cards_deck').select('*').eq('game_id', gameId).eq('status', 'available').order('position'),
       ]);
 
       const { profile } = get();
@@ -106,6 +108,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         gameState: stateRes.data as GameState,
         myFaction: myPlayer?.faction ?? null,
         moves: (movesRes.data ?? []) as MoveLog[],
+        deckCards: (deckRes.data ?? []) as DeckCard[],
         loading: false,
       });
     } catch (err) {
@@ -148,7 +151,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     }
     await supabase.from('cards_deck').insert(deckRows);
 
-    // 3. Ricarica
+    // 3. Ricarica tutto (stato + mazzo appena creato)
     await get().loadGame(game.id);
     set({ loading: false });
 
@@ -246,11 +249,14 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           : supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id),
       ]);
 
-      // Aggiorna stato locale
+      // Aggiorna stato locale:
+      // - rimuove la carta giocata da deckCards
+      // - aggiorna gameState e game
       set(s => ({
         gameState: { ...s.gameState!, ...newState, active_faction: nextFact },
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
-        moves: [{ ...moves[0], card_name: deckCard.card_name } as MoveLog, ...s.moves].slice(0, 30),
+        // Rimuove la carta appena giocata dall'array locale
+        deckCards: s.deckCards.filter(dc => dc.card_id !== cardId || dc.faction !== myFaction),
         loading: false,
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
@@ -370,6 +376,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       set(s => ({
         gameState: { ...s.gameState!, ...newState, active_faction: nextFact },
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
+        // Rimuove carta bot giocata dall'array locale
+        deckCards: s.deckCards.filter(dc => dc.card_id !== decision.card.card_id || dc.faction !== botFaction),
         isBotThinking: false,
         notification: `🤖 ${botFaction} ha giocato: ${decision.card.card_name}`,
         gameOverInfo: winCheck.isOver ? {
@@ -427,10 +435,30 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       })
       .subscribe();
 
+    // Real-time: carte giocate (rimuove da deckCards quando status → 'played')
+    const deckSub = supabase
+      .channel(`deck-${gameId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'cards_deck',
+        filter: `game_id=eq.${gameId}`,
+      }, payload => {
+        const updatedCard = payload.new as DeckCard;
+        if (updatedCard.status === 'played') {
+          // Rimuove la carta giocata dalla lista locale
+          set(s => ({
+            deckCards: s.deckCards.filter(
+              dc => !(dc.card_id === updatedCard.card_id && dc.faction === updatedCard.faction)
+            ),
+          }));
+        }
+      })
+      .subscribe();
+
     return () => {
       stateSub.unsubscribe();
       movesSub.unsubscribe();
       gameSub.unsubscribe();
+      deckSub.unsubscribe();
     };
   },
 
