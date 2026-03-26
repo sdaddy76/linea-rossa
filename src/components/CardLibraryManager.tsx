@@ -154,9 +154,9 @@ function parseRow(row: Record<string, unknown>): CardLibraryRow {
     delta_risorse:       toInt(g('Δ Risorse (1-10)',    'delta_risorse')),
     delta_stabilita:     toInt(g('Δ Stab.Int (1-10)',   'delta_stabilita')),
     // Iran
-    iran_risorse_eco:    toInt(g('Risorse Eco',         'iran_risorse_eco')),
+    iran_risorse_eco:    toInt(g('Risorse Eco',         'iran_risorse_eco') || g('Risorse Economiche', '')),
     iran_forze_mil:      toInt(g('Forze Mil',           'iran_forze_mil')),
-    iran_stab_int:       toInt(g('Stab Int',            'iran_stab_int')),
+    iran_stab_int:       toInt(g('Stab Int',            'iran_stab_int')    || g('Indicatore Stabilità interna', '')),
     iran_tech_nucleare:  toInt(g('Tech Nucleare',       'iran_tech_nucleare')),
     iran_asse_resist:    toInt(g('Asse Resist',         'iran_asse_resist')),
     // Coalizione
@@ -165,8 +165,8 @@ function parseRow(row: Record<string, unknown>): CardLibraryRow {
     coal_tech_avanz:     toInt(g('Tech Avanz',          'coal_tech_avanz')),
     coal_supp_pubblico:  toInt(g('Supp Pubblico',       'coal_supp_pubblico')),
     coal_alleanze:       toInt(g('Alleanze',            'coal_alleanze')),
-    // Europa
-    ue_infl_dipl:        toInt(g('Infl Dipl',           'ue_infl_dipl')),
+    // Europa — accetta sia 'Infl Dipl UE' (file compilato) sia 'Infl Dipl' (template sito)
+    ue_infl_dipl:        toInt(g('Infl Dipl UE', '') || g('Infl Dipl', 'ue_infl_dipl')),
     ue_aiuti_uman:       toInt(g('Aiuti Uman',          'ue_aiuti_uman')),
     ue_stab_energ:       toInt(g('Stab Energ',          'ue_stab_energ')),
     ue_coesione_int:     toInt(g('Coesione Int',        'ue_coesione_int')),
@@ -174,14 +174,14 @@ function parseRow(row: Record<string, unknown>): CardLibraryRow {
     // Cina
     cina_pot_eco:        toInt(g('Pot Eco',             'cina_pot_eco')),
     cina_infl_comm:      toInt(g('Infl Comm',           'cina_infl_comm')),
-    cina_cyber:          toInt(g('Cyber',               'cina_cyber')),
+    cina_cyber:          toInt(g('Cyber',               'cina_cyber') || g('Cyber Warfare', '')),
     cina_stab_rotte:     toInt(g('Stab Rotte',          'cina_stab_rotte')),
     cina_progetti_bri:   toInt(g('Progetti BRI',        'cina_progetti_bri')),
     // Russia
-    russia_infl_mil:     toInt(g('Infl Mil',            'russia_infl_mil')),
-    russia_energia:      toInt(g('Energia',             'russia_energia')),
-    russia_veto_onu:     toInt(g('Veto ONU',            'russia_veto_onu')),
-    russia_stab_eco:     toInt(g('Stab Eco',            'russia_stab_eco')),
+    russia_infl_mil:     toInt(g('Infl Mil',            'russia_infl_mil') || g('Influenza Militare', '')),
+    russia_energia:      toInt(g('Energia',             'russia_energia')   || g('Energia/Risorse', '')),
+    russia_veto_onu:     toInt(g('Veto ONU',            'russia_veto_onu')  || g('Vero Onu', '')),
+    russia_stab_eco:     toInt(g('Stab Eco',            'russia_stab_eco')  || g('Stab. Econo.', '')),
     russia_op_spec:      toInt(g('Op Spec',             'russia_op_spec')),
     // Collegate
     linked_card_id:      toStr(g('Codice Carta Coll.',  'linked_card_id')),
