@@ -7,6 +7,8 @@ import { useOnlineGameStore } from '@/store/onlineGameStore';
 import type { Faction, GameState } from '@/types/game';
 import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } from '@/data/mazzi';
 import type { GameCard } from '@/types/game';
+import MilitaryMarket from '@/components/MilitaryMarket';
+import { calcolaCosto, getForzeMilitari } from '@/lib/militaryMarket';
 
 // ─── Colori fazione ───────────────────────────
 const FACTION_FLAGS: Record<string, string> = {
@@ -231,13 +233,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const {
     game, gameState, players, myFaction, moves, deckCards,
     loading, isBotThinking, error, gameOverInfo, notification,
-    playCard, startGame, clearError, setNotification,
+    playCard, startGame, clearError, setNotification, buyMilitaryResources,
   } = useOnlineGameStore();
 
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [showHand, setShowHand] = useState(true);
   const [prevState, setPrevState] = useState<GameState | null>(null);
   const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni'>('plancia');
+  const [showMarket, setShowMarket] = useState(false);
 
   // Traccia lo stato precedente per mostrare i delta
   useEffect(() => {
@@ -643,7 +646,60 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       </button>
                     </div>
                   )}
+
+                  {/* Pulsante Mercato Risorse Militari */}
+                  {(myFaction === 'Iran' || myFaction === 'Coalizione') && game.status === 'active' && (() => {
+                    const forzeMil = getForzeMilitari(myFaction, {
+                      forze_militari_iran: gameState.forze_militari_iran ?? 5,
+                      forze_militari_coalizione: gameState.forze_militari_coalizione ?? 5,
+                      risorse_russia: gameState.risorse_russia,
+                      risorse_cina: gameState.risorse_cina,
+                      risorse_europa: gameState.risorse_europa,
+                    });
+                    const costoOp = calcolaCosto({
+                      defcon: gameState.defcon,
+                      sanzioni: gameState.sanzioni,
+                      forzeMilitari: forzeMil,
+                      carteOpDisponibili: myCards.reduce((s, c) => s + c.op_points, 0),
+                      faction: myFaction,
+                    }).costoOp;
+                    const factionCol = FACTION_COLORS[myFaction];
+                    return (
+                      <div className="px-3 pb-3">
+                        <button
+                          onClick={() => setShowMarket(true)}
+                          className="w-full py-2 rounded-lg border font-mono text-xs font-bold
+                            flex items-center justify-center gap-2 transition-all hover:opacity-90"
+                          style={{
+                            borderColor: `${factionCol}60`,
+                            backgroundColor: `${factionCol}12`,
+                            color: factionCol,
+                          }}>
+                          <span>⚔️</span>
+                          <span>MERCATO RISORSE MILITARI</span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px]"
+                            style={{ backgroundColor: `${factionCol}25`, border: `1px solid ${factionCol}50` }}>
+                            {costoOp} OP/unità
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })()}
                 </div>
+              )}
+
+              {/* Mercato Risorse Militari — overlay */}
+              {showMarket && myFaction && gameState && (
+                <MilitaryMarket
+                  faction={myFaction}
+                  gameState={gameState}
+                  carteOpDisponibili={myCards.reduce((s, c) => s + c.op_points, 0)}
+                  isMyTurn={isMyTurn && !isBotThinking}
+                  onAcquista={async (qtà, costoTot) => {
+                    await buyMilitaryResources(qtà, costoTot);
+                  }}
+                  onClose={() => setShowMarket(false)}
+                />
               )}
 
               {/* Errori */}

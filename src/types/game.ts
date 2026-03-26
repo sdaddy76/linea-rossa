@@ -51,6 +51,9 @@ export interface GameState {
   stabilita_russia: number;
   stabilita_cina: number;
   stabilita_europa: number;
+  // Tracciati militari (usati dal mercato risorse)
+  forze_militari_iran: number;        // 1-10: capacità militare Iran (IRGC)
+  forze_militari_coalizione: number;  // 1-10: capacità militare Coalizione
   active_faction: Faction;
   updated_at: string;
 }

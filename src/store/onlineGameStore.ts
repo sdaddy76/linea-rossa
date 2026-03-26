@@ -42,6 +42,12 @@ interface OnlineGameStore {
   subscribeToGame: (gameId: string) => () => void;
   clearError: () => void;
   setNotification: (msg: string | null) => void;
+  /**
+   * Acquisto risorse militari tramite carte OP.
+   * @param quantita  unità da acquistare
+   * @param costoOpTotale  carte OP totali da spendere (calcolate dal client con calcolaCosto)
+   */
+  buyMilitaryResources: (quantita: number, costoOpTotale: number) => Promise<void>;
 }
 
 export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
@@ -464,4 +470,80 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   clearError: () => set({ error: null }),
   setNotification: (msg) => set({ notification: msg }),
+
+  // -----------------------------------------------
+  buyMilitaryResources: async (quantita: number, costoOpTotale: number) => {
+    const { game, gameState, myFaction, players, profile } = get();
+    if (!game || !gameState || !myFaction) return;
+    if (gameState.active_faction !== myFaction) {
+      set({ error: 'Non è il tuo turno!' }); return;
+    }
+    set({ loading: true, error: null });
+
+    try {
+      // Calcola la nuova quantità di risorse per la fazione
+      const risorseKey = `risorse_${myFaction.toLowerCase()}` as
+        'risorse_iran' | 'risorse_coalizione' | 'risorse_russia' | 'risorse_cina' | 'risorse_europa';
+      const risorseAttuali: number = gameState[risorseKey] ?? 0;
+      const nuoveRisorse = Math.min(10, risorseAttuali + quantita);
+
+      // Aggiorna game_state: risorse +quantita
+      const stateUpdate: Partial<GameState> = { [risorseKey]: nuoveRisorse };
+
+      // Passa il turno al prossimo giocatore
+      const nextFact = nextFaction(myFaction);
+      const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
+
+      await Promise.all([
+        supabase.from('game_state').update({
+          ...stateUpdate,
+          active_faction: nextFact,
+        }).eq('game_id', game.id),
+
+        // Log mossa: segna come market_purchase
+        supabase.from('moves_log').insert({
+          game_id: game.id,
+          turn_number: game.current_turn,
+          faction: myFaction,
+          player_id: profile?.id ?? null,
+          is_bot_move: false,
+          card_id: 'MARKET',
+          card_name: `Acquisto risorse (×${quantita})`,
+          card_type: 'Militare',
+          delta_nucleare: 0,
+          delta_sanzioni: 0,
+          delta_opinione: 0,
+          delta_defcon: 0,
+          delta_risorse: quantita,
+          delta_stabilita: 0,
+          stato_nucleare: gameState.nucleare,
+          stato_sanzioni: gameState.sanzioni,
+          stato_opinione: gameState.opinione,
+          stato_defcon: gameState.defcon,
+          description: `Acquisto mercato: ${quantita} unità risorse militari — ${costoOpTotale} OP spesi`,
+          is_market_purchase: true,
+          market_op_spent: costoOpTotale,
+          market_resources: quantita,
+        }),
+
+        supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id),
+      ]);
+
+      // Aggiorna stato locale
+      set(s => ({
+        gameState: { ...s.gameState!, ...stateUpdate, active_faction: nextFact } as GameState,
+        game: { ...s.game!, current_turn: nextTurn },
+        loading: false,
+        notification: `⚔️ ${myFaction}: acquistate ${quantita} risorse militari (${costoOpTotale} OP spesi)`,
+      }));
+
+      // Se il prossimo è un bot, eseguilo
+      const nextPlayer = players.find(p => p.faction === nextFact);
+      if (nextPlayer?.is_bot) {
+        setTimeout(() => get().runBotTurn(), 2000);
+      }
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : 'Errore acquisto', loading: false });
+    }
+  },
 }));
