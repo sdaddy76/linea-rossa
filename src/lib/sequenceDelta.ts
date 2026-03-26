@@ -32,7 +32,7 @@ export type SeqDelta = string | number;
 export function normalizeSeq(raw: unknown): SeqDelta {
   if (raw == null || raw === '') return 0;
   if (typeof raw === 'number') return isNaN(raw) ? 0 : raw;
-  const s = String(raw).trim();
+  const s = String(raw).trim().replace(/~/g, '-'); // ~ → - (alternativa Excel)
   // Se contiene ';' è una sequenza, altrimenti è un numero
   if (s.includes(';')) return s;
   const n = Number(s);
@@ -40,9 +40,15 @@ export function normalizeSeq(raw: unknown): SeqDelta {
 }
 
 // ─── Analizza la stringa e restituisce l'array di delta ──
+// Supporta notazioni:
+//   "-2;-1;0;1"      → standard (funziona con celle Excel formattate come Testo)
+//   "~2;~1;0;1"      → alternativa con ~ al posto di - (per chi non può formattare come Testo)
+//   " -2;-1;0;1"     → con spazio iniziale (trick Excel: prefissa con spazio)
 export function parseSeq(seq: SeqDelta): number[] {
   if (typeof seq === 'number') return [seq];
-  const parts = seq.split(';').map(p => {
+  // Normalizza: rimuovi spazi iniziali/finali, sostituisci ~ con -
+  const normalized = seq.trim().replace(/~/g, '-');
+  const parts = normalized.split(';').map(p => {
     const n = Number(p.trim());
     return isNaN(n) ? 0 : n;
   });
