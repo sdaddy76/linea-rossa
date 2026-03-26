@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Game, Profile } from '@/types/game';
+import CardLibraryManager from '@/components/CardLibraryManager';
 
 interface LobbyPageProps {
   profile: Profile;
@@ -37,6 +38,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [myGames, setMyGames] = useState<Game[]>([]);
+  const [showLibrary, setShowLibrary] = useState(false);
 
   // Assegnazione fazioni per creazione partita
   const [factionSetup, setFactionSetup] = useState<Record<Faction, FactionAssignment>>({
@@ -157,11 +159,20 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
             <h1 className="text-2xl font-bold text-[#00ff88] font-mono tracking-widest">☢️ LINEA ROSSA</h1>
             <p className="text-[#8899aa] text-xs font-mono">Benvenuto, <span className="text-white">{profile.username}</span></p>
           </div>
-          <button onClick={onLogout}
-            className="px-3 py-1.5 border border-[#334455] text-[#8899aa] hover:text-white
-              rounded-lg font-mono text-xs transition-colors">
-            ESCI
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowLibrary(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#1e3a5f]
+                hover:border-[#00ff88] text-[#8899aa] hover:text-[#00ff88]
+                rounded-lg font-mono text-xs transition-colors">
+              🃏 Libreria Carte
+            </button>
+            <button onClick={onLogout}
+              className="px-3 py-1.5 border border-[#334455] text-[#8899aa] hover:text-white
+                rounded-lg font-mono text-xs transition-colors">
+              ESCI
+            </button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -324,6 +335,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
           </div>
         )}
       </div>
+
+      {/* Gestore libreria carte */}
+      {showLibrary && (
+        <CardLibraryManager onClose={() => setShowLibrary(false)} />
+      )}
     </div>
   );
 }
