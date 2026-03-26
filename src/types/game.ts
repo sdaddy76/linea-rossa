@@ -51,11 +51,70 @@ export interface GameState {
   stabilita_russia: number;
   stabilita_cina: number;
   stabilita_europa: number;
-  // Tracciati militari (usati dal mercato risorse)
-  forze_militari_iran: number;        // 1-10: capacità militare Iran (IRGC)
-  forze_militari_coalizione: number;  // 1-10: capacità militare Coalizione
+  // Tracciati militari
+  forze_militari_iran: number;
+  forze_militari_coalizione: number;
+  forze_militari_russia: number;
+  forze_militari_cina: number;
+  forze_militari_europa: number;
+  // Pool unità disponibili (jsonb → oggetto)
+  units_iran:       Record<string, number>;
+  units_coalizione: Record<string, number>;
+  units_russia:     Record<string, number>;
+  units_cina:       Record<string, number>;
+  units_europa:     Record<string, number>;
+  // Capacità speciali
+  special_uses: {
+    veto_russia: number;       // usi rimanenti (max 3)
+    hormuz_iran: boolean;      // Stretto di Hormuz attivo
+    superiorita_aerea: boolean;
+  };
+  active_alliances: string[]; // es. ['Iran-Russia']
   active_faction: Faction;
   updated_at: string;
+}
+
+// Stato influenze e unità per territorio
+export interface TerritoryRecord {
+  id: string;
+  game_id: string;
+  territory: string;
+  inf_iran: number;
+  inf_coalizione: number;
+  inf_russia: number;
+  inf_cina: number;
+  inf_europa: number;
+  updated_at: string;
+}
+
+// Unità militare schierata
+export interface MilitaryUnitRecord {
+  id: string;
+  game_id: string;
+  faction: Faction;
+  territory: string;
+  unit_type: string;
+  quantity: number;
+  updated_at: string;
+}
+
+// Voce del log di combattimento
+export interface CombatLogRecord {
+  id: string;
+  game_id: string;
+  turn_number: number;
+  attacker: Faction;
+  defender: Faction;
+  territory: string;
+  unit_types_used: string[];
+  attack_force: number;
+  defense_force: number;
+  result: string;
+  inf_change_atk: number;
+  inf_change_def: number;
+  defcon_change: number;
+  description?: string;
+  created_at: string;
 }
 
 // Profilo utente

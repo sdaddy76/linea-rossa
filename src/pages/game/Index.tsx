@@ -2,13 +2,18 @@
 // LINEA ROSSA — Pagina di Gioco Online
 // Layout: plancia completa in alto, azioni in basso
 // =============================================
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useOnlineGameStore } from '@/store/onlineGameStore';
 import type { Faction, GameState } from '@/types/game';
 import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } from '@/data/mazzi';
 import type { GameCard } from '@/types/game';
 import MilitaryMarket from '@/components/MilitaryMarket';
 import { calcolaCosto, getForzeMilitari } from '@/lib/militaryMarket';
+import TerritoryMap from '@/components/TerritoryMap';
+import CombatPanel from '@/components/CombatPanel';
+import type { TerritoryState } from '@/components/TerritoryMap';
+import type { TerritoryId, UnitType } from '@/lib/territoriesData';
+import type { CombatOutcome } from '@/lib/combatEngine';
 
 // ─── Colori fazione ───────────────────────────
 const FACTION_FLAGS: Record<string, string> = {
@@ -234,13 +239,53 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     game, gameState, players, myFaction, moves, deckCards,
     loading, isBotThinking, error, gameOverInfo, notification,
     playCard, startGame, clearError, setNotification, buyMilitaryResources,
+    loadTerritories, deployUnit, attackTerritory,
+    territories: terrRecords, militaryUnits: unitRecords,
   } = useOnlineGameStore();
 
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [showHand, setShowHand] = useState(true);
   const [prevState, setPrevState] = useState<GameState | null>(null);
-  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni'>('plancia');
+  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'mappa'>('plancia');
   const [showMarket, setShowMarket] = useState(false);
+  const [showCombat, setShowCombat] = useState(false);
+  const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
+
+  // Carica territori e unità a inizio partita
+  useEffect(() => {
+    if (game?.id) loadTerritories();
+  }, [game?.id]);
+
+  // Converti recordset DB → struttura TerritoryState per TerritoryMap
+  const territoryState = useMemo<TerritoryState>(() => {
+    const state: TerritoryState = {};
+    for (const t of terrRecords) {
+      state[t.territory] = {
+        influences: {
+          Iran: t.inf_iran,
+          Coalizione: t.inf_coalizione,
+          Russia: t.inf_russia,
+          Cina: t.inf_cina,
+          Europa: t.inf_europa,
+        } as Record<Faction, number>,
+        units: {},
+      };
+    }
+    for (const u of unitRecords) {
+      if (!state[u.territory]) state[u.territory] = { influences: {}, units: {} };
+      if (!state[u.territory].units![u.faction as Faction])
+        state[u.territory].units![u.faction as Faction] = {};
+      (state[u.territory].units![u.faction as Faction] as Record<string, number>)[u.unit_type] = u.quantity;
+    }
+    return state;
+  }, [terrRecords, unitRecords]);
+
+  // Pool unità personale
+  const myUnitsPool = useMemo<Partial<Record<UnitType, number>>>(() => {
+    if (!gameState || !myFaction) return {};
+    const key = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
+    return (gameState[key] as Record<string, number>) ?? {};
+  }, [gameState, myFaction]);
 
   // Traccia lo stato precedente per mostrare i delta
   useEffect(() => {
@@ -417,15 +462,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           {/* ═══ PLANCIA TRACCIATI ═══ */}
           <div>
             {/* Tab plancia / fazioni */}
-            <div className="flex items-center gap-2 mb-2">
-              {(['plancia', 'fazioni'] as const).map(t => (
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              {(['plancia', 'fazioni', 'mappa'] as const).map(t => (
                 <button key={t} onClick={() => setActiveTab(t)}
                   className={`px-3 py-1 rounded font-mono text-xs font-bold transition-all ${
                     activeTab === t
                       ? 'bg-[#00ff88] text-[#0a0e1a]'
                       : 'border border-[#1e3a5f] text-[#8899aa] hover:text-white'
                   }`}>
-                  {t === 'plancia' ? '📊 PLANCIA TRACCIATI' : '🎭 FAZIONI & RISORSE'}
+                  {t === 'plancia' ? '📊 PLANCIA TRACCIATI' : t === 'fazioni' ? '🎭 FAZIONI & RISORSE' : '🗺 TEATRO OPERATIVO'}
                 </button>
               ))}
             </div>
@@ -516,6 +561,66 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                     })}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* TAB: MAPPA / TEATRO OPERATIVO */}
+            {activeTab === 'mappa' && (
+              <div className="flex flex-col gap-3">
+                <TerritoryMap
+                  territories={territoryState}
+                  myFaction={myFaction}
+                  isMyTurn={isMyTurn}
+                  selectedTerritory={selectedTerritory}
+                  attackMode={showCombat}
+                  onSelectTerritory={id => {
+                    setSelectedTerritory(id);
+                    if (!showCombat) setShowCombat(true);
+                  }}
+                />
+
+                {/* Pulsante apri pannello combattimento */}
+                {isMyTurn && !showCombat && (
+                  <button
+                    onClick={() => setShowCombat(true)}
+                    className="w-full py-2.5 bg-[#7f1d1d] hover:bg-[#dc2626]
+                      text-white font-mono font-bold rounded-lg text-sm transition-all
+                      border border-[#dc2626] shadow-lg shadow-[#dc262630]">
+                    ⚔️ APRI PANNELLO OPERAZIONI MILITARI
+                  </button>
+                )}
+
+                {/* Pannello combattimento inline */}
+                {showCombat && myFaction && gameState && (
+                  <div className="bg-[#0a0e1a] border border-[#7f1d1d] rounded-xl p-4">
+                    <CombatPanel
+                      myFaction={myFaction}
+                      gameState={gameState}
+                      territories={territoryState}
+                      myUnitsPool={myUnitsPool}
+                      onDeploy={async (territory, unitType, qty) => {
+                        await deployUnit(territory, unitType, qty);
+                      }}
+                      onAttack={async ({ territory, defender, unitsUsed, outcome }) => {
+                        await attackTerritory({
+                          territory,
+                          defender,
+                          unitsUsed,
+                          attackForce: outcome.attackForce,
+                          defenseForce: outcome.defenseForce,
+                          result: outcome.result,
+                          infChangeAtk: outcome.infChangeAttacker,
+                          infChangeDef: outcome.infChangeDefender,
+                          defconChange: outcome.defconChange,
+                          attackerUnitsLost: outcome.attackerUnitsLost,
+                          stabilityChange: outcome.stabilityChange,
+                          description: outcome.description,
+                        });
+                      }}
+                      onClose={() => setShowCombat(false)}
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>

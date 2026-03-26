@@ -48,6 +48,31 @@ interface OnlineGameStore {
    * @param costoOpTotale  carte OP totali da spendere (calcolate dal client con calcolaCosto)
    */
   buyMilitaryResources: (quantita: number, costoOpTotale: number) => Promise<void>;
+
+  // ── Operazioni militari ──
+  /** Carica territori e unità per la partita corrente */
+  loadTerritories: () => Promise<void>;
+  /** Schiera unità in un territorio (costa PO) */
+  deployUnit: (territory: string, unitType: string, qty: number) => Promise<void>;
+  /** Attacca un territorio: applica l'esito del combattimento */
+  attackTerritory: (params: {
+    territory: string;
+    defender: import('@/types/game').Faction;
+    unitsUsed: string[];
+    attackForce: number;
+    defenseForce: number;
+    result: string;
+    infChangeAtk: number;
+    infChangeDef: number;
+    defconChange: number;
+    attackerUnitsLost: number;
+    stabilityChange: number;
+    description: string;
+  }) => Promise<void>;
+
+  territories: import('@/types/game').TerritoryRecord[];
+  militaryUnits: import('@/types/game').MilitaryUnitRecord[];
+  combatLog: import('@/types/game').CombatLogRecord[];
 }
 
 export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
@@ -64,6 +89,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   isBotThinking: false,
   gameOverInfo: null,
   notification: null,
+  territories: [],
+  militaryUnits: [],
+  combatLog: [],
 
   // -----------------------------------------------
   initAuth: async () => {
@@ -544,6 +572,182 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Errore acquisto', loading: false });
+    }
+  },
+
+  // ── Carica territori e unità ────────────────────────────────────────────────
+  loadTerritories: async () => {
+    const { game } = get();
+    if (!game) return;
+    const [{ data: terr }, { data: units }, { data: clog }] = await Promise.all([
+      supabase.from('territories').select('*').eq('game_id', game.id),
+      supabase.from('military_units').select('*').eq('game_id', game.id),
+      supabase.from('combat_log').select('*').eq('game_id', game.id).order('created_at', { ascending: false }).limit(20),
+    ]);
+    set({
+      territories:  terr  ?? [],
+      militaryUnits: units ?? [],
+      combatLog:    clog  ?? [],
+    });
+  },
+
+  // ── Schiera unità in un territorio ─────────────────────────────────────────
+  deployUnit: async (territory, unitType, qty) => {
+    const { game, gameState, myFaction } = get();
+    if (!game || !gameState || !myFaction) return;
+    set({ loading: true });
+    try {
+      const unitsKey = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
+      const pool = (gameState[unitsKey] as Record<string, number>) ?? {};
+      const available = pool[unitType] ?? 0;
+      if (available < qty) throw new Error(`Unità insufficienti: hai ${available} ${unitType}`);
+
+      // Aggiorna pool (riduci disponibili)
+      const newPool = { ...pool, [unitType]: available - qty };
+
+      // Upsert unità nel territorio
+      await Promise.all([
+        supabase.from('military_units').upsert({
+          game_id: game.id,
+          faction: myFaction,
+          territory,
+          unit_type: unitType,
+          quantity: qty,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'game_id,faction,territory,unit_type', ignoreDuplicates: false }),
+
+        supabase.from('game_state').update({
+          [unitsKey]: newPool,
+        }).eq('game_id', game.id),
+      ]);
+
+      // Aggiorna stato locale
+      const updatedGameState = { ...gameState, [unitsKey]: newPool } as typeof gameState;
+      const prevUnits = get().militaryUnits;
+      const existing = prevUnits.find(u => u.game_id === game.id && u.faction === myFaction && u.territory === territory && u.unit_type === unitType);
+      const newUnits = existing
+        ? prevUnits.map(u => u === existing ? { ...u, quantity: u.quantity + qty } : u)
+        : [...prevUnits, { id: crypto.randomUUID(), game_id: game.id, faction: myFaction, territory, unit_type: unitType, quantity: qty, updated_at: new Date().toISOString() }];
+
+      set({ gameState: updatedGameState, militaryUnits: newUnits, loading: false,
+        notification: `🪖 ${myFaction}: ${qty}× ${unitType} schierato/i in ${territory}` });
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : 'Errore schieramento', loading: false });
+    }
+  },
+
+  // ── Attacca territorio ───────────────────────────────────────────────────────
+  attackTerritory: async (params) => {
+    const { game, gameState, myFaction, players } = get();
+    if (!game || !gameState || !myFaction) return;
+    set({ loading: true });
+    try {
+      const {
+        territory, defender, unitsUsed,
+        attackForce, defenseForce, result,
+        infChangeAtk, infChangeDef, defconChange,
+        attackerUnitsLost, stabilityChange, description,
+      } = params;
+
+      // 1. Aggiorna influenze nel territorio
+      const terrRecords = get().territories;
+      const terrRec = terrRecords.find(t => t.game_id === game.id && t.territory === territory);
+      const infKey   = `inf_${myFaction.toLowerCase()}`;
+      const defKey   = `inf_${defender.toLowerCase()}`;
+      const curAtk = terrRec ? ((terrRec as unknown) as Record<string, number>)[infKey] ?? 0 : 0;
+      const curDef = terrRec ? ((terrRec as unknown) as Record<string, number>)[defKey] ?? 0 : 0;
+      const newAtk  = Math.min(5, Math.max(0, curAtk + infChangeAtk));
+      const newDef  = Math.min(5, Math.max(0, curDef + infChangeDef));
+
+      await supabase.from('territories').upsert({
+        game_id: game.id,
+        territory,
+        ...(terrRec ?? {}),
+        [infKey]: newAtk,
+        [defKey]: newDef,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'game_id,territory' });
+
+      // 2. Aggiorna DEFCON e stabilità interna
+      const newDefcon   = Math.max(1, gameState.defcon + defconChange);
+      const stabKey     = `stabilita_${myFaction.toLowerCase()}` as keyof typeof gameState;
+      const newStab     = Math.max(1, ((gameState[stabKey] as number) ?? 5) + stabilityChange);
+
+      // 3. Pool unità: sottrai unità perse
+      const unitsKey = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
+      const pool = { ...((gameState[unitsKey] as Record<string, number>) ?? {}) };
+      for (let i = 0; i < attackerUnitsLost && unitsUsed.length > 0; i++) {
+        const ut = unitsUsed[i % unitsUsed.length];
+        pool[ut] = Math.max(0, (pool[ut] ?? 0) - 1);
+      }
+
+      await supabase.from('game_state').update({
+        defcon: newDefcon,
+        [stabKey]: newStab,
+        [unitsKey]: pool,
+      }).eq('game_id', game.id);
+
+      // 4. Scrivi combat_log
+      const logEntry = {
+        game_id: game.id,
+        turn_number: game.current_turn,
+        attacker: myFaction,
+        defender,
+        territory,
+        unit_types_used: unitsUsed,
+        attack_force: attackForce,
+        defense_force: defenseForce,
+        result,
+        inf_change_atk: infChangeAtk,
+        inf_change_def: infChangeDef,
+        defcon_change: defconChange,
+        description,
+      };
+      await supabase.from('combat_log').insert(logEntry);
+
+      // 5. Aggiorna stato locale
+      const updatedGs = {
+        ...gameState,
+        defcon: newDefcon,
+        [stabKey]: newStab,
+        [unitsKey]: pool,
+      } as typeof gameState;
+
+      const updTerr = terrRecords.map(t =>
+        t.game_id === game.id && t.territory === territory
+          ? { ...t, [infKey]: newAtk, [defKey]: newDef }
+          : t
+      );
+      if (!terrRec) {
+        updTerr.push({
+          id: crypto.randomUUID(), game_id: game.id, territory,
+          inf_iran: 0, inf_coalizione: 0, inf_russia: 0, inf_cina: 0, inf_europa: 0,
+          [infKey]: newAtk, [defKey]: newDef,
+          updated_at: new Date().toISOString(),
+        } as import('@/types/game').TerritoryRecord);
+      }
+
+      set({
+        gameState: updatedGs,
+        territories: updTerr,
+        combatLog: [{ ...logEntry, id: crypto.randomUUID(), created_at: new Date().toISOString() } as import('@/types/game').CombatLogRecord, ...get().combatLog].slice(0, 20),
+        loading: false,
+        notification: `⚔️ ${result.toUpperCase().replace('_', ' ')}: ${myFaction} attacca ${territory} — ${description}`,
+      });
+
+      // Controlla DEFCON 1
+      if (newDefcon <= 1) {
+        set({ gameOverInfo: { winner: null, condition: 'defcon', message: '☢️ GUERRA TERMONUCLEARE — tutti perdono!' } });
+      }
+
+      // Passa turno al bot se necessario
+      const nextFact = nextFaction(myFaction);
+      const nextPlayer = players.find(p => p.faction === nextFact);
+      if (nextPlayer?.is_bot) {
+        setTimeout(() => get().runBotTurn(), 2000);
+      }
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : 'Errore combattimento', loading: false });
     }
   },
 }));
