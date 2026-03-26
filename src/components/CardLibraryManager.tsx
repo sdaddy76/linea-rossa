@@ -164,7 +164,30 @@ function downloadTemplate() {
   wsGuide['!cols'] = [{ wch: 22 }, { wch: 60 }, { wch: 40 }];
   XLSX.utils.book_append_sheet(wb, wsGuide, 'Guida');
 
-  XLSX.writeFile(wb, 'Template_Carte_LineaRossa.xlsx');
+  // Genera il file come Blob e apre in nuova scheda
+  // (evita il blocco sandbox iframe che impedisce download diretti)
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  const blob = new Blob([wbout], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
+  const url = URL.createObjectURL(blob);
+
+  // Prova prima il download diretto, fallback su nuova scheda
+  try {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Template_Carte_LineaRossa.xlsx';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch {
+    // Fallback: apri in nuova scheda (funziona anche da iframe)
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  // Revoca URL dopo 60s
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 // ─── COMPONENTE PRINCIPALE ────────────────────
@@ -389,7 +412,8 @@ export default function CardLibraryManager({ onClose }: Props) {
                     className="flex items-center gap-2 px-4 py-2 border border-[#1e3a5f]
                       hover:border-[#00ff88] text-[#8899aa] hover:text-[#00ff88]
                       font-mono text-xs rounded-lg transition-colors">
-                    ⬇️ Scarica Template Excel
+                    ⬇️ Template Excel
+                    <span className="text-[10px] opacity-60">(↗ nuova scheda)</span>
                   </button>
                   {existingCount !== null && existingCount > 0 && (
                     <button onClick={handleDeleteAll}
