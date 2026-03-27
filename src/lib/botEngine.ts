@@ -91,7 +91,21 @@ export function evaluateCondition(condition: string, state: GameState, faction: 
         k.includes('coesione')  || k.includes('deterrenza') ||
         k.includes('intelligence'))                          return state[stabKey] as number;
     if (k.includes('cyber'))                                 return state.risorse_cina;
-    if (k.includes('energia'))                               return state.risorse_russia;
+    // Nuovi tracciati v2
+    if (k.includes('influenza mil') || k.includes('influenza militare')) return state.risorse_russia;
+    if (k.includes('energia') || k.includes('energia/risorse'))          return state.risorse_russia;
+    if (k.includes('stabilità eco') || k.includes('stabilita eco'))      return state.stabilita_russia;
+    if (k.includes('potenza eco') || k.includes('potenza economica'))    return state.risorse_cina;
+    if (k.includes('influenza com') || k.includes('influenza commerciale')) return state.stabilita_cina;
+    if (k.includes('supporto pub') || k.includes('supporto pubblico'))   return state.stabilita_coalizione;
+    if (k.includes('risorse mil') || k.includes('risorse militari'))     return state.risorse_coalizione;
+    if (k.includes('influenza dip') || k.includes('influenza diplomatica')) {
+      if (faction === 'Europa')      return state.stabilita_europa;
+      if (faction === 'Coalizione')  return state.stabilita_coalizione;
+      return state[stabKey] as number;
+    }
+    if (k.includes('coesione'))                              return state.stabilita_europa;
+    if (k.includes('stabilità energ') || k.includes('stabilita energ')) return state.risorse_europa;
     if (k.includes('potenza'))                               return state.risorse_cina;
     return null;
   };
