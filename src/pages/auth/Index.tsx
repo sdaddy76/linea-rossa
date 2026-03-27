@@ -18,6 +18,7 @@ export default function AuthPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -55,7 +56,7 @@ export default function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(''); setMessage(''); setLoading(true);
+    setError(''); setMessage(''); setLoading(true); setDebugInfo('');
 
     try {
       // ── REGISTRAZIONE ────────────────────────────────────────────────
@@ -73,6 +74,7 @@ export default function AuthPage() {
 
       // ── LOGIN ─────────────────────────────────────────────────────────
       } else if (mode === 'login') {
+        setDebugInfo('Contattando Supabase...');
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
 
@@ -349,6 +351,16 @@ export default function AuthPage() {
                 {message}
               </div>
             )}
+
+            {/* Debug info */}
+            {debugInfo && (
+              <div className="text-xs font-mono text-[#4488cc] bg-[#0a1628] border border-[#1e3a5f] rounded p-2">
+                ℹ️ {debugInfo}
+              </div>
+            )}
+            <div className="text-xs font-mono text-[#2a4060] text-center">
+              URL: {import.meta.env.VITE_SUPABASE_URL?.slice(0,40) || '❌ NON CONFIGURATO'}
+            </div>
 
             {/* Reinvia email conferma — visibile solo se errore email non confermata */}
             {mode === 'login' && error.includes('confermare') && (
