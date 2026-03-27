@@ -54,6 +54,17 @@ export async function loadBotCardsForFaction(faction: Faction): Promise<BotCard[
   return data as BotCard[];
 }
 
+// ─── Carica le 40 carte neutrali (fallback globale, faction='Neutrale') ──
+export async function loadNeutralBotCards(): Promise<BotCard[]> {
+  const { data, error } = await (supabase as any)
+    .from('bot_cards')
+    .select('*')
+    .eq('faction', 'Neutrale')
+    .order('id', { ascending: true });
+  if (error || !data) return [];
+  return data as BotCard[];
+}
+
 // ─── Valuta una condizione testuale rispetto allo stato corrente ─────────
 // Operatori supportati: ≤ ≥ < > = | congiunzione "e"
 export function evaluateCondition(condition: string, state: GameState, faction: Faction): boolean {
@@ -132,56 +143,71 @@ export function evaluateCondition(condition: string, state: GameState, faction: 
 }
 
 // ─── LOGICA PRINCIPALE BOT ───────────────────────────────────────────────
-// 1. Scorre i mazzi in ordine di priorità (1→2→3)
+// 1. Scorre i mazzi fazione in ordine di priorità (1→2→3)
 // 2. Per ciascun mazzo controlla deck_condition → se vera, pesca una carta random
 // 3. Sulla carta pescata valuta card_condition → se vera usa priority_1, altrimenti priority_2
+// 4. Se NESSUN mazzo fazione è attivo → FALLBACK al Mazzo Neutrale (40 carte globali)
+//    Le carte neutrali usano solo DEFCON, Opinione, Sanzioni, Nucleare come condizioni.
 export async function botSelectFromBotCards(
   state: GameState,
   faction: Faction,
   difficulty: BotDifficulty = 'normal'
 ): Promise<BotCardDecision | null> {
   const allCards = await loadBotCardsForFaction(faction);
-  if (allCards.length === 0) return null;
 
-  // Raggruppa per priorità mazzo, ordinate 1→2→3
-  const deckPriorities = [...new Set(allCards.map((c) => c.deck_priority))].sort((a, b) => a - b);
-
-  for (const priority of deckPriorities) {
-    const deckCards = allCards.filter((c) => c.deck_priority === priority);
-    if (deckCards.length === 0) continue;
-
-    // Controlla condizione del mazzo (uguale per tutte le carte dello stesso mazzo)
-    const deckCondition = deckCards[0].deck_condition;
-    if (!evaluateCondition(deckCondition, state, faction)) continue;
-
-    // Mazzo selezionato → pesca una carta casuale
-    // easy: qualsiasi, normal: bias verso prime, hard: deterministica
-    let chosen: BotCard;
+  // ── Funzione helper: pesca una carta da un pool ────────────────────────
+  const pickCard = (pool: BotCard[]): BotCard => {
     if (difficulty === 'easy') {
-      chosen = deckCards[Math.floor(Math.random() * deckCards.length)];
+      return pool[Math.floor(Math.random() * pool.length)];
     } else if (difficulty === 'normal') {
-      // 70% prima metà (carte più "urgenti"), 30% seconda metà
-      const half = Math.ceil(deckCards.length / 2);
-      const pool = Math.random() < 0.7
-        ? deckCards.slice(0, half)
-        : deckCards.slice(half);
-      chosen = pool[Math.floor(Math.random() * pool.length)];
+      const half = Math.ceil(pool.length / 2);
+      const src  = Math.random() < 0.7 ? pool.slice(0, half) : pool.slice(half);
+      return src[Math.floor(Math.random() * src.length)];
     } else {
-      // hard: random puro (ogni carta ha peso uguale)
-      chosen = deckCards[Math.floor(Math.random() * deckCards.length)];
+      return pool[Math.floor(Math.random() * pool.length)];
     }
+  };
 
-    // Valuta condizione carta → sceglie P1 o P2
+  // ── Funzione helper: costruisce il risultato finale ────────────────────
+  const buildDecision = (chosen: BotCard, deckUsed: number): BotCardDecision => {
     const cardConditionMet = evaluateCondition(chosen.card_condition, state, faction);
     const actionChosen: 'priority_1' | 'priority_2' = cardConditionMet ? 'priority_1' : 'priority_2';
     const actionText = cardConditionMet
       ? chosen.priority_1
-      : (chosen.priority_2 ?? chosen.priority_1); // fallback su P1 se P2 mancante
+      : (chosen.priority_2 ?? chosen.priority_1);
+    return { card: chosen, actionChosen, actionText, deckUsed, cardConditionMet };
+  };
 
-    return { card: chosen, actionChosen, actionText, deckUsed: priority, cardConditionMet };
+  // ── Scansione mazzi fazione (1→2→3) ───────────────────────────────────
+  if (allCards.length > 0) {
+    const deckPriorities = [...new Set(allCards.map((c) => c.deck_priority))].sort((a, b) => a - b);
+
+    for (const priority of deckPriorities) {
+      const deckCards = allCards.filter((c) => c.deck_priority === priority);
+      if (deckCards.length === 0) continue;
+
+      const deckCondition = deckCards[0].deck_condition;
+      if (!evaluateCondition(deckCondition, state, faction)) continue;
+
+      // Mazzo fazione attivo → pesca e decidi
+      return buildDecision(pickCard(deckCards), priority);
+    }
   }
 
-  return null; // nessun mazzo con condizione soddisfatta
+  // ── FALLBACK: nessun mazzo fazione attivo → Mazzo Neutrale ────────────
+  const neutralCards = await loadNeutralBotCards();
+  if (neutralCards.length === 0) return null;
+
+  // Filtra le carte neutrali la cui condizione è soddisfatta dallo stato corrente
+  const eligibleNeutral = neutralCards.filter(
+    (c) => evaluateCondition(c.card_condition, state, faction)
+  );
+
+  // Se ci sono carte eligibili usa quelle, altrimenti usa qualsiasi
+  const neutralPool = eligibleNeutral.length > 0 ? eligibleNeutral : neutralCards;
+  const chosen = neutralPool[Math.floor(Math.random() * neutralPool.length)];
+
+  return buildDecision(chosen, 0); // deckUsed = 0 → mazzo neutrale
 }
 
 export interface BotDecision {

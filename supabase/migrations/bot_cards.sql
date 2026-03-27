@@ -1,9 +1,14 @@
 
 -- =============================================
--- LINEA ROSSA — Carte BOT (v2)
+-- LINEA ROSSA — Carte BOT (v4)
 -- Struttura: selezione mazzo per priorità →
 --            pesca casuale → condizione carta →
 --            applica Azione P1 o P2
+--
+-- FALLBACK: fazione 'Neutrale', deck_priority 0
+--   Attivato quando NESSUN mazzo fazione è attivo.
+--   Condizioni usano solo variabili globali:
+--   DEFCON, Opinione, Sanzioni, Nucleare.
 -- =============================================
 
 -- Rimuovi vecchia tabella se presente
@@ -15,7 +20,8 @@ CREATE TABLE public.bot_cards (
   faction        TEXT NOT NULL,             -- Iran | Coalizione Occidentale (USA) | ...
   
   -- Selezione mazzo
-  deck_priority  INT  NOT NULL,             -- 1=prima scelta, 2=seconda, 3=fallback
+  deck_priority  INT  NOT NULL,             -- 1=prima scelta, 2=seconda, 3=fallback fazione
+                                             -- 0=mazzo neutrale (fallback globale)
   deck_name      TEXT NOT NULL,             -- es. Tecnologia Nucleare
   deck_condition TEXT NOT NULL,             -- es. "Nucleare ≤ 10"
   
