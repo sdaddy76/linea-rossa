@@ -26,18 +26,39 @@ function AppRouter() {
   useEffect(() => {
     initAuth();
 
-    // Gestione redirect da conferma email:
-    // Supabase inserisce i token nell'hash (#access_token=...) o come query param
-    // Il client con detectSessionInUrl:true li gestisce automaticamente,
-    // ma dobbiamo ascoltare l'evento per navigare alla lobby
+    // ── Parsing manuale dei token dall'URL ──────────────────────────────────
+    // detectSessionInUrl è disabilitato per evitare AbortError su SPA.
+    // Gestiamo qui i redirect da conferma email e reset password.
+    const hash = window.location.hash;
+    const search = window.location.search;
+    const raw = hash.startsWith('#') ? hash.slice(1) : search.startsWith('?') ? search.slice(1) : '';
+    const params = new URLSearchParams(raw);
+    const accessToken = params.get('access_token');
+    const refreshToken = params.get('refresh_token');
+    const type = params.get('type'); // 'signup' | 'recovery' | 'magiclink'
+
+    if (accessToken && refreshToken) {
+      // Imposta la sessione manualmente dal token nell'URL
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        .then(({ data, error }) => {
+          if (!error && data.session) {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            if (type === 'recovery') {
+              setView('auth'); // tornerà alla pagina auth in modalità new-password
+            } else {
+              setView('lobby');
+            }
+          }
+        })
+        .catch(() => { /* ignora */ });
+    }
+
+    // Ascolta cambi di stato auth (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        // Se l'utente arriva dalla conferma email, portalo alla lobby
-        const hash = window.location.hash;
-        if (hash.includes('access_token') || hash.includes('type=signup')) {
-          // Pulisci l'URL
+        // Pulisci l'URL se ancora sporco
+        if (window.location.hash.includes('access_token')) {
           window.history.replaceState({}, document.title, window.location.pathname);
-          setView('lobby');
         }
       }
     });

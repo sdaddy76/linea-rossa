@@ -95,19 +95,32 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   // -----------------------------------------------
   initAuth: async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      set({ session });
-      const { data: profile } = await supabase
-        .from('profiles').select('*').eq('id', session.user.id).single();
-      if (profile) set({ profile: profile as Profile });
-    }
-    supabase.auth.onAuthStateChange(async (_event, session) => {
-      set({ session });
+    // Recupera sessione esistente — ignora AbortError (bug noto Supabase JS v2 su SPA)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        set({ session });
         const { data: profile } = await supabase
           .from('profiles').select('*').eq('id', session.user.id).single();
         if (profile) set({ profile: profile as Profile });
+      }
+    } catch (e: unknown) {
+      // AbortError o errori di rete non bloccano il flusso
+      if (e instanceof Error && e.name !== 'AbortError') {
+        console.warn('[initAuth] errore getSession:', e.message);
+      }
+    }
+
+    supabase.auth.onAuthStateChange(async (_event, session) => {
+      set({ session });
+      if (session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles').select('*').eq('id', session.user.id).single();
+          if (profile) set({ profile: profile as Profile });
+        } catch {
+          // ignora errori di profilo transitori
+        }
       } else {
         set({ profile: null, game: null, gameState: null, players: [] });
       }

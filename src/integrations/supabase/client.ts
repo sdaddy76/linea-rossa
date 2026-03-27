@@ -5,9 +5,12 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-a
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    detectSessionInUrl: true,
+    // Non tentare di estrarre session dall'URL automaticamente:
+    // lo gestiamo manualmente nella pagina auth per evitare AbortError
+    detectSessionInUrl: false,
     persistSession: true,
-    // implicit è più stabile per app SPA senza server OAuth dedicato
     flowType: 'implicit',
+    // Disabilita il refresh automatico che può generare AbortError su SPA
+    autoRefreshToken: true,
   },
 })
