@@ -1,29 +1,21 @@
 // =============================================
-// LINEA ROSSA — Mappa Tattica con Plancia Realistica
-// Sfondo: plancia_map.png | Overlay: aree cliccabili + cubi influenza
-// ViewBox: 1920 x 1071  (coordinate calibrate sull'immagine originale)
+// LINEA ROSSA — TerritoryMap con plancia realistica
+// ViewBox 1920×1071 | Poligoni calibrati su griglia pixel
+// Cubi influenza grandi al centroide di ogni stato
 // =============================================
 
 import { useState } from 'react';
 import type { Faction } from '@/types/game';
-import { UNITS } from '@/lib/territoriesData';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import { getController } from '@/lib/combatEngine';
 
-// ── Colori fazione ─────────────────────────────────────────────────────────
 const FC: Record<Faction, string> = {
-  Iran:       '#ef4444',
-  Coalizione: '#3b82f6',
-  Russia:     '#a855f7',
-  Cina:       '#f59e0b',
-  Europa:     '#10b981',
+  Iran: '#ef4444', Coalizione: '#3b82f6', Russia: '#a855f7',
+  Cina: '#f59e0b', Europa: '#10b981',
 };
 const FC_BG: Record<Faction, string> = {
-  Iran:       '#ef444438',
-  Coalizione: '#3b82f638',
-  Russia:     '#a855f738',
-  Cina:       '#f59e0b38',
-  Europa:     '#10b98138',
+  Iran: '#ef444435', Coalizione: '#3b82f635', Russia: '#a855f735',
+  Cina: '#f59e0b35', Europa: '#10b98135',
 };
 const FACTIONS: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
 
@@ -43,16 +35,19 @@ interface Props {
   attackMode?: boolean;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Definizione territori — coordinate calibrate su immagine 1920×1071
-// points:      poligono SVG cliccabile sovrapposto al territorio
-// cubeAnchor:  punto di ancoraggio dove disegnare i cubi influenza
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
+const p = (arr: [number, number][]) => arr.map(([x, y]) => `${x},${y}`).join(' ');
+const cx = (arr: [number, number][]) => Math.round(arr.reduce((s, v) => s + v[0], 0) / arr.length);
+const cy = (arr: [number, number][]) => Math.round(arr.reduce((s, v) => s + v[1], 0) / arr.length);
+
+// ── Definizione territori ─────────────────────────────────────────────────
+// Coordinate su immagine 1920×1071 — poligoni non sovrapposti
+// cubeAnchor = centroide matematico del poligono
 
 interface TerrDef {
   id: TerritoryId;
   label: string;
-  points: string;          // SVG polygon points
+  pts: [number, number][];
   cubeAnchor: [number, number];
   initialCubes: number;
   pvPerRound: number;
@@ -61,114 +56,124 @@ interface TerrDef {
   isNaval?: boolean;
 }
 
-const pts = (arr: [number,number][]): string => arr.map(([x,y]) => `${x},${y}`).join(' ');
+const makeTerr = (
+  id: TerritoryId, label: string,
+  pts: [number,number][],
+  initialCubes: number, pvPerRound: number,
+  type: 'casa'|'strategico'|'normale',
+  extra?: { homeFaction?: Faction; isNaval?: boolean }
+): TerrDef => ({
+  id, label, pts,
+  cubeAnchor: [cx(pts), cy(pts)],
+  initialCubes, pvPerRound, type,
+  ...extra,
+});
 
 const TERR_DEF: TerrDef[] = [
-  {
-    id: 'Turchia', label: 'TURCHIA',
-    points: pts([[62,95],[395,70],[655,76],[800,100],[818,128],[800,200],[718,225],[510,242],[300,246],[115,206],[52,128]]),
-    cubeAnchor: [115, 162], initialCubes: 4, pvPerRound: 1, type: 'normale',
-  },
-  {
-    id: 'Siria', label: 'SIRIA',
-    points: pts([[530,242],[800,200],[835,172],[848,260],[845,302],[828,375],[758,394],[612,345],[535,265]]),
-    cubeAnchor: [650, 260], initialCubes: 2, pvPerRound: 1, type: 'normale',
-  },
-  {
-    id: 'Libano', label: 'LIBANO',
-    points: pts([[462,252],[528,252],[535,265],[520,282],[472,296],[448,270]]),
-    cubeAnchor: [410, 295], initialCubes: 2, pvPerRound: 1, type: 'normale',
-  },
-  {
-    id: 'Israele', label: 'ISRAELE',
-    points: pts([[430,252],[462,252],[528,312],[525,342],[505,425],[472,480],[438,490],[400,450],[402,305],[418,275]]),
-    cubeAnchor: [345, 350], initialCubes: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione',
-  },
-  {
-    id: 'Giordania', label: 'GIORDANIA',
-    points: pts([[528,252],[758,394],[730,428],[690,520],[632,545],[535,512],[402,450],[402,305],[528,312]]),
-    cubeAnchor: [568, 442], initialCubes: 2, pvPerRound: 1, type: 'normale',
-  },
-  {
-    id: 'Egitto', label: 'EGITTO',
-    points: pts([[35,268],[430,252],[418,275],[402,305],[402,450],[438,490],[415,515],[172,502],[35,452]]),
-    cubeAnchor: [82, 392], initialCubes: 4, pvPerRound: 1, type: 'normale',
-  },
-  {
-    id: 'Iraq', label: 'IRAQ',
-    points: pts([[800,200],[842,110],[922,108],[1010,138],[1075,232],[1075,272],[1055,342],[1010,380],[948,382],[862,345],[828,375],[758,394],[800,200]]),
-    cubeAnchor: [920, 262], initialCubes: 3, pvPerRound: 1, type: 'normale',
-  },
-  {
-    id: 'Iran', label: 'IRAN',
-    points: pts([[842,110],[1088,58],[1255,52],[1422,82],[1562,150],[1610,240],[1608,286],[1528,390],[1418,414],[1250,332],[1105,270],[1078,270],[1075,232],[1010,138],[922,108],[842,110]]),
-    cubeAnchor: [1242, 218], initialCubes: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Iran', isNaval: true,
-  },
-  {
-    id: 'Kuwait', label: 'KUWAIT',
-    points: pts([[1062,388],[1135,388],[1150,435],[1118,465],[1055,430],[1055,408]]),
-    cubeAnchor: [1042, 470], initialCubes: 2, pvPerRound: 1, type: 'normale',
-  },
-  {
-    id: 'ArabiaSaudita', label: 'ARABIA S.',
-    points: pts([
-      [402,450],[535,512],[632,545],[690,520],[730,428],[758,394],
-      [828,375],[862,345],[948,382],[1010,380],[1055,342],[1075,272],[1078,270],
-      [1105,270],[1150,435],[1118,465],[1055,430],[1155,475],[1145,502],
-      [1105,522],[1048,550],[988,562],[928,552],[868,525],[808,495],
-      [748,472],[688,470],[632,485],[578,510],[528,548],[494,595],
-      [470,680],[468,740],[482,792],[542,838],[624,832],[668,798],
-      [695,720],[688,664],[636,595],[558,555],[458,582],[438,675],
-      [440,730],[460,782],[522,828],
-    ]),
-    cubeAnchor: [708, 622], initialCubes: 4, pvPerRound: 1, type: 'normale', isNaval: true,
-  },
-  {
-    id: 'EmiratiArabi', label: 'UAE',
-    points: pts([[1278,492],[1390,462],[1495,482],[1542,548],[1510,578],[1428,565],[1345,510],[1298,488]]),
-    cubeAnchor: [1285, 590], initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true,
-  },
-  {
-    id: 'Oman', label: 'OMAN',
-    points: pts([[1352,468],[1495,482],[1542,548],[1580,672],[1515,762],[1425,752],[1340,655],[1335,595],[1365,492],[1352,468]]),
-    cubeAnchor: [1440, 772], initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true,
-  },
-  {
-    id: 'StrettoHormuz', label: 'HORMUZ',
-    points: pts([[1228,420],[1278,418],[1318,450],[1302,484],[1260,490],[1218,464]]),
-    cubeAnchor: [1168, 424], initialCubes: 0, pvPerRound: 2, type: 'strategico', isNaval: true,
-  },
-  {
-    id: 'Yemen', label: 'YEMEN',
-    points: pts([[655,692],[735,638],[832,618],[928,642],[978,682],[1005,768],[962,840],[880,860],[790,825],[712,756],[675,700]]),
-    cubeAnchor: [788, 814], initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true,
-  },
+  makeTerr('Turchia', 'TURCHIA',
+    [[68,82],[700,82],[700,238],[500,244],[285,248],[118,224],[68,185]],
+    4, 1, 'normale'),
+
+  makeTerr('Siria', 'SIRIA',
+    [[322,238],[700,238],[700,392],[322,392]],
+    2, 1, 'normale'),
+
+  makeTerr('Libano', 'LIBANO',
+    [[434,252],[505,248],[528,268],[518,285],[472,296],[448,272]],
+    2, 1, 'normale'),
+
+  makeTerr('Israele', 'ISRAELE',
+    [[398,252],[434,252],[525,392],[480,488],[412,478],[398,452]],
+    6, 3, 'casa', { homeFaction: 'Coalizione' }),
+
+  makeTerr('Giordania', 'GIORDANIA',
+    [[322,392],[840,392],[730,432],[718,468],[705,498],[688,522],
+     [658,540],[628,546],[596,542],[562,526],[530,510],[505,492],
+     [480,488],[525,392]],
+    2, 1, 'normale'),
+
+  makeTerr('Egitto', 'EGITTO',
+    [[35,268],[398,268],[398,452],[412,478],[415,510],
+     [285,532],[118,492],[40,458]],
+    4, 1, 'normale'),
+
+  makeTerr('Iraq', 'IRAQ',
+    [[700,82],[1075,82],[1075,392],[840,392],[700,392]],
+    3, 1, 'normale'),
+
+  makeTerr('Iran', 'IRAN',
+    [[1075,82],[1618,62],[1618,415],[1492,412],[1418,412],
+     [1342,392],[1278,355],[1222,312],[1165,282],[1105,270],[1075,270]],
+    6, 3, 'casa', { homeFaction: 'Iran', isNaval: true }),
+
+  makeTerr('Kuwait', 'KUWAIT',
+    [[1058,392],[1138,392],[1150,412],[1148,440],[1132,458],
+     [1108,462],[1085,458],[1062,445],[1055,425],[1055,405]],
+    2, 1, 'normale'),
+
+  makeTerr('ArabiaSaudita', 'ARABIA S.',
+    [[480,510],[530,510],[658,545],[840,392],[1058,405],
+     [1058,560],[978,560],[858,520],[758,478],[658,472],
+     [558,500],[468,562],[448,652],[448,748],[482,798],
+     [555,840],[645,822],[682,752],[672,658],[618,628],
+     [528,618],[455,645],[432,718],[452,792],[508,830],[555,840]],
+    4, 1, 'normale', { isNaval: true }),
+
+  makeTerr('EmiratiArabi', 'UAE',
+    [[1250,492],[1392,462],[1498,482],[1542,548],
+     [1508,578],[1425,565],[1345,510],[1295,490]],
+    2, 1, 'normale', { isNaval: true }),
+
+  makeTerr('Oman', 'OMAN',
+    [[1350,468],[1498,482],[1542,548],[1582,672],
+     [1518,762],[1428,752],[1338,652],[1332,595],[1365,515]],
+    2, 1, 'normale', { isNaval: true }),
+
+  makeTerr('StrettoHormuz', 'HORMUZ',
+    [[1225,418],[1278,415],[1320,448],[1315,472],
+     [1292,488],[1255,488],[1218,462],[1218,440]],
+    0, 2, 'strategico', { isNaval: true }),
+
+  makeTerr('Yemen', 'YEMEN',
+    [[652,692],[732,638],[835,618],[930,640],[978,685],
+     [1005,772],[960,842],[878,862],[788,825],[712,755],[672,700]],
+    2, 1, 'normale', { isNaval: true }),
 ];
 
-// ── Griglia cubi influenza ─────────────────────────────────────────────────
+// ── Griglia cubi influenza grande al centroide ────────────────────────────
 function CubeGrid({ initialCubes, influences, anchor }: {
   initialCubes: number;
   influences: Partial<Record<Faction, number>>;
   anchor: [number, number];
 }) {
-  const C = 14; const G = 3; const PER_ROW = 3;
+  const C = 18; const G = 4; const PER_ROW = 3;
   const slots: Array<Faction | null> = [];
   for (const f of FACTIONS) for (let i = 0; i < (influences[f] ?? 0); i++) slots.push(f);
   const empty = Math.max(0, initialCubes - slots.length);
   for (let i = 0; i < empty; i++) slots.push(null);
   if (slots.length === 0) return null;
 
+  // Centra la griglia sull'anchor
+  const cols = Math.min(slots.length, PER_ROW);
+  const rows = Math.ceil(slots.length / PER_ROW);
+  const gridW = cols * C + (cols - 1) * G;
+  const gridH = rows * C + (rows - 1) * G;
+  const ox = anchor[0] - gridW / 2;
+  const oy = anchor[1] - gridH / 2;
+
   return (
     <g style={{ pointerEvents: 'none' }}>
       {slots.map((f, i) => {
-        const col = i % PER_ROW; const row = Math.floor(i / PER_ROW);
-        const x = anchor[0] + col * (C + G); const y = anchor[1] + row * (C + G);
+        const col = i % PER_ROW;
+        const row = Math.floor(i / PER_ROW);
+        const x = ox + col * (C + G);
+        const y = oy + row * (C + G);
         return (
           <rect key={i} x={x} y={y} width={C} height={C} rx={3}
             fill={f ? FC[f] : '#0a1628'}
             stroke={f ? '#000' : '#2a4060'}
-            strokeWidth={f ? 0.8 : 1.2}
-            opacity={f ? 0.92 : 0.72}
+            strokeWidth={f ? 1 : 1.5}
+            opacity={f ? 0.94 : 0.75}
           />
         );
       })}
@@ -176,44 +181,43 @@ function CubeGrid({ initialCubes, influences, anchor }: {
   );
 }
 
-// ── Tooltip ────────────────────────────────────────────────────────────────
-function Tooltip({ terr, influences, x, y }: {
+// ── Tooltip ───────────────────────────────────────────────────────────────
+function Tooltip({ terr, influences, mx, my }: {
   terr: TerrDef;
   influences: Partial<Record<Faction, number>>;
-  x: number; y: number;
+  mx: number; my: number;
 }) {
-  const controller = getController(influences as Record<Faction, number>);
+  const ctrl = getController(influences as Record<Faction, number>);
   const rows = FACTIONS.filter(f => (influences[f] ?? 0) > 0);
-  const W = 220; const H = 80 + rows.length * 16;
-  const tx = Math.min(x + 18, 1680); const ty = Math.max(y - 10, 5);
-
+  const W = 230; const H = 84 + rows.length * 18;
+  const tx = Math.min(mx + 20, 1660); const ty = Math.max(my - 10, 4);
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <rect x={tx - 5} y={ty - 5} width={W} height={H} rx={9}
-        fill="#060d18" stroke="#1e3a5f" strokeWidth={1.5} opacity={0.97} />
-      <text x={tx + 8} y={ty + 18} fill="#00ff88" fontSize={14}
+      <rect x={tx-5} y={ty-5} width={W} height={H} rx={10}
+        fill="#060d18" stroke="#1e3a5f" strokeWidth={1.5} opacity={0.97}/>
+      <text x={tx+10} y={ty+19} fill="#00ff88" fontSize={15}
         fontWeight="bold" fontFamily="monospace">{terr.label}</text>
-      <text x={tx + 8} y={ty + 33} fill="#6b7a8d" fontSize={9} fontFamily="monospace">
-        {terr.type === 'casa' ? `🏠 Casa (${terr.homeFaction})` :
-         terr.type === 'strategico' ? '⭐ Strategico' : '📍 Normale'}
+      <text x={tx+10} y={ty+34} fill="#6b7a8d" fontSize={9} fontFamily="monospace">
+        {terr.type==='casa' ? `🏠 Casa ${terr.homeFaction}` :
+         terr.type==='strategico' ? '⭐ Strategico' : '📍 Normale'}
         {' · '}{terr.pvPerRound}PV/round{terr.isNaval ? ' 🚢' : ''}
       </text>
-      <text x={tx + 8} y={ty + 47} fill="#3a6080" fontSize={8} fontFamily="monospace">
+      <text x={tx+10} y={ty+48} fill="#3a6080" fontSize={8.5} fontFamily="monospace">
         Slot influenza: {terr.initialCubes}
       </text>
-      <rect x={tx + 4} y={ty + 52} width={W - 12} height={16} rx={4}
-        fill={controller ? FC_BG[controller] : '#ffffff08'} />
-      <text x={tx + 10} y={ty + 63} fill={controller ? FC[controller] : '#4b5563'}
+      <rect x={tx+5} y={ty+53} width={W-14} height={17} rx={4}
+        fill={ctrl ? FC_BG[ctrl] : '#ffffff08'}/>
+      <text x={tx+11} y={ty+64} fill={ctrl ? FC[ctrl] : '#4b5563'}
         fontSize={9} fontFamily="monospace">
-        {controller ? `✅ Controllato: ${controller}` : '⚪ Non controllato'}
+        {ctrl ? `✅ Controllato: ${ctrl}` : '⚪ Non controllato'}
       </text>
       {rows.map((f, ri) => (
         <g key={f}>
-          <text x={tx + 10} y={ty + 80 + ri * 16} fill={FC[f]}
-            fontSize={9} fontFamily="monospace">{f}</text>
-          {Array.from({ length: Math.min(influences[f] ?? 0, 6) }).map((_, si) => (
-            <rect key={si} x={tx + 90 + si * 13} y={ty + 70 + ri * 16}
-              width={11} height={11} rx={2} fill={FC[f]} opacity={0.88} />
+          <text x={tx+11} y={ty+82+ri*18} fill={FC[f]}
+            fontSize={9.5} fontFamily="monospace">{f}</text>
+          {Array.from({length: Math.min(influences[f]??0, 6)}).map((_,si) => (
+            <rect key={si} x={tx+95+si*13} y={ty+72+ri*18}
+              width={11} height={11} rx={2} fill={FC[f]} opacity={0.9}/>
           ))}
         </g>
       ))}
@@ -221,17 +225,17 @@ function Tooltip({ terr, influences, x, y }: {
   );
 }
 
-// ── Componente principale ──────────────────────────────────────────────────
+// ── Componente principale ─────────────────────────────────────────────────
 export default function TerritoryMap({
   territories, myFaction, isMyTurn,
   onSelectTerritory, selectedTerritory, attackMode,
 }: Props) {
   const [hovered, setHovered] = useState<TerritoryId | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<[number,number]>([0,0]);
+  const [mPos, setMPos] = useState<[number,number]>([0,0]);
 
   const onMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    setTooltipPos([
+    setMPos([
       (e.clientX - r.left) * (1920 / r.width),
       (e.clientY - r.top)  * (1071 / r.height),
     ]);
@@ -239,24 +243,18 @@ export default function TerritoryMap({
 
   return (
     <div className="relative w-full select-none" style={{ paddingBottom: '55.8%' }}>
-      <div className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl">
-        <svg
-          viewBox="0 0 1920 1071"
-          className="w-full h-full"
-          style={{ display: 'block' }}
-          onMouseMove={onMouseMove}
-        >
-          {/* ── SFONDO: plancia realistica ─────────────────────────── */}
-          <image
-            href="/plancia_map.png"
-            x={0} y={0} width={1920} height={1071}
-            preserveAspectRatio="xMidYMid slice"
-          />
+      <div className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl shadow-black/60">
+        <svg viewBox="0 0 1920 1071" className="w-full h-full"
+          style={{ display: 'block' }} onMouseMove={onMouseMove}>
 
-          {/* ── TERRITORI ─────────────────────────────────────────── */}
+          {/* Sfondo: plancia realistica */}
+          <image href="/plancia_map.png" x={0} y={0}
+            width={1920} height={1071} preserveAspectRatio="xMidYMid slice"/>
+
+          {/* Territori */}
           {TERR_DEF.map(t => {
-            const ts    = territories[t.id];
-            const infl  = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
+            const ts   = territories[t.id];
+            const infl = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
             const units = ts?.units ?? {};
             const ctrl  = getController(infl as Record<Faction, number>);
             const isSel = selectedTerritory === t.id;
@@ -266,10 +264,6 @@ export default function TerritoryMap({
             for (const um of Object.values(units))
               for (const q of Object.values(um ?? {})) totalUnits += q ?? 0;
 
-            // colore fill/stroke: usa FC del controller se presente
-            const fillColor  = ctrl ? FC_BG[ctrl] : (isHov ? '#ffffff12' : 'transparent');
-            const strokeColor = isSel ? '#00ff88' : ctrl ? FC[ctrl] : (isHov ? '#ffffff55' : 'transparent');
-
             return (
               <g key={t.id}
                 style={{ cursor: isMyTurn ? 'pointer' : 'default' }}
@@ -277,55 +271,40 @@ export default function TerritoryMap({
                 onMouseEnter={() => setHovered(t.id)}
                 onMouseLeave={() => setHovered(null)}
               >
-                {/* Area cliccabile con highlight */}
+                {/* Area cliccabile */}
                 <polygon
-                  points={t.points}
-                  fill={fillColor}
-                  stroke={strokeColor}
+                  points={p(t.pts)}
+                  fill={isSel ? (ctrl ? FC_BG[ctrl] : '#ffffff22') :
+                        isHov ? (ctrl ? FC_BG[ctrl] : '#ffffff12') :
+                        ctrl  ? FC_BG[ctrl] : 'transparent'}
+                  stroke={isSel ? '#00ff88' : ctrl ? FC[ctrl] : isHov ? '#ffffff55' : 'transparent'}
                   strokeWidth={isSel ? 3 : 2}
                   strokeLinejoin="round"
                   opacity={attackMode && !isSel ? 0.45 : 1}
                 />
-
                 {/* Glow selezione */}
                 {isSel && (
-                  <polygon
-                    points={t.points}
-                    fill="none"
-                    stroke="#00ff88"
-                    strokeWidth={8}
-                    opacity={0.18}
-                    style={{ filter: 'blur(5px)' }}
-                  />
+                  <polygon points={p(t.pts)} fill="none"
+                    stroke="#00ff88" strokeWidth={9} opacity={0.15}
+                    style={{ filter: 'blur(6px)' }}/>
                 )}
-
-                {/* Badge territorio casa */}
+                {/* Badge casa */}
                 {t.type === 'casa' && t.homeFaction && (
-                  <circle
-                    cx={t.cubeAnchor[0] - 18}
-                    cy={t.cubeAnchor[1] - 18}
-                    r={9}
-                    fill={FC[t.homeFaction]}
-                    opacity={0.9}
-                    style={{ pointerEvents: 'none' }}
-                  />
+                  <circle cx={t.cubeAnchor[0]} cy={t.cubeAnchor[1] - 32}
+                    r={10} fill={FC[t.homeFaction]} opacity={0.9}
+                    style={{ pointerEvents: 'none' }}/>
                 )}
-
-                {/* Cubi influenza */}
-                <CubeGrid
-                  initialCubes={t.initialCubes}
-                  influences={infl}
-                  anchor={t.cubeAnchor}
-                />
-
-                {/* Badge unità militari */}
+                {/* Cubi influenza — centrati nello stato */}
+                <CubeGrid initialCubes={t.initialCubes} influences={infl}
+                  anchor={t.cubeAnchor}/>
+                {/* Badge unità */}
                 {totalUnits > 0 && (
                   <g style={{ pointerEvents: 'none' }}>
-                    <circle cx={t.cubeAnchor[0] + 48} cy={t.cubeAnchor[1] - 5} r={11}
-                      fill="#1e293b" stroke="#f59e0b" strokeWidth={2} />
-                    <text x={t.cubeAnchor[0] + 48} y={t.cubeAnchor[1]}
+                    <circle cx={t.cubeAnchor[0]+34} cy={t.cubeAnchor[1]-24}
+                      r={13} fill="#1e293b" stroke="#f59e0b" strokeWidth={2}/>
+                    <text x={t.cubeAnchor[0]+34} y={t.cubeAnchor[1]-19}
                       textAnchor="middle" fill="#f59e0b"
-                      fontSize={10} fontWeight="bold" fontFamily="monospace">
+                      fontSize={11} fontWeight="bold" fontFamily="monospace">
                       {totalUnits}
                     </text>
                   </g>
@@ -334,50 +313,52 @@ export default function TerritoryMap({
             );
           })}
 
-          {/* ── BANNER TURNO ──────────────────────────────────────── */}
+          {/* Banner turno */}
           {isMyTurn && (
-            <g transform="translate(420,14)">
-              <rect x={0} y={0} width={620} height={30} rx={7}
-                fill="#00ff8818" stroke="#00ff88" strokeWidth={1.2} />
-              <text x={16} y={21} fill="#00ff88" fontSize={12}
+            <g transform="translate(430,14)">
+              <rect x={0} y={0} width={640} height={32} rx={8}
+                fill="#00ff8818" stroke="#00ff88" strokeWidth={1.2}/>
+              <text x={16} y={22} fill="#00ff88" fontSize={13}
                 fontFamily="monospace" fontWeight="bold">
-                ▶ IL TUO TURNO — Clicca un territorio per interagire
+                ▶ IL TUO TURNO — Clicca un territorio
               </text>
             </g>
           )}
           {attackMode && (
-            <g transform="translate(420,50)">
-              <rect x={0} y={0} width={620} height={30} rx={7}
-                fill="#ef444418" stroke="#ef4444" strokeWidth={1.2} />
-              <text x={16} y={21} fill="#ef4444" fontSize={12}
+            <g transform="translate(430,52)">
+              <rect x={0} y={0} width={640} height={32} rx={8}
+                fill="#ef444418" stroke="#ef4444" strokeWidth={1.2}/>
+              <text x={16} y={22} fill="#ef4444" fontSize={13}
                 fontFamily="monospace" fontWeight="bold">
-                ⚔️ MODALITÀ ATTACCO — Seleziona il territorio bersaglio
+                ⚔️ MODALITÀ ATTACCO — Seleziona il bersaglio
               </text>
             </g>
           )}
 
-          {/* ── LEGENDA FAZIONI ──────────────────────────────────── */}
-          <g transform="translate(18,870)">
-            <rect x={0} y={0} width={152} height={118} rx={8}
-              fill="#060d18dd" stroke="#1e3a5f" strokeWidth={1.2} />
-            <text x={10} y={17} fill="#94a3b8" fontSize={9}
-              fontFamily="monospace" fontWeight="bold" letterSpacing="2">INFLUENZE</text>
+          {/* Legenda fazioni */}
+          <g transform="translate(18,880)">
+            <rect x={0} y={0} width={158} height={122} rx={8}
+              fill="#060d18e0" stroke="#1e3a5f" strokeWidth={1.2}/>
+            <text x={10} y={18} fill="#94a3b8" fontSize={9}
+              fontFamily="monospace" fontWeight="bold" letterSpacing="2">
+              INFLUENZE
+            </text>
             {FACTIONS.map((f, i) => (
-              <g key={f} transform={`translate(10,${26 + i * 18})`}>
-                <rect x={0} y={-11} width={12} height={12} rx={2.5}
-                  fill={FC[f]} opacity={0.9} />
-                <text x={17} y={0} fill={FC[f]}
-                  fontSize={9} fontFamily="monospace">{f}</text>
+              <g key={f} transform={`translate(10,${27+i*19})`}>
+                <rect x={0} y={-12} width={14} height={14} rx={3}
+                  fill={FC[f]} opacity={0.92}/>
+                <text x={19} y={0} fill={FC[f]}
+                  fontSize={10} fontFamily="monospace">{f}</text>
               </g>
             ))}
           </g>
 
-          {/* ── TOOLTIP ──────────────────────────────────────────── */}
+          {/* Tooltip */}
           {hovered && (() => {
-            const t   = TERR_DEF.find(d => d.id === hovered)!;
-            const ts  = territories[hovered];
+            const t    = TERR_DEF.find(d => d.id === hovered)!;
+            const ts   = territories[hovered];
             const infl = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
-            return <Tooltip terr={t} influences={infl} x={tooltipPos[0]} y={tooltipPos[1]} />;
+            return <Tooltip terr={t} influences={infl} mx={mPos[0]} my={mPos[1]}/>;
           })()}
         </svg>
       </div>
