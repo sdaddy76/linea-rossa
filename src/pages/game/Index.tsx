@@ -11,6 +11,8 @@ import MilitaryMarket from '@/components/MilitaryMarket';
 import { calcolaCosto, getForzeMilitari } from '@/lib/militaryMarket';
 import TerritoryMap from '@/components/TerritoryMap';
 import CombatPanel from '@/components/CombatPanel';
+import PlayerActionPanel from '@/components/PlayerActionPanel';
+import type { PlayerActionType, PlayerActionPayload } from '@/components/PlayerActionPanel';
 import type { TerritoryState } from '@/components/TerritoryMap';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
@@ -244,6 +246,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   } = useOnlineGameStore();
 
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
+  const [showActionPanel, setShowActionPanel] = useState(false);
   const [showHand, setShowHand] = useState(true);
   const [prevState, setPrevState] = useState<GameState | null>(null);
   const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'mappa'>('plancia');
@@ -771,19 +774,49 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                     </div>
                   )}
 
-                  {/* Pulsante gioca carta */}
-                  {selectedCard && isMyTurn && (
-                    <div className="p-3 border-t border-[#1e3a5f]">
-                      <button
-                        onClick={() => { playCard(selectedCard); setSelectedCard(null); }}
-                        disabled={loading}
-                        className="w-full py-2.5 bg-[#00ff88] hover:bg-[#00dd77] disabled:opacity-50
-                          text-[#0a0e1a] font-bold font-mono rounded-lg text-sm tracking-wider
-                          shadow-lg shadow-[#00ff8830] transition-all">
-                        {loading ? '⏳ ELABORAZIONE...' : '▶ GIOCA LA CARTA SELEZIONATA'}
-                      </button>
-                    </div>
-                  )}
+                  {/* Azioni carta selezionata */}
+                  {selectedCard && isMyTurn && (() => {
+                    const cardDef = myCards.find(c => c.card_id === selectedCard);
+                    if (!cardDef || !myFaction || !gameState) return null;
+                    return (
+                      <div className="p-3 border-t border-[#1e3a5f]">
+                        {!showActionPanel ? (
+                          <button
+                            onClick={() => setShowActionPanel(true)}
+                            disabled={loading}
+                            className="w-full py-2.5 bg-[#00ff88] hover:bg-[#00dd77] disabled:opacity-50
+                              text-[#0a0e1a] font-bold font-mono rounded-lg text-sm tracking-wider
+                              shadow-lg shadow-[#00ff8830] transition-all">
+                            {loading ? '⏳ ELABORAZIONE...' : '▶ GIOCA — SCEGLI AZIONE'}
+                          </button>
+                        ) : (
+                          <PlayerActionPanel
+                            card={cardDef}
+                            myFaction={myFaction}
+                            state={gameState}
+                            selectedTerritory={selectedTerritory}
+                            territories={territoryState}
+                            onCancel={() => { setShowActionPanel(false); setSelectedCard(null); }}
+                            onAction={(actionType: PlayerActionType, payload: PlayerActionPayload) => {
+                              // Per tutti i tipi di azione, giochiamo la carta
+                              // L'azione specifica (influenza, acquisto, ecc.) viene loggata nel log di gioco
+                              if (actionType === 'influenza') {
+                                if (payload.diceSuccess && payload.targetTerritory) {
+                                  // successo influenza → aggiorna influenza locale tramite store
+                                  setNotification?.(`🌐 Influenza su ${payload.targetTerritory}: dado ${payload.diceResult} — SUCCESSO!`);
+                                } else if (payload.targetTerritory) {
+                                  setNotification?.(`🎲 Influenza su ${payload.targetTerritory}: dado ${payload.diceResult} — Fallito (soglia: ${payload.finalThreshold})`);
+                                }
+                              }
+                              playCard(selectedCard);
+                              setSelectedCard(null);
+                              setShowActionPanel(false);
+                            }}
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Pulsante Mercato Risorse Militari */}
                   {(myFaction === 'Iran' || myFaction === 'Coalizione') && game.status === 'active' && (() => {

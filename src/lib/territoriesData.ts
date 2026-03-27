@@ -24,22 +24,22 @@ export interface TerritoryDef {
 }
 
 export const TERRITORIES: TerritoryDef[] = [
-  { id: 'Iran',          label: 'Iran',             type: 'casa',       pvPerRound: 3, homeFaction: 'Iran',       x: 68, y: 38, isNaval: true },
-  { id: 'Iraq',          label: 'Iraq',             type: 'normale',    pvPerRound: 1,                             x: 52, y: 38 },
-  { id: 'Siria',         label: 'Siria',            type: 'normale',    pvPerRound: 1,                             x: 38, y: 28 },
-  { id: 'Libano',        label: 'Libano',           type: 'normale',    pvPerRound: 1,                             x: 33, y: 32 },
-  { id: 'Israele',       label: 'Israele',          type: 'normale',    pvPerRound: 1,                             x: 30, y: 40 },
-  { id: 'Giordania',     label: 'Giordania',        type: 'normale',    pvPerRound: 1,                             x: 33, y: 46 },
-  { id: 'Egitto',        label: 'Egitto',           type: 'normale',    pvPerRound: 1,                             x: 18, y: 50 },
-  { id: 'ArabiaSaudita', label: 'Arabia Saudita',   type: 'casa',       pvPerRound: 3, homeFaction: 'Coalizione', x: 42, y: 62, isNaval: true },
-  { id: 'Yemen',         label: 'Yemen',            type: 'normale',    pvPerRound: 1,                             x: 38, y: 76, isNaval: true },
-  { id: 'Oman',          label: 'Oman',             type: 'normale',    pvPerRound: 1,                             x: 58, y: 72, isNaval: true },
-  { id: 'EmiratiArabi',  label: 'Emirati Arabi',    type: 'normale',    pvPerRound: 1,                             x: 62, y: 66, isNaval: true },
-  { id: 'Kuwait',        label: 'Kuwait',           type: 'normale',    pvPerRound: 1,                             x: 54, y: 52 },
-  { id: 'Bahrain',       label: 'Bahrain',          type: 'normale',    pvPerRound: 1,                             x: 57, y: 62, isNaval: true },
-  { id: 'Qatar',         label: 'Qatar',            type: 'normale',    pvPerRound: 1,                             x: 60, y: 64, isNaval: true },
-  { id: 'Turchia',       label: 'Turchia',          type: 'normale',    pvPerRound: 1,                             x: 28, y: 16 },
-  { id: 'StrettoHormuz', label: 'Stretto di Hormuz',type: 'strategico', pvPerRound: 2,                             x: 63, y: 59, isNaval: true },
+  { id: 'Iran',          label: 'Iran',              type: 'casa',       pvPerRound: 3, homeFaction: 'Iran',       x: 71, y: 32, isNaval: true },
+  { id: 'Iraq',          label: 'Iraq',              type: 'normale',    pvPerRound: 1,                             x: 44, y: 31 },
+  { id: 'Siria',         label: 'Siria',             type: 'normale',    pvPerRound: 1,                             x: 37, y: 22 },
+  { id: 'Libano',        label: 'Libano',            type: 'normale',    pvPerRound: 1,                             x: 29, y: 29 },
+  { id: 'Israele',       label: 'Israele',           type: 'normale',    pvPerRound: 1,                             x: 27, y: 37 },
+  { id: 'Giordania',     label: 'Giordania',         type: 'normale',    pvPerRound: 1,                             x: 32, y: 39 },
+  { id: 'Egitto',        label: 'Egitto',            type: 'normale',    pvPerRound: 1,                             x: 13, y: 55 },
+  { id: 'ArabiaSaudita', label: 'Arabia Saudita',    type: 'casa',       pvPerRound: 3, homeFaction: 'Coalizione', x: 44, y: 61, isNaval: true },
+  { id: 'Yemen',         label: 'Yemen',             type: 'normale',    pvPerRound: 1,                             x: 45, y: 77, isNaval: true },
+  { id: 'Oman',          label: 'Oman',              type: 'normale',    pvPerRound: 1,                             x: 80, y: 72, isNaval: true },
+  { id: 'EmiratiArabi',  label: 'Emirati Arabi',     type: 'normale',    pvPerRound: 1,                             x: 67, y: 57, isNaval: true },
+  { id: 'Kuwait',        label: 'Kuwait',            type: 'normale',    pvPerRound: 1,                             x: 52, y: 51 },
+  { id: 'Bahrain',       label: 'Bahrain',           type: 'normale',    pvPerRound: 1,                             x: 61, y: 54, isNaval: true },
+  { id: 'Qatar',         label: 'Qatar',             type: 'normale',    pvPerRound: 1,                             x: 64, y: 57, isNaval: true },
+  { id: 'Turchia',       label: 'Turchia',           type: 'normale',    pvPerRound: 1,                             x: 27, y: 8 },
+  { id: 'StrettoHormuz', label: 'Stretto di Hormuz', type: 'strategico', pvPerRound: 2,                             x: 73, y: 59, isNaval: true },
 ];
 
 export const TERRITORY_MAP: Record<TerritoryId, TerritoryDef> =

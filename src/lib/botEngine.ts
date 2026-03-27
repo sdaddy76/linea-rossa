@@ -11,25 +11,28 @@ import type { GameState } from '@/types/game';
 import type { Faction, BotDifficulty } from '@/types/game';
 import { supabase } from '@/integrations/supabase/client';
 
-// ─── Tipo carta BOT (specchia tabella Supabase bot_cards) ─────────────────
+// ─── Tipo carta BOT (v2 — specchia tabella Supabase bot_cards) ───────────
 export interface BotCard {
   id: string;
   faction: string;
-  deck: string;
-  condition: string;
-  priority_1: string;
-  priority_2: string | null;
+  deck_priority: number;     // 1=prima scelta, 2=seconda, 3=fallback
+  deck_name: string;
+  deck_condition: string;    // condizione per selezionare il mazzo
+  card_condition: string;    // condizione valutata dopo aver pescato la carta
+  priority_1: string;        // azione se card_condition VERA
+  priority_2: string | null; // azione se card_condition FALSA
 }
 
-// ─── Decisione bot con carta BOT ──────────────────────────────────────────
+// ─── Risultato della decisione BOT ──────────────────────────────────────
 export interface BotCardDecision {
   card: BotCard;
   actionChosen: 'priority_1' | 'priority_2';
   actionText: string;
-  conditionMet: boolean;
+  deckUsed: number;      // quale priorità mazzo è stata usata (1/2/3)
+  cardConditionMet: boolean;
 }
 
-// ─── Mappa fazione → chiave tracciato primario ────────────────────────────
+// ─── Mappa fazione interna → nome DB ────────────────────────────────────
 const FACTION_TO_DB_NAME: Record<Faction, string> = {
   Iran:       'Iran',
   Coalizione: 'Coalizione Occidentale (USA)',
@@ -38,117 +41,133 @@ const FACTION_TO_DB_NAME: Record<Faction, string> = {
   Europa:     'Unione Europea',
 };
 
-// ─── Carica carte BOT dal DB per una fazione ──────────────────────────────
+// ─── Carica tutte le carte BOT di una fazione, ordinate per priorità ────
 export async function loadBotCardsForFaction(faction: Faction): Promise<BotCard[]> {
   const dbFaction = FACTION_TO_DB_NAME[faction] ?? faction;
   const { data, error } = await (supabase as any)
     .from('bot_cards')
     .select('*')
     .eq('faction', dbFaction)
-    .order('id');
+    .order('deck_priority', { ascending: true })
+    .order('id',            { ascending: true });
   if (error || !data) return [];
   return data as BotCard[];
 }
 
-// ─── Valuta se una condizione testuale è soddisfatta dallo stato ──────────
-// Supporta operatori: ≤ ≥ < > = e range tipo "4-6" o "4–6"
+// ─── Valuta una condizione testuale rispetto allo stato corrente ─────────
+// Operatori supportati: ≤ ≥ < > = | congiunzione "e"
 export function evaluateCondition(condition: string, state: GameState, faction: Faction): boolean {
   if (!condition || condition.trim() === '') return true;
 
-  const c = condition.toLowerCase();
+  const c = condition.toLowerCase().trim();
 
-  // Helper: estrai valore tracciato dal testo
+  // Risolve il tracciato per nome
   const getVal = (key: string): number | null => {
     const risorseKey = `risorse_${faction.toLowerCase()}` as keyof GameState;
     const stabKey    = `stabilita_${faction.toLowerCase()}` as keyof GameState;
-    if (key.includes('nucleare') || key.includes('nuc'))  return state.nucleare;
-    if (key.includes('sanzioni') || key.includes('san'))  return state.sanzioni;
-    if (key.includes('defcon'))                            return state.defcon;
-    if (key.includes('opinione') || key.includes('opin')) return state.opinione;
-    if (key.includes('risorse') && key.includes('eco'))   return state[risorseKey] as number;
-    if (key.includes('risorse') && key.includes('mil'))   return state.risorse_coalizione;
-    if (key.includes('risorse'))                           return state[risorseKey] as number;
-    if (key.includes('stabilità') || key.includes('stab'))return state[stabKey] as number;
-    if (key.includes('influenza') || key.includes('infl'))return state[stabKey] as number; // proxy
-    if (key.includes('supporto') || key.includes('supp')) return state[stabKey] as number;
-    if (key.includes('cyber'))                             return state.risorse_cina;
-    if (key.includes('energia'))                           return state.risorse_russia;
-    if (key.includes('potenza') || key.includes('pot'))   return state.risorse_cina;
-    if (key.includes('intelligence') || key.includes('int'))return state.nucleare; // proxy Israele
-    if (key.includes('deterrenza') || key.includes('det'))return state.risorse_coalizione;
-    if (key.includes('sicurezza'))                         return state.nucleare; // proxy Israele
-    if (key.includes('minaccia'))                          return state.nucleare;
+    const k = key.trim().toLowerCase();
+    if (k.includes('nucleare iran') || k.includes('minaccia nucl')) return state.nucleare;
+    if (k.includes('nucleare'))                              return state.nucleare;
+    if (k.includes('sanzioni'))                              return state.sanzioni;
+    if (k.includes('defcon'))                                return state.defcon;
+    if (k.includes('opinione'))                              return state.opinione;
+    if (k.includes('risorse') && k.includes('coalizione'))   return state.risorse_coalizione;
+    if (k.includes('risorse') && k.includes('iran'))         return state.risorse_iran;
+    if (k.includes('risorse') && k.includes('russia'))       return state.risorse_russia;
+    if (k.includes('risorse') && k.includes('cina'))         return state.risorse_cina;
+    if (k.includes('risorse') && k.includes('europa'))       return state.risorse_europa;
+    if (k.includes('risorse') && k.includes('eu'))           return state.risorse_europa;
+    if (k.includes('risorse') && k.includes('isr'))          return state.risorse_iran; // proxy Israele
+    if (k.includes('risorse') && k.includes('rc'))           return state.risorse_russia;
+    if (k.includes('risorse'))                               return state[risorseKey] as number;
+    if (k.includes('stabilità') && k.includes('iran'))       return state.stabilita_iran;
+    if (k.includes('stabilità') && k.includes('coalizione')) return state.stabilita_coalizione;
+    if (k.includes('stabilità') && k.includes('eu'))         return state.stabilita_europa;
+    if (k.includes('stabilità') && k.includes('russia'))     return state.stabilita_russia;
+    if (k.includes('stabilità') && k.includes('cina'))       return state.stabilita_cina;
+    if (k.includes('stabilità') && k.includes('isr'))        return state.stabilita_iran; // proxy
+    if (k.includes('stabilità'))                             return state[stabKey] as number;
+    if (k.includes('influenza') || k.includes('supporto') ||
+        k.includes('coesione')  || k.includes('deterrenza') ||
+        k.includes('intelligence'))                          return state[stabKey] as number;
+    if (k.includes('cyber'))                                 return state.risorse_cina;
+    if (k.includes('energia'))                               return state.risorse_russia;
+    if (k.includes('potenza'))                               return state.risorse_cina;
     return null;
   };
 
-  // Analizza ogni clausola separata da " e "
+  // Separa per congiunzione "e"
   const clauses = c.split(/\s+e\s+/);
-
   for (const clause of clauses) {
-    const trimmed = clause.trim();
-
-    // Range: "X-Y" o "X–Y" (es. "risorse eco 4-6")
-    const rangeMatch = trimmed.match(/(.+?)\s+(\d+)\s*[-–]\s*(\d+)\s*$/);
-    if (rangeMatch) {
-      const val = getVal(rangeMatch[1].trim());
-      if (val === null) continue;
-      const lo = parseInt(rangeMatch[2]), hi = parseInt(rangeMatch[3]);
-      if (val < lo || val > hi) return false;
-      continue;
-    }
-
-    // Operatori: ≤ ≥ < > =
-    const opMatch = trimmed.match(/(.+?)\s*(≤|>=|≥|<=|>|<|=)\s*(\d+)\s*$/);
+    const t = clause.trim();
+    const opMatch = t.match(/^(.+?)\s*(≤|>=|≥|<=|>|<|=)\s*(-?\d+)\s*$/);
     if (opMatch) {
-      const val = getVal(opMatch[1].trim());
+      const val = getVal(opMatch[1]);
       if (val === null) continue;
-      const threshold = parseInt(opMatch[3]);
-      const op = opMatch[2];
-      if (op === '≤' || op === '<=') { if (val > threshold)  return false; }
-      if (op === '≥' || op === '>=') { if (val < threshold)  return false; }
-      if (op === '<')                 { if (val >= threshold) return false; }
-      if (op === '>')                 { if (val <= threshold) return false; }
-      if (op === '=')                 { if (val !== threshold) return false; }
-      continue;
+      const thr = parseInt(opMatch[3]);
+      const op  = opMatch[2];
+      if ((op === '≤' || op === '<=') && val > thr)  return false;
+      if ((op === '≥' || op === '>=') && val < thr)  return false;
+      if (op === '<'  && val >= thr) return false;
+      if (op === '>'  && val <= thr) return false;
+      if (op === '='  && val !== thr) return false;
     }
-
-    // Testo generico: tratta come "sempre vera" per ora
-    // (condizioni narrative come "Stretto di Hormuz bloccato")
+    // clausole narrative → ignorate (sempre vere)
   }
-
   return true;
 }
 
-// ─── Seleziona la mossa BOT tramite carte BOT ─────────────────────────────
-// Scorre le carte del mazzo più rilevante e restituisce la prima con condizione vera
+// ─── LOGICA PRINCIPALE BOT ───────────────────────────────────────────────
+// 1. Scorre i mazzi in ordine di priorità (1→2→3)
+// 2. Per ciascun mazzo controlla deck_condition → se vera, pesca una carta random
+// 3. Sulla carta pescata valuta card_condition → se vera usa priority_1, altrimenti priority_2
 export async function botSelectFromBotCards(
   state: GameState,
   faction: Faction,
   difficulty: BotDifficulty = 'normal'
 ): Promise<BotCardDecision | null> {
-  const botCards = await loadBotCardsForFaction(faction);
-  if (botCards.length === 0) return null;
+  const allCards = await loadBotCardsForFaction(faction);
+  if (allCards.length === 0) return null;
 
-  // Filtra le carte con condizione soddisfatta
-  const eligible = botCards.filter((c) => evaluateCondition(c.condition, state, faction));
-  if (eligible.length === 0) return null;
+  // Raggruppa per priorità mazzo, ordinate 1→2→3
+  const deckPriorities = [...new Set(allCards.map((c) => c.deck_priority))].sort((a, b) => a - b);
 
-  // Difficoltà: scegli tra eligible
-  let chosen: BotCard;
-  if (difficulty === 'easy') {
-    chosen = eligible[Math.floor(Math.random() * Math.min(5, eligible.length))];
-  } else if (difficulty === 'normal') {
-    chosen = Math.random() < 0.75 ? eligible[0] : (eligible[1] ?? eligible[0]);
-  } else {
-    chosen = eligible[0]; // hard: prima carta che soddisfa la condizione
+  for (const priority of deckPriorities) {
+    const deckCards = allCards.filter((c) => c.deck_priority === priority);
+    if (deckCards.length === 0) continue;
+
+    // Controlla condizione del mazzo (uguale per tutte le carte dello stesso mazzo)
+    const deckCondition = deckCards[0].deck_condition;
+    if (!evaluateCondition(deckCondition, state, faction)) continue;
+
+    // Mazzo selezionato → pesca una carta casuale
+    // easy: qualsiasi, normal: bias verso prime, hard: deterministica
+    let chosen: BotCard;
+    if (difficulty === 'easy') {
+      chosen = deckCards[Math.floor(Math.random() * deckCards.length)];
+    } else if (difficulty === 'normal') {
+      // 70% prima metà (carte più "urgenti"), 30% seconda metà
+      const half = Math.ceil(deckCards.length / 2);
+      const pool = Math.random() < 0.7
+        ? deckCards.slice(0, half)
+        : deckCards.slice(half);
+      chosen = pool[Math.floor(Math.random() * pool.length)];
+    } else {
+      // hard: random puro (ogni carta ha peso uguale)
+      chosen = deckCards[Math.floor(Math.random() * deckCards.length)];
+    }
+
+    // Valuta condizione carta → sceglie P1 o P2
+    const cardConditionMet = evaluateCondition(chosen.card_condition, state, faction);
+    const actionChosen: 'priority_1' | 'priority_2' = cardConditionMet ? 'priority_1' : 'priority_2';
+    const actionText = cardConditionMet
+      ? chosen.priority_1
+      : (chosen.priority_2 ?? chosen.priority_1); // fallback su P1 se P2 mancante
+
+    return { card: chosen, actionChosen, actionText, deckUsed: priority, cardConditionMet };
   }
 
-  return {
-    card: chosen,
-    actionChosen: 'priority_1',
-    actionText: chosen.priority_1,
-    conditionMet: true,
-  };
+  return null; // nessun mazzo con condizione soddisfatta
 }
 
 export interface BotDecision {

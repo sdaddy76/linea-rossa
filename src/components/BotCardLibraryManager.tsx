@@ -94,12 +94,14 @@ export default function BotCardLibraryManager() {
 
     for (let i = 0; i < cards.length; i += BATCH) {
       const batch = cards.slice(i, i + BATCH).map((c) => ({
-        id:         c.id,
-        faction:    c.faction,
-        deck:       c.deck,
-        condition:  c.condition,
-        priority_1: c.priority_1,
-        priority_2: c.priority_2 || null,
+        id:             c.id,
+        faction:        c.faction,
+        deck_priority:  c.deck_priority,
+        deck_name:      c.deck_name,
+        deck_condition: c.deck_condition,
+        card_condition: c.card_condition,
+        priority_1:     c.priority_1,
+        priority_2:     c.priority_2 || null,
       }));
 
       const { error } = await (supabase as any)
@@ -277,7 +279,7 @@ export default function BotCardLibraryManager() {
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-gray-100 z-10">
                 <tr>
-                  {['ID', 'Fazione', 'Mazzo', 'Condizione', 'Priorità 1', 'Priorità 2'].map((h) => (
+                  {['ID', 'Fazione', 'P.Mazzo', 'Nome Mazzo', 'Cond. Mazzo', 'Cond. Carta', 'Azione P1', 'Azione P2'].map((h) => (
                     <th key={h} className="text-left px-3 py-2 font-semibold text-gray-700 border-b border-gray-200 whitespace-nowrap">
                       {h}
                     </th>
@@ -295,10 +297,12 @@ export default function BotCardLibraryManager() {
                           {FACTION_EMOJI[card.faction] ?? ''} {card.faction.split(' ')[0]}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{card.deck}</td>
-                      <td className="px-3 py-2 max-w-[200px]">{card.condition}</td>
-                      <td className="px-3 py-2 max-w-[260px] text-blue-700">{card.priority_1}</td>
-                      <td className="px-3 py-2 max-w-[260px] text-gray-500">{card.priority_2 || '—'}</td>
+                      <td className="px-3 py-2 text-center font-bold">{card.deck_priority}</td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{card.deck_name}</td>
+                      <td className="px-3 py-2 max-w-[160px] text-orange-700">{card.deck_condition}</td>
+                      <td className="px-3 py-2 max-w-[160px] text-purple-700">{card.card_condition}</td>
+                      <td className="px-3 py-2 max-w-[220px] text-blue-700">{card.priority_1}</td>
+                      <td className="px-3 py-2 max-w-[220px] text-gray-500">{card.priority_2 || '—'}</td>
                     </tr>
                   );
                 })}
