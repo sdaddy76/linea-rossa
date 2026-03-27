@@ -1,12 +1,155 @@
 // =============================================
 // LINEA ROSSA — Motore Bot
 // Il bot sceglie la carta migliore dal proprio mazzo
-// in base ai parametri correnti del gioco
+// in base ai parametri correnti del gioco.
+// Se sono presenti carte BOT nel DB (tabella bot_cards),
+// le usa per selezionare la mossa con logica condizionale.
 // =============================================
 
 import type { GameCard } from '@/types/game';
 import type { GameState } from '@/types/game';
 import type { Faction, BotDifficulty } from '@/types/game';
+import { supabase } from '@/integrations/supabase/client';
+
+// ─── Tipo carta BOT (specchia tabella Supabase bot_cards) ─────────────────
+export interface BotCard {
+  id: string;
+  faction: string;
+  deck: string;
+  condition: string;
+  priority_1: string;
+  priority_2: string | null;
+}
+
+// ─── Decisione bot con carta BOT ──────────────────────────────────────────
+export interface BotCardDecision {
+  card: BotCard;
+  actionChosen: 'priority_1' | 'priority_2';
+  actionText: string;
+  conditionMet: boolean;
+}
+
+// ─── Mappa fazione → chiave tracciato primario ────────────────────────────
+const FACTION_TO_DB_NAME: Record<Faction, string> = {
+  Iran:       'Iran',
+  Coalizione: 'Coalizione Occidentale (USA)',
+  Russia:     'Russia-Cina',
+  Cina:       'Russia-Cina',
+  Europa:     'Unione Europea',
+};
+
+// ─── Carica carte BOT dal DB per una fazione ──────────────────────────────
+export async function loadBotCardsForFaction(faction: Faction): Promise<BotCard[]> {
+  const dbFaction = FACTION_TO_DB_NAME[faction] ?? faction;
+  const { data, error } = await (supabase as any)
+    .from('bot_cards')
+    .select('*')
+    .eq('faction', dbFaction)
+    .order('id');
+  if (error || !data) return [];
+  return data as BotCard[];
+}
+
+// ─── Valuta se una condizione testuale è soddisfatta dallo stato ──────────
+// Supporta operatori: ≤ ≥ < > = e range tipo "4-6" o "4–6"
+export function evaluateCondition(condition: string, state: GameState, faction: Faction): boolean {
+  if (!condition || condition.trim() === '') return true;
+
+  const c = condition.toLowerCase();
+
+  // Helper: estrai valore tracciato dal testo
+  const getVal = (key: string): number | null => {
+    const risorseKey = `risorse_${faction.toLowerCase()}` as keyof GameState;
+    const stabKey    = `stabilita_${faction.toLowerCase()}` as keyof GameState;
+    if (key.includes('nucleare') || key.includes('nuc'))  return state.nucleare;
+    if (key.includes('sanzioni') || key.includes('san'))  return state.sanzioni;
+    if (key.includes('defcon'))                            return state.defcon;
+    if (key.includes('opinione') || key.includes('opin')) return state.opinione;
+    if (key.includes('risorse') && key.includes('eco'))   return state[risorseKey] as number;
+    if (key.includes('risorse') && key.includes('mil'))   return state.risorse_coalizione;
+    if (key.includes('risorse'))                           return state[risorseKey] as number;
+    if (key.includes('stabilità') || key.includes('stab'))return state[stabKey] as number;
+    if (key.includes('influenza') || key.includes('infl'))return state[stabKey] as number; // proxy
+    if (key.includes('supporto') || key.includes('supp')) return state[stabKey] as number;
+    if (key.includes('cyber'))                             return state.risorse_cina;
+    if (key.includes('energia'))                           return state.risorse_russia;
+    if (key.includes('potenza') || key.includes('pot'))   return state.risorse_cina;
+    if (key.includes('intelligence') || key.includes('int'))return state.nucleare; // proxy Israele
+    if (key.includes('deterrenza') || key.includes('det'))return state.risorse_coalizione;
+    if (key.includes('sicurezza'))                         return state.nucleare; // proxy Israele
+    if (key.includes('minaccia'))                          return state.nucleare;
+    return null;
+  };
+
+  // Analizza ogni clausola separata da " e "
+  const clauses = c.split(/\s+e\s+/);
+
+  for (const clause of clauses) {
+    const trimmed = clause.trim();
+
+    // Range: "X-Y" o "X–Y" (es. "risorse eco 4-6")
+    const rangeMatch = trimmed.match(/(.+?)\s+(\d+)\s*[-–]\s*(\d+)\s*$/);
+    if (rangeMatch) {
+      const val = getVal(rangeMatch[1].trim());
+      if (val === null) continue;
+      const lo = parseInt(rangeMatch[2]), hi = parseInt(rangeMatch[3]);
+      if (val < lo || val > hi) return false;
+      continue;
+    }
+
+    // Operatori: ≤ ≥ < > =
+    const opMatch = trimmed.match(/(.+?)\s*(≤|>=|≥|<=|>|<|=)\s*(\d+)\s*$/);
+    if (opMatch) {
+      const val = getVal(opMatch[1].trim());
+      if (val === null) continue;
+      const threshold = parseInt(opMatch[3]);
+      const op = opMatch[2];
+      if (op === '≤' || op === '<=') { if (val > threshold)  return false; }
+      if (op === '≥' || op === '>=') { if (val < threshold)  return false; }
+      if (op === '<')                 { if (val >= threshold) return false; }
+      if (op === '>')                 { if (val <= threshold) return false; }
+      if (op === '=')                 { if (val !== threshold) return false; }
+      continue;
+    }
+
+    // Testo generico: tratta come "sempre vera" per ora
+    // (condizioni narrative come "Stretto di Hormuz bloccato")
+  }
+
+  return true;
+}
+
+// ─── Seleziona la mossa BOT tramite carte BOT ─────────────────────────────
+// Scorre le carte del mazzo più rilevante e restituisce la prima con condizione vera
+export async function botSelectFromBotCards(
+  state: GameState,
+  faction: Faction,
+  difficulty: BotDifficulty = 'normal'
+): Promise<BotCardDecision | null> {
+  const botCards = await loadBotCardsForFaction(faction);
+  if (botCards.length === 0) return null;
+
+  // Filtra le carte con condizione soddisfatta
+  const eligible = botCards.filter((c) => evaluateCondition(c.condition, state, faction));
+  if (eligible.length === 0) return null;
+
+  // Difficoltà: scegli tra eligible
+  let chosen: BotCard;
+  if (difficulty === 'easy') {
+    chosen = eligible[Math.floor(Math.random() * Math.min(5, eligible.length))];
+  } else if (difficulty === 'normal') {
+    chosen = Math.random() < 0.75 ? eligible[0] : (eligible[1] ?? eligible[0]);
+  } else {
+    chosen = eligible[0]; // hard: prima carta che soddisfa la condizione
+  }
+
+  return {
+    card: chosen,
+    actionChosen: 'priority_1',
+    actionText: chosen.priority_1,
+    conditionMet: true,
+  };
+}
 
 export interface BotDecision {
   card: GameCard;

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Game, Profile } from '@/types/game';
 import CardLibraryManager from '@/components/CardLibraryManager';
+import BotCardLibraryManager from '@/components/BotCardLibraryManager';
 
 interface LobbyPageProps {
   profile: Profile;
@@ -39,6 +40,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
   const [error, setError] = useState('');
   const [myGames, setMyGames] = useState<Game[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
+  const [showBotLibrary, setShowBotLibrary] = useState(false);
 
   // Assegnazione fazioni per creazione partita
   const [factionSetup, setFactionSetup] = useState<Record<Faction, FactionAssignment>>({
@@ -166,6 +168,13 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
                 hover:border-[#00ff88] text-[#8899aa] hover:text-[#00ff88]
                 rounded-lg font-mono text-xs transition-colors">
               🃏 Libreria Carte
+            </button>
+            <button
+              onClick={() => setShowBotLibrary(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#1e3a5f]
+                hover:border-[#c8a55a] text-[#8899aa] hover:text-[#c8a55a]
+                rounded-lg font-mono text-xs transition-colors">
+              🤖 Carte BOT
             </button>
             <button onClick={onLogout}
               className="px-3 py-1.5 border border-[#334455] text-[#8899aa] hover:text-white
@@ -339,6 +348,23 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
       {/* Gestore libreria carte */}
       {showLibrary && (
         <CardLibraryManager onClose={() => setShowLibrary(false)} />
+      )}
+
+      {/* Gestore libreria carte BOT */}
+      {showBotLibrary && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between z-10">
+              <span className="font-bold text-gray-800">🤖 Gestione Carte BOT</span>
+              <button
+                onClick={() => setShowBotLibrary(false)}
+                className="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">
+                ×
+              </button>
+            </div>
+            <BotCardLibraryManager />
+          </div>
+        </div>
       )}
     </div>
   );
