@@ -99,17 +99,22 @@ export default function AuthPage() {
       }
 
     } catch (err: unknown) {
-      // AbortError: richiesta annullata internamente da Supabase (es. PKCE exchange), non un errore reale
-      if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
-        // Ignora silenziosamente
-      } else if (err instanceof Error && err.message.includes('Invalid login credentials')) {
-        setError('Email o password non corretti. Controlla le credenziali e riprova.');
-      } else if (err instanceof Error && err.message.includes('Email not confirmed')) {
-        setError('Devi confermare la tua email prima di accedere. Controlla la casella di posta.');
-      } else if (err instanceof Error && err.message.includes('User already registered')) {
-        setError('Questa email è già registrata. Accedi o usa "Password dimenticata?".');
+      const msg = err instanceof Error ? err.message : String(err);
+      const name = err instanceof Error ? err.name : '';
+      // Mappa messaggi Supabase → testo leggibile
+      if (msg.includes('Invalid login credentials') || msg.includes('invalid_grant')) {
+        setError('❌ Email o password non corretti.');
+      } else if (msg.includes('Email not confirmed')) {
+        setError('📧 Devi confermare la tua email. Controlla la casella di posta.');
+      } else if (msg.includes('User already registered')) {
+        setError('⚠️ Email già registrata. Prova ad accedere.');
+      } else if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed to fetch')) {
+        setError('🌐 Errore di rete. Controlla la connessione e riprova.');
+      } else if (name === 'AbortError' || msg.includes('aborted')) {
+        // AbortError durante login = problema reale (non ignorare)
+        setError('⏱️ Richiesta interrotta. Riprova tra qualche secondo.');
       } else {
-        setError(err instanceof Error ? err.message : 'Errore sconosciuto');
+        setError(`⚠️ ${msg}`);
       }
     } finally {
       setLoading(false);
@@ -178,7 +183,15 @@ export default function AuthPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Banner configurazione Supabase mancante */}
+          {typeof import.meta !== 'undefined' &&
+            (import.meta as Record<string,Record<string,string>>).env?.VITE_SUPABASE_URL?.includes('placeholder') && (
+            <div className="mb-4 bg-yellow-900/30 border border-yellow-500 rounded-lg p-3 text-yellow-300 text-xs font-mono">
+              ⚠️ Supabase non configurato. Imposta VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY su Vercel.
+            </div>
+          )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
 
             {/* Campo username (solo registrazione) */}
             {mode === 'register' && (
