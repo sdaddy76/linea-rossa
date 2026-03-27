@@ -1,8 +1,6 @@
 // =============================================
-// LINEA ROSSA — Mappa SVG Realistica v4
-// ViewBox: 0 0 1100 750
-// 13 stati giocabili + Stretto di Hormuz
-// Cubi influenza iniziali visibili per stato
+// LINEA ROSSA — Mappa con Plancia Realistica
+// Sfondo: immagine plancia + overlay SVG interattivo
 // =============================================
 
 import { useState } from 'react';
@@ -20,11 +18,11 @@ const FC: Record<Faction, string> = {
   Europa:     '#10b981',
 };
 const FC_BG: Record<Faction, string> = {
-  Iran:       '#ef444428',
-  Coalizione: '#3b82f628',
-  Russia:     '#a855f728',
-  Cina:       '#f59e0b28',
-  Europa:     '#10b98128',
+  Iran:       '#ef444440',
+  Coalizione: '#3b82f640',
+  Russia:     '#a855f740',
+  Cina:       '#f59e0b40',
+  Europa:     '#10b98140',
 };
 const FACTIONS: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
 
@@ -44,318 +42,186 @@ interface Props {
   attackMode?: boolean;
 }
 
-interface TerrSVG {
+// ─────────────────────────────────────────────────────────────────────────────
+// MAPPA: ViewBox 1376 x 768 (metà della risoluzione originale 2752x1536)
+// Ogni territorio ha:
+//   - hitPath: poligono SVG trasparente cliccabile
+//   - labelPos: posizione del nome (non mostrato — già visibile sull'immagine)
+//   - cubeAnchor: dove disegnare i quadratini influenza
+//   - initialCubes: slot totali disponibili (regolamento)
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface TerrDef {
   id: TerritoryId;
   label: string;
-  path: string;
-  labelPos: [number, number];
-  type: 'casa' | 'strategico' | 'normale';
-  pvPerRound: number;
-  isNaval?: boolean;
-  homeFaction?: Faction;
-  cubeAnchor: [number, number];  // dove disegnare i cubi
+  hitPath: string;
+  cubeAnchor: [number, number];
   initialCubes: number;
-  labelSize?: number;
+  pvPerRound: number;
+  type: 'casa' | 'strategico' | 'normale';
+  homeFaction?: Faction;
+  isNaval?: boolean;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PERCORSI SVG — ViewBox 0 0 1100 750
-//
-// Scala approssimativa:
-//   X: lon 24°E = 20,  lon 62°E = 940    →  ~24 px/°
-//   Y: lat 43°N = 20,  lat 11°N = 730    →  ~22 px/°
-//
-// Conversione rapida:
-//   x = (lon - 24) * 24 + 20
-//   y = (43 - lat) * 22 + 20
-// ─────────────────────────────────────────────────────────────────────────────
-
-const TERR_SVG: TerrSVG[] = [
-
-  // ── TURCHIA  (36°N-42°N / 26°E-44°E) ─────────────────────────────────────
+const TERR_DEF: TerrDef[] = [
   {
-    id: 'Turchia', label: 'TURCHIA', initialCubes: 4,
-    type: 'normale', pvPerRound: 1,
-    path: `M 44,20 L 500,20 L 500,55
-           L 455,68 L 400,82 L 340,92 L 275,96
-           L 210,92 L 155,80 L 100,65 L 55,50 Z`,
-    labelPos: [275, 56],
-    cubeAnchor: [56, 52],
-    labelSize: 12,
+    id: 'Turchia', label: 'TURCHIA', initialCubes: 4, pvPerRound: 1, type: 'normale',
+    hitPath: 'M 42,72 L 460,58 L 468,72 L 420,108 L 350,122 L 268,126 L 185,118 L 115,108 L 58,90 Z',
+    cubeAnchor: [58, 130],
   },
-
-  // ── SIRIA  (33°N-37°N / 36°E-42°E) ───────────────────────────────────────
   {
-    id: 'Siria', label: 'SIRIA', initialCubes: 2,
-    type: 'normale', pvPerRound: 1,
-    path: `M 300,96 L 500,96 L 508,110 L 512,192
-           L 472,210 L 420,222 L 368,228 L 330,226 L 302,212
-           L 295,172 Z`,
-    labelPos: [400, 145],
-    cubeAnchor: [302, 100],
-    labelSize: 12,
+    id: 'Siria', label: 'SIRIA', initialCubes: 2, pvPerRound: 1, type: 'normale',
+    hitPath: 'M 298,126 L 435,122 L 445,135 L 448,205 L 415,222 L 370,228 L 332,225 L 308,212 L 300,168 Z',
+    cubeAnchor: [330, 205],
   },
-
-  // ── LIBANO  (33°N-34.5°N / 35.1°E-36.6°E) ────────────────────────────────
   {
-    id: 'Libano', label: 'LIBANO', initialCubes: 2,
-    type: 'normale', pvPerRound: 1,
-    path: `M 268,165 L 300,165 L 300,222 L 268,222 Z`,
-    labelPos: [212, 182],
-    cubeAnchor: [175, 188],
-    labelSize: 8,
+    id: 'Libano', label: 'LIBANO', initialCubes: 2, pvPerRound: 1, type: 'normale',
+    hitPath: 'M 272,175 L 300,175 L 300,225 L 272,228 Z',
+    cubeAnchor: [218, 198],
   },
-
-  // ── ISRAELE  (29.5°N-33.4°N / 34.2°E-35.9°E) ────────────────────────────
   {
-    id: 'Israele', label: 'ISRAELE', initialCubes: 6,
-    type: 'casa', pvPerRound: 3, homeFaction: 'Coalizione',
-    path: `M 246,222 L 268,222 L 272,242 L 274,278 L 268,316
-           L 256,320 L 244,316 L 236,278 L 234,247 Z`,
-    labelPos: [192, 258],
-    cubeAnchor: [148, 268],
-    labelSize: 9,
+    id: 'Israele', label: 'ISRAELE', initialCubes: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione',
+    hitPath: 'M 258,228 L 278,228 L 282,248 L 284,285 L 278,318 L 265,322 L 252,318 L 245,285 L 242,252 Z',
+    cubeAnchor: [195, 265],
   },
-
-  // ── GIORDANIA  (29.2°N-33°N / 35.5°E-39.3°E) ─────────────────────────────
   {
-    id: 'Giordania', label: 'GIORDANIA', initialCubes: 2,
-    type: 'normale', pvPerRound: 1,
-    path: `M 272,222 L 368,228 L 380,248 L 382,340
-           L 340,348 L 296,345 L 268,340 L 268,334
-           L 274,295 L 272,242 Z`,
-    labelPos: [326, 288],
-    cubeAnchor: [272, 342],
-    labelSize: 9,
+    id: 'Giordania', label: 'GIORDANIA', initialCubes: 2, pvPerRound: 1, type: 'normale',
+    hitPath: 'M 282,228 L 370,228 L 382,242 L 385,325 L 345,332 L 302,328 L 278,322 L 278,318 L 284,285 L 282,248 Z',
+    cubeAnchor: [298, 328],
   },
-
-  // ── EGITTO  (22°N-31°N / 24°E-37°E) ──────────────────────────────────────
   {
-    id: 'Egitto', label: 'EGITTO', initialCubes: 4,
-    type: 'normale', pvPerRound: 1,
-    path: `M 20,278 L 198,278 L 228,222 L 248,222
-           L 236,248 L 238,278 L 245,314 L 258,320
-           L 254,348 L 248,380 L 250,428 L 226,468
-           L 185,478 L 108,478 L 20,465 Z`,
-    labelPos: [115, 385],
-    cubeAnchor: [22, 280],
-    labelSize: 11,
+    id: 'Egitto', label: 'EGITTO', initialCubes: 4, pvPerRound: 1, type: 'normale',
+    hitPath: 'M 18,285 L 202,285 L 238,228 L 258,228 L 242,252 L 245,285 L 252,318 L 258,328 L 252,358 L 245,392 L 248,438 L 225,478 L 182,488 L 102,488 L 18,472 Z',
+    cubeAnchor: [22, 358],
   },
-
-  // ── IRAQ  (29°N-37.5°N / 38.8°E-48.6°E) ─────────────────────────────────
   {
-    id: 'Iraq', label: 'IRAQ', initialCubes: 3,
-    type: 'normale', pvPerRound: 1,
-    path: `M 368,228 L 512,228 L 520,240 L 525,265
-           L 558,282 L 572,308 L 572,380 L 558,402
-           L 548,445 L 496,452 L 424,458 L 382,438
-           L 380,356 L 368,342 Z`,
-    labelPos: [470, 338],
-    cubeAnchor: [370, 230],
-    labelSize: 11,
+    id: 'Iraq', label: 'IRAQ', initialCubes: 3, pvPerRound: 1, type: 'normale',
+    hitPath: 'M 375,122 L 508,118 L 518,132 L 525,158 L 558,175 L 572,202 L 572,272 L 558,295 L 548,338 L 495,345 L 422,352 L 382,332 L 382,248 Z',
+    cubeAnchor: [460, 298],
   },
-
-  // ── IRAN  (25°N-40°N / 44°E-63.5°E) ─────────────────────────────────────
   {
-    id: 'Iran', label: 'IRAN', initialCubes: 6,
-    type: 'casa', pvPerRound: 3, homeFaction: 'Iran', isNaval: true,
-    path: `M 500,62 L 565,54 L 635,56 L 695,66 L 748,78
-           L 800,95 L 848,122 L 886,152 L 908,188
-           L 918,232 L 910,285 L 890,328 L 862,358
-           L 828,378 L 768,382 L 730,376 L 706,366
-           L 678,350 L 655,328 L 638,305 L 615,285
-           L 585,278 L 558,278 L 572,260 L 572,188
-           L 558,162 L 525,145 L 520,118 L 512,105
-           L 508,88 L 500,72 Z`,
-    labelPos: [730, 228],
-    cubeAnchor: [504, 62],
-    labelSize: 15,
+    id: 'Iran', label: 'IRAN', initialCubes: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Iran', isNaval: true,
+    hitPath: 'M 508,72 L 572,62 L 645,65 L 705,75 L 758,88 L 808,108 L 855,135 L 892,165 L 912,202 L 918,245 L 908,298 L 888,342 L 858,372 L 822,392 L 778,398 L 738,392 L 698,375 L 668,355 L 645,332 L 622,308 L 595,292 L 568,288 L 548,288 L 558,272 L 572,245 L 572,202 L 558,175 L 525,158 L 518,132 L 508,108 L 505,88 Z',
+    cubeAnchor: [718, 245],
   },
-
-  // ── KUWAIT  (28.5°N-30.1°N / 46.5°E-48.5°E) ─────────────────────────────
   {
-    id: 'Kuwait', label: 'KUWAIT', initialCubes: 2,
-    type: 'normale', pvPerRound: 1,
-    path: `M 548,442 L 598,440 L 604,458 L 598,475 L 565,476 L 548,466 Z`,
-    labelPos: [575, 488],
-    cubeAnchor: [548, 462],
-    labelSize: 8,
+    id: 'Kuwait', label: 'KUWAIT', initialCubes: 2, pvPerRound: 1, type: 'normale',
+    hitPath: 'M 548,335 L 598,330 L 605,350 L 598,368 L 565,370 L 548,360 Z',
+    cubeAnchor: [548, 372],
   },
-
-  // ── ARABIA SAUDITA  (16°N-32°N / 36.5°E-56°E) ───────────────────────────
   {
-    id: 'ArabiaSaudita', label: 'ARABIA SAUDITA', initialCubes: 4,
-    type: 'normale', pvPerRound: 1, isNaval: true,
-    path: `M 254,348 L 382,340 L 424,348 L 496,445 L 548,458
-           L 598,462 L 630,462 L 655,470 L 678,492 L 678,536
-           L 660,572 L 635,598 L 590,625 L 530,640
-           L 465,642 L 400,630 L 340,610 L 292,585
-           L 265,558 L 248,528 L 252,492 L 248,460 Z`,
-    labelPos: [440, 538],
-    cubeAnchor: [258, 350],
-    labelSize: 11,
+    id: 'ArabiaSaudita', label: 'ARABIA SAUDITA', initialCubes: 4, pvPerRound: 1, type: 'normale', isNaval: true,
+    hitPath: 'M 252,355 L 382,345 L 422,352 L 495,345 L 548,360 L 598,368 L 632,368 L 658,378 L 678,402 L 678,448 L 660,488 L 632,518 L 588,548 L 528,562 L 462,565 L 398,552 L 338,528 L 292,505 L 265,478 L 248,448 L 252,412 L 248,392 Z',
+    cubeAnchor: [432, 515],
   },
-
-  // ── EMIRATI ARABI UNITI  (22.6°N-25.6°N / 51.5°E-56.4°E) ────────────────
   {
-    id: 'EmiratiArabi', label: 'EMIRATI A.U.', initialCubes: 2,
-    type: 'normale', pvPerRound: 1, isNaval: true,
-    path: `M 672,470 L 728,472 L 755,482 L 768,496
-           L 764,520 L 748,532 L 722,538 L 696,536
-           L 672,525 L 672,510 L 672,492 Z`,
-    labelPos: [714, 550],
-    cubeAnchor: [674, 555],
-    labelSize: 9,
+    id: 'EmiratiArabi', label: 'EMIRATI A.U.', initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true,
+    hitPath: 'M 678,375 L 738,378 L 765,392 L 778,408 L 775,432 L 758,445 L 732,452 L 705,448 L 682,435 L 678,418 Z',
+    cubeAnchor: [682, 455],
   },
-
-  // ── OMAN  (16.7°N-24.7°N / 51.9°E-59.8°E) ────────────────────────────────
   {
-    id: 'Oman', label: 'OMAN', initialCubes: 2,
-    type: 'normale', pvPerRound: 1, isNaval: true,
-    path: `M 768,492 L 800,482 L 832,465 L 865,472
-           L 888,500 L 900,538 L 900,575
-           L 882,612 L 854,634 L 818,645
-           L 782,638 L 756,618 L 735,595
-           L 722,568 L 718,535 L 722,515
-           L 730,505 L 748,532 L 764,520 Z`,
-    labelPos: [810, 560],
-    cubeAnchor: [770, 494],
-    labelSize: 12,
+    id: 'Oman', label: 'OMAN', initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true,
+    hitPath: 'M 778,405 L 822,392 L 858,372 L 895,382 L 922,415 L 938,458 L 942,505 L 922,555 L 890,582 L 848,595 L 808,590 L 768,572 L 742,545 L 728,512 L 722,478 L 728,452 L 740,442 L 758,445 L 775,432 Z',
+    cubeAnchor: [835, 498],
   },
-
-  // ── STRETTO DI HORMUZ  (zona navale) ─────────────────────────────────────
   {
-    id: 'StrettoHormuz', label: 'HORMUZ ⭐', initialCubes: 0,
-    type: 'strategico', pvPerRound: 2, isNaval: true,
-    path: `M 730,475 L 766,478 L 770,492 L 755,482 L 732,469 Z`,
-    labelPos: [692, 463],
-    cubeAnchor: [732, 476],
-    labelSize: 7,
+    id: 'StrettoHormuz', label: 'HORMUZ', initialCubes: 0, pvPerRound: 2, type: 'strategico', isNaval: true,
+    hitPath: 'M 738,388 L 778,392 L 778,405 L 765,392 L 740,382 Z',
+    cubeAnchor: [695, 378],
   },
 ];
 
-// ── Cubi influenza iniziali (quadratini grigi vuoti) ──────────────────────
-function InitialCubes({ count, anchor }: { count: number; anchor: [number, number] }) {
-  if (count === 0) return null;
-  const C = 9; const G = 2.5; const PER_ROW = 3;
-  return (
-    <g opacity={0.75}>
-      {Array.from({ length: count }).map((_, i) => (
-        <rect key={i}
-          x={anchor[0] + (i % PER_ROW) * (C + G)}
-          y={anchor[1] + Math.floor(i / PER_ROW) * (C + G)}
-          width={C} height={C} rx={2}
-          fill="#081420" stroke="#2a4060" strokeWidth={1.2}
-        />
-      ))}
-      <text
-        x={anchor[0] + Math.min(count, PER_ROW) * (C + G) + 2}
-        y={anchor[1] + (Math.ceil(count / PER_ROW) - 1) * (C + G) + C - 1}
-        fill="#3a6080" fontSize={8} fontFamily="monospace" fontWeight="bold"
-      >×{count}</text>
-    </g>
-  );
-}
-
-// ── Quadrati influenza giocatori ───────────────────────────────────────────
-function InfluenceSquares({ influences, anchor }: {
+// ── Cubi influenza ─────────────────────────────────────────────────────────
+function CubeGrid({
+  initialCubes,
+  influences,
+  anchor,
+}: {
+  initialCubes: number;
   influences: Partial<Record<Faction, number>>;
   anchor: [number, number];
 }) {
-  const rows = FACTIONS
-    .map(f => ({ faction: f, count: influences[f] ?? 0 }))
-    .filter(r => r.count > 0);
-  if (rows.length === 0) return null;
+  const C = 11; const G = 3; const PER_ROW = 3;
+  const hasInfl = FACTIONS.some(f => (influences[f] ?? 0) > 0);
 
-  const C = 8; const G = 2; const ROW_H = 11;
+  if (!hasInfl && initialCubes === 0) return null;
+
+  // Costruisci lista slot: per ogni fazione che ha influenza mostra cubi colorati,
+  // i rimanenti come slot grigi vuoti
+  const filledSlots: Array<{ faction: Faction | null }> = [];
+  for (const f of FACTIONS) {
+    const n = influences[f] ?? 0;
+    for (let i = 0; i < n; i++) filledSlots.push({ faction: f });
+  }
+  const emptyCount = Math.max(0, initialCubes - filledSlots.length);
+  for (let i = 0; i < emptyCount; i++) filledSlots.push({ faction: null });
+
   return (
     <g>
-      {rows.map((row, ri) =>
-        Array.from({ length: Math.min(row.count, 6) }).map((_, si) => (
-          <rect key={`${row.faction}-${si}`}
-            x={anchor[0] + si * (C + G)}
-            y={anchor[1] + ri * ROW_H}
-            width={C} height={C} rx={2}
-            fill={FC[row.faction]} opacity={0.9}
-            stroke="#000" strokeWidth={0.5}
+      {filledSlots.map((slot, i) => {
+        const col = i % PER_ROW;
+        const row = Math.floor(i / PER_ROW);
+        const x = anchor[0] + col * (C + G);
+        const y = anchor[1] + row * (C + G);
+        return (
+          <rect key={i}
+            x={x} y={y} width={C} height={C} rx={2}
+            fill={slot.faction ? FC[slot.faction] : '#0a1628'}
+            stroke={slot.faction ? '#000' : '#2a4060'}
+            strokeWidth={slot.faction ? 0.5 : 1}
+            opacity={slot.faction ? 0.92 : 0.75}
           />
-        ))
-      )}
+        );
+      })}
     </g>
   );
 }
 
-// ── Tooltip ───────────────────────────────────────────────────────────────
+// ── Tooltip ────────────────────────────────────────────────────────────────
 function Tooltip({ terr, influences, x, y }: {
-  terr: TerrSVG;
+  terr: TerrDef;
   influences: Partial<Record<Faction, number>>;
   x: number; y: number;
 }) {
   const controller = getController(influences as Record<Faction, number>);
-  const hasInfl = FACTIONS.some(f => (influences[f] ?? 0) > 0);
-  const W = 225; const H = hasInfl ? 145 : 88;
-  const tx = Math.min(x + 12, 860); const ty = Math.max(y - 8, 5);
+  const rows = FACTIONS.filter(f => (influences[f] ?? 0) > 0);
+  const W = 210; const H = 75 + rows.length * 14;
+  const tx = Math.min(x + 14, 1150); const ty = Math.max(y - 10, 5);
 
   return (
-    <g>
-      <rect x={tx-4} y={ty-4} width={W} height={H} rx={8}
-        fill="#080e1c" stroke="#1e3a5f" strokeWidth={1.3}
-        filter="url(#shadow)" opacity={0.97} />
-      <text x={tx+6} y={ty+15} fill="#00ff88" fontSize={11}
+    <g style={{ pointerEvents: 'none' }}>
+      <rect x={tx - 4} y={ty - 4} width={W} height={H} rx={8}
+        fill="#060d18" stroke="#1e3a5f" strokeWidth={1.2} opacity={0.97} />
+      <text x={tx + 7} y={ty + 16} fill="#00ff88" fontSize={12}
         fontWeight="bold" fontFamily="monospace">{terr.label}</text>
-      <text x={tx+6} y={ty+28} fill="#8899aa" fontSize={7.5} fontFamily="monospace">
-        {terr.type === 'casa' ? '🏠 Territorio Casa' : terr.type === 'strategico' ? '⭐ Strategico' : '📍 Normale'}
-        {'  ·  '}{terr.pvPerRound} PV/round{terr.isNaval ? '  🚢' : ''}
+      <text x={tx + 7} y={ty + 29} fill="#6b7a8d" fontSize={7.5} fontFamily="monospace">
+        {terr.type === 'casa' ? `🏠 Territorio Casa (${terr.homeFaction})` :
+         terr.type === 'strategico' ? '⭐ Strategico' : '📍 Normale'}
+        {' · '}{terr.pvPerRound}PV/round{terr.isNaval ? ' 🚢' : ''}
       </text>
-      <text x={tx+6} y={ty+40} fill="#3a6080" fontSize={7} fontFamily="monospace">
+      <text x={tx + 7} y={ty + 42} fill="#3a6080" fontSize={7} fontFamily="monospace">
         Slot influenza: {terr.initialCubes}
       </text>
-      <rect x={tx+2} y={ty+45} width={W-8} height={15} rx={3}
-        fill={controller ? FC_BG[controller] : '#ffffff06'} />
-      <text x={tx+8} y={ty+55} fill={controller ? FC[controller] : '#4b5563'}
+      <rect x={tx + 3} y={ty + 46} width={W - 10} height={14} rx={3}
+        fill={controller ? FC_BG[controller] : '#ffffff08'} />
+      <text x={tx + 9} y={ty + 56} fill={controller ? FC[controller] : '#4b5563'}
         fontSize={8} fontFamily="monospace">
-        {controller ? `✅ Controllato: ${controller}` : '⚪ Non controllato'}
+        {controller ? `✅ ${controller}` : '⚪ Non controllato'}
       </text>
-      {hasInfl && (
-        <>
-          <line x1={tx+2} y1={ty+63} x2={tx+W-8} y2={ty+63} stroke="#1e3a5f" strokeWidth={0.8} />
-          <text x={tx+6} y={ty+74} fill="#94a3b8" fontSize={7.5}
-            fontFamily="monospace" fontWeight="bold">INFLUENZE:</text>
-          {FACTIONS.map((f, fi) => {
-            const n = influences[f] ?? 0;
-            if (n === 0) return null;
-            return (
-              <g key={f}>
-                <text x={tx+6} y={ty+87+fi*12} fill={FC[f]} fontSize={8} fontFamily="monospace">{f}</text>
-                {Array.from({ length: Math.min(n, 6) }).map((_, i) => (
-                  <rect key={i}
-                    x={tx+75+i*10} y={ty+79+fi*12}
-                    width={8} height={8} rx={1.5}
-                    fill={FC[f]} opacity={0.85} />
-                ))}
-                <text x={tx+152} y={ty+87+fi*12}
-                  fill="#4b5563" fontSize={7} fontFamily="monospace">
-                  {n}/{terr.initialCubes}
-                </text>
-              </g>
-            );
-          })}
-        </>
-      )}
+      {rows.map((f, ri) => (
+        <g key={f}>
+          <text x={tx + 9} y={ty + 70 + ri * 14} fill={FC[f]}
+            fontSize={8} fontFamily="monospace">{f}</text>
+          {Array.from({ length: Math.min(influences[f] ?? 0, 6) }).map((_, si) => (
+            <rect key={si}
+              x={tx + 80 + si * 11} y={ty + 62 + ri * 14}
+              width={9} height={9} rx={1.5}
+              fill={FC[f]} opacity={0.88} />
+          ))}
+        </g>
+      ))}
     </g>
   );
-}
-
-// ── Helpers fill/stroke ────────────────────────────────────────────────────
-function terrFill(ctrl: Faction | null, type: TerrSVG['type'], sel: boolean) {
-  if (sel) return '#ffffff10';
-  if (ctrl) return FC_BG[ctrl];
-  return type === 'casa' ? '#0d1f35' : type === 'strategico' ? '#121e38' : '#091524';
-}
-function terrStroke(ctrl: Faction | null, type: TerrSVG['type'], sel: boolean) {
-  if (sel) return '#00ff88';
-  if (ctrl) return FC[ctrl];
-  return type === 'strategico' ? '#8b5cf6' : type === 'casa' ? '#1e4a7f' : '#1e3a5f';
 }
 
 // ── Componente principale ──────────────────────────────────────────────────
@@ -369,102 +235,39 @@ export default function TerritoryMap({
   const onMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     setTooltipPos([
-      (e.clientX - r.left)  * (980 / r.width),
-      (e.clientY - r.top)   * (720  / r.height),
+      (e.clientX - r.left) * (1376 / r.width),
+      (e.clientY - r.top)  * (768  / r.height),
     ]);
   };
 
   return (
-    <div className="relative w-full select-none" style={{ paddingBottom: '73.5%' }}>
-      <div className="absolute inset-0">
-        <svg viewBox="0 0 980 720" className="w-full h-full"
-          style={{ background: 'linear-gradient(160deg,#020a14 0%,#04101e 100%)', borderRadius: 12 }}
+    <div className="relative w-full select-none" style={{ paddingBottom: '55.8%' }}>
+      <div className="absolute inset-0 rounded-xl overflow-hidden">
+        <svg
+          viewBox="0 0 1376 768"
+          className="w-full h-full"
+          style={{ display: 'block' }}
           onMouseMove={onMouseMove}
         >
-          <defs>
-            <filter id="shadow" x="-10%" y="-10%" width="130%" height="140%">
-              <feDropShadow dx="2" dy="3" stdDeviation="5" floodColor="#000" floodOpacity="0.85" />
-            </filter>
-            <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="4" result="b" />
-              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-            <filter id="glow2">
-              <feGaussianBlur stdDeviation="2.5" result="b" />
-              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-            {/* Texture acqua (onde sottili) */}
-            <pattern id="water" patternUnits="userSpaceOnUse" width="22" height="22">
-              <rect width="22" height="22" fill="#031828" />
-              <path d="M0,10 Q5.5,7 11,10 Q16.5,13 22,10" stroke="#04284a" strokeWidth="0.7" fill="none"/>
-              <path d="M0,20 Q5.5,17 11,20 Q16.5,23 22,20" stroke="#04284a" strokeWidth="0.7" fill="none"/>
-            </pattern>
-          </defs>
+          {/* ── SFONDO: immagine plancia ───────────────────────────────── */}
+          <image
+            href="/plancia_map.png"
+            x={0} y={0}
+            width={1376} height={768}
+            preserveAspectRatio="xMidYMid slice"
+          />
 
-          {/* ── SFONDO ACQUA ─────────────────────────────────────────────── */}
-          <rect width="1100" height="750" fill="url(#water)" />
+          {/* ── OVERLAY SCURO per leggibilità cubi ────────────────────── */}
+          <rect width={1376} height={768} fill="transparent" />
 
-          {/* ── CORPI D'ACQUA con etichette ──────────────────────────────── */}
-          {/* Mar Mediterraneo (NW) */}
-          <path d="M 0,0 L 268,0 L 268,110 L 210,168 L 145,195 L 78,200 L 20,195 L 0,182 Z"
-            fill="#031c35" stroke="#0a3a5f" strokeWidth={0.6} opacity={0.9} />
-          <text x="55" y="112" fill="#0a4a72" fontSize={9} fontFamily="monospace" fontStyle="italic">
-            MAR MEDITERRANEO
-          </text>
-
-          {/* Golfo Persico */}
-          <path d={`M 548,318 L 574,325 L 604,332 L 630,342 L 655,358 L 678,382
-                    L 678,408 L 660,428 L 635,438 L 602,442 L 572,438
-                    L 548,422 L 535,408 L 525,392 L 515,372 L 505,355
-                    L 502,338 L 510,325 Z`}
-            fill="#031c35" stroke="#0a4a7a" strokeWidth={1.3} opacity={0.92} />
-          <text x="545" y="400" fill="#0d5a7e" fontSize={8} fontFamily="monospace" fontStyle="italic">
-            GOLFO{'\n'}PERSICO
-          </text>
-          <text x="545" y="412" fill="#0d5a7e" fontSize={8} fontFamily="monospace" fontStyle="italic">
-            PERSICO
-          </text>
-
-          {/* Mar Rosso */}
-          <path d={`M 185,475 L 226,465 L 250,422 L 248,375 L 252,402
-                    L 248,438 L 265,468 L 240,502 L 215,535
-                    L 192,565 L 175,598 L 162,640 L 175,700
-                    L 140,750 L 0,750 L 0,562 L 20,462 L 108,475 Z`}
-            fill="#031c35" stroke="#0a3a5f" strokeWidth={0.6} opacity={0.88} />
-          <text x="60" y="572"
-            fill="#0a4a72" fontSize={8} fontFamily="monospace" fontStyle="italic"
-            transform="rotate(-72, 72, 555)">
-            MAR ROSSO
-          </text>
-
-          {/* Mar Caspio */}
-          <ellipse cx="792" cy="65" rx="55" ry="32"
-            fill="#031c35" stroke="#0a3a5f" strokeWidth={0.8} opacity={0.82} />
-          <text x="758" y="70" fill="#0a4a72" fontSize={7} fontFamily="monospace" fontStyle="italic">
-            M. CASPIO
-          </text>
-
-          {/* Golfo di Aden / Mar d'Arabia */}
-          <path d="M 560,610 L 980,610 L 980,750 L 520,750 Z"
-            fill="#031c35" stroke="#0a3a5f" strokeWidth={0.5} opacity={0.7} />
-          <text x="760" y="698" textAnchor="middle"
-            fill="#0a4a72" fontSize={9} fontFamily="monospace" fontStyle="italic">
-            MAR D'ARABIA
-          </text>
-
-          {/* Golfo di Oman */}
-          <text x="855" y="375" fill="#0a4a72" fontSize={7.5}
-            fontFamily="monospace" fontStyle="italic">GOLFO DI OMAN</text>
-
-          {/* ── TERRITORI ─────────────────────────────────────────────────── */}
-          {TERR_SVG.map(t => {
-            const ts   = territories[t.id];
-            const infl = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
+          {/* ── TERRITORI ─────────────────────────────────────────────── */}
+          {TERR_DEF.map(t => {
+            const ts    = territories[t.id];
+            const infl  = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
             const units = ts?.units ?? {};
-            const ctrl = getController(infl as Record<Faction, number>);
+            const ctrl  = getController(infl as Record<Faction, number>);
             const isSel = selectedTerritory === t.id;
             const isHov = hovered === t.id;
-            const hasFillInfl = FACTIONS.some(f => (infl[f] ?? 0) > 0);
 
             let totalUnits = 0;
             for (const um of Object.values(units))
@@ -477,75 +280,63 @@ export default function TerritoryMap({
                 onMouseEnter={() => setHovered(t.id)}
                 onMouseLeave={() => setHovered(null)}
               >
-                {isSel && (
-                  <path d={t.path} fill="none" stroke="#00ff88"
-                    strokeWidth={10} opacity={0.18} filter="url(#glow)" />
-                )}
-                {isHov && !isSel && (
-                  <path d={t.path} fill="none"
-                    stroke={ctrl ? FC[ctrl] : '#ffffff'}
-                    strokeWidth={6} opacity={0.12} filter="url(#glow2)" />
-                )}
-
-                {/* Corpo */}
-                <path d={t.path}
-                  fill={terrFill(ctrl, t.type, isSel)}
-                  stroke={terrStroke(ctrl, t.type, isSel)}
-                  strokeWidth={isSel ? 2.8 : t.type === 'casa' ? 2.2 : 1.4}
+                {/* Area cliccabile trasparente */}
+                <path
+                  d={t.hitPath}
+                  fill={
+                    isSel ? (ctrl ? FC_BG[ctrl] : '#ffffff18') :
+                    isHov ? (ctrl ? FC_BG[ctrl] : '#ffffff10') :
+                    ctrl  ? FC_BG[ctrl] : 'transparent'
+                  }
+                  stroke={
+                    isSel ? '#00ff88' :
+                    isHov ? (ctrl ? FC[ctrl] : '#ffffff55') :
+                    ctrl  ? FC[ctrl] : 'transparent'
+                  }
+                  strokeWidth={isSel ? 2.5 : 1.5}
                   strokeLinejoin="round"
-                  style={{ transition: 'fill 0.2s,stroke 0.2s', opacity: attackMode && !isSel ? 0.65 : 1 }}
+                  opacity={attackMode && !isSel ? 0.5 : 1}
                 />
 
-                {/* Indicatore casa */}
+                {/* Glow selezione */}
+                {isSel && (
+                  <path d={t.hitPath} fill="none"
+                    stroke="#00ff88" strokeWidth={6} opacity={0.2}
+                    style={{ filter: 'blur(4px)' }} />
+                )}
+
+                {/* Icona casa/strategico */}
                 {t.type === 'casa' && t.homeFaction && (
-                  <circle cx={t.labelPos[0] + 22} cy={t.labelPos[1] - 9}
-                    r={6} fill={FC[t.homeFaction]} opacity={0.92} />
-                )}
-                {/* Indicatore strategico */}
-                {t.type === 'strategico' && (
-                  <text x={t.labelPos[0] + 18} y={t.labelPos[1] - 3}
-                    fontSize={12} style={{ pointerEvents: 'none' }}>⭐</text>
-                )}
-
-                {/* Nome territorio */}
-                <text x={t.labelPos[0]} y={t.labelPos[1]}
-                  textAnchor="middle"
-                  fill={isSel ? '#00ff88' : isHov ? '#ffffff' : (ctrl ? FC[ctrl] : '#c8daf0')}
-                  fontSize={t.labelSize ?? 10}
-                  fontWeight={t.type === 'casa' || isSel ? 'bold' : '600'}
-                  fontFamily="monospace" letterSpacing="1.5"
-                  style={{ pointerEvents: 'none', userSelect: 'none', transition: 'fill 0.2s' }}
-                >
-                  {t.label}
-                </text>
-
-                {/* PV badge */}
-                {t.pvPerRound > 1 && (
-                  <text x={t.labelPos[0]} y={t.labelPos[1] + 13}
-                    textAnchor="middle"
-                    fill={t.type === 'casa' ? '#f59e0b' : '#8b5cf6'}
-                    fontSize={8} fontFamily="monospace" fontWeight="bold"
-                    style={{ pointerEvents: 'none' }}>
-                    {t.pvPerRound}PV
-                  </text>
+                  <circle
+                    cx={t.cubeAnchor[0] - 14}
+                    cy={t.cubeAnchor[1] - 14}
+                    r={7} fill={FC[t.homeFaction]} opacity={0.9}
+                    style={{ pointerEvents: 'none' }}
+                  />
                 )}
 
-                {/* Cubi iniziali o influenze */}
-                {!hasFillInfl
-                  ? <InitialCubes count={t.initialCubes} anchor={t.cubeAnchor} />
-                  : <InfluenceSquares influences={infl} anchor={t.cubeAnchor} />
-                }
+                {/* Cubi influenza */}
+                <CubeGrid
+                  initialCubes={t.initialCubes}
+                  influences={infl}
+                  anchor={t.cubeAnchor}
+                />
 
                 {/* Badge unità */}
                 {totalUnits > 0 && (
-                  <g>
-                    <circle cx={t.labelPos[0] + 30} cy={t.labelPos[1] - 8} r={9}
-                      fill="#1e293b" stroke="#f59e0b" strokeWidth={1.5} />
-                    <text x={t.labelPos[0] + 30} y={t.labelPos[1] - 4}
-                      textAnchor="middle" fill="#f59e0b" fontSize={7.5}
-                      fontWeight="bold" fontFamily="monospace"
-                      style={{ pointerEvents: 'none' }}>
-                      ⚔{totalUnits}
+                  <g style={{ pointerEvents: 'none' }}>
+                    <circle
+                      cx={t.cubeAnchor[0] + 38}
+                      cy={t.cubeAnchor[1] - 4}
+                      r={9} fill="#1e293b" stroke="#f59e0b" strokeWidth={1.5}
+                    />
+                    <text
+                      x={t.cubeAnchor[0] + 38}
+                      y={t.cubeAnchor[1]}
+                      textAnchor="middle" fill="#f59e0b"
+                      fontSize={8} fontWeight="bold" fontFamily="monospace"
+                    >
+                      {totalUnits}
                     </text>
                   </g>
                 )}
@@ -553,103 +344,48 @@ export default function TerritoryMap({
             );
           })}
 
-          {/* ── CONNESSIONI NAVALI ─────────────────────────────────────────── */}
-          {([
-            [[690, 340], [760, 375]],  // Iran → Hormuz
-            [[748, 478], [768, 492]],  // Hormuz → UAE
-            [[748, 478], [800, 486]],  // Hormuz → Oman
-            [[560, 348], [545, 375]],  // Kuwait → G.Persico
-          ] as [number, number][][]).map(([a, b], i) => (
-            <line key={i}
-              x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]}
-              stroke="#0d4a7a" strokeWidth={1.4} strokeDasharray="5 4" opacity={0.6} />
-          ))}
-
-          {/* ── LEGENDA FAZIONI ───────────────────────────────────────────── */}
-          <g transform="translate(16, 558)">
-            <rect x={0} y={0} width={155} height={118} rx={8}
-              fill="#060c18" stroke="#1e3a5f" strokeWidth={1} opacity={0.95} />
-            <text x={8} y={17} fill="#94a3b8" fontSize={8}
-              fontFamily="monospace" fontWeight="bold" letterSpacing="2">FAZIONI</text>
-            {FACTIONS.map((f, i) => (
-              <g key={f} transform={`translate(8,${28 + i * 17})`}>
-                <rect x={0} y={-9} width={10} height={10} rx={2} fill={FC[f]} opacity={0.9} />
-                <text x={15} y={0} fill={FC[f]} fontSize={8.5} fontFamily="monospace">{f}</text>
-              </g>
-            ))}
-          </g>
-
-          {/* ── LEGENDA CUBI ──────────────────────────────────────────────── */}
-          <g transform="translate(180, 558)">
-            <rect x={0} y={0} width={200} height={88} rx={8}
-              fill="#060c18" stroke="#1e3a5f" strokeWidth={1} opacity={0.95} />
-            <text x={8} y={17} fill="#94a3b8" fontSize={8}
-              fontFamily="monospace" fontWeight="bold" letterSpacing="2">CUBI INFLUENZA</text>
-            <rect x={8} y={25} width={10} height={10} rx={2}
-              fill="#081420" stroke="#2a4060" strokeWidth={1.2} />
-            <text x={22} y={35} fill="#4a6a8a" fontSize={8} fontFamily="monospace">
-              □ = slot libero (regolamento)
-            </text>
-            {FACTIONS.slice(0, 3).map((f, i) => (
-              <g key={f}>
-                <rect x={8 + i * 62} y={44} width={10} height={10} rx={2} fill={FC[f]} opacity={0.9} />
-                <text x={22 + i * 62} y={54} fill={FC[f]} fontSize={7.5} fontFamily="monospace">
-                  {f.slice(0, 5)}.
-                </text>
-              </g>
-            ))}
-            <text x={8} y={75} fill="#3a6080" fontSize={7.5} fontFamily="monospace">
-              ×N = numero slot disponibili
-            </text>
-          </g>
-
-          {/* ── LEGENDA TERRITORIO ────────────────────────────────────────── */}
-          <g transform="translate(390, 558)">
-            <rect x={0} y={0} width={185} height={88} rx={8}
-              fill="#060c18" stroke="#1e3a5f" strokeWidth={1} opacity={0.95} />
-            <text x={8} y={17} fill="#94a3b8" fontSize={8}
-              fontFamily="monospace" fontWeight="bold" letterSpacing="2">TIPO TERRITORIO</text>
-            <circle cx={14} cy={32} r={6} fill="#ef4444" opacity={0.9} />
-            <text x={24} y={37} fill="#94a3b8" fontSize={8} fontFamily="monospace">Casa (+3PV/round)</text>
-            <text x={8} y={55} fill="#8b5cf6" fontSize={12}>⭐</text>
-            <text x={24} y={57} fill="#94a3b8" fontSize={8} fontFamily="monospace">Strategico (+2PV)</text>
-            <rect x={8} y={63} width={10} height={10} rx={2} fill="#091524" stroke="#1e3a5f" />
-            <text x={24} y={73} fill="#94a3b8" fontSize={8} fontFamily="monospace">Normale (+1PV)</text>
-          </g>
-
-          {/* ── TITOLO ────────────────────────────────────────────────────── */}
-          <text x={490} y={712} textAnchor="middle"
-            fill="#1e4a7f" fontSize={9} fontFamily="monospace"
-            fontWeight="bold" letterSpacing="3">
-            TEATRO OPERATIVO — GOLFO PERSICO / MEDIO ORIENTE
-          </text>
-
-          {/* ── BARRA STATO ───────────────────────────────────────────────── */}
+          {/* ── BARRE STATO ───────────────────────────────────────────── */}
           {isMyTurn && (
-            <g transform="translate(460, 12)">
-              <rect x={0} y={0} width={510} height={26} rx={6}
-                fill="#00ff8812" stroke="#00ff88" strokeWidth={1} />
-              <text x={12} y={18} fill="#00ff88"
+            <g transform="translate(380, 10)">
+              <rect x={0} y={0} width={615} height={26} rx={6}
+                fill="#00ff8815" stroke="#00ff88" strokeWidth={1} />
+              <text x={14} y={18} fill="#00ff88"
                 fontSize={10} fontFamily="monospace" fontWeight="bold">
                 ▶ IL TUO TURNO — Clicca un territorio per interagire
               </text>
             </g>
           )}
           {attackMode && (
-            <g transform="translate(460, 40)">
-              <rect x={0} y={0} width={510} height={26} rx={6}
-                fill="#ef444412" stroke="#ef4444" strokeWidth={1} />
-              <text x={12} y={18} fill="#ef4444"
+            <g transform="translate(380, 40)">
+              <rect x={0} y={0} width={615} height={26} rx={6}
+                fill="#ef444415" stroke="#ef4444" strokeWidth={1} />
+              <text x={14} y={18} fill="#ef4444"
                 fontSize={10} fontFamily="monospace" fontWeight="bold">
                 ⚔️ MODALITÀ ATTACCO — Seleziona il territorio bersaglio
               </text>
             </g>
           )}
 
-          {/* ── TOOLTIP ───────────────────────────────────────────────────── */}
+          {/* ── LEGENDA FAZIONI (angolo in basso a sinistra, sopra l'immagine) ── */}
+          <g transform="translate(12, 600)">
+            <rect x={0} y={0} width={145} height={108} rx={7}
+              fill="#060d18cc" stroke="#1e3a5f" strokeWidth={1} />
+            <text x={8} y={16} fill="#94a3b8" fontSize={8}
+              fontFamily="monospace" fontWeight="bold" letterSpacing="2">INFLUENZE</text>
+            {FACTIONS.map((f, i) => (
+              <g key={f} transform={`translate(8,${25 + i * 16})`}>
+                <rect x={0} y={-9} width={10} height={10} rx={2}
+                  fill={FC[f]} opacity={0.9} />
+                <text x={15} y={0} fill={FC[f]}
+                  fontSize={8.5} fontFamily="monospace">{f}</text>
+              </g>
+            ))}
+          </g>
+
+          {/* ── TOOLTIP ───────────────────────────────────────────────── */}
           {hovered && (() => {
-            const t  = TERR_SVG.find(t => t.id === hovered)!;
-            const ts = territories[hovered];
+            const t   = TERR_DEF.find(t => t.id === hovered)!;
+            const ts  = territories[hovered];
             const infl = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
             return (
               <Tooltip terr={t} influences={infl}
