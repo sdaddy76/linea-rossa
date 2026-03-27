@@ -316,21 +316,38 @@ export default function CardLibraryManager({ onClose }: Props) {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
         const wb = XLSX.read(data, { type: 'array' });
 
-        // Usa il primo foglio
-        const sheetName = wb.SheetNames[0];
-        const ws = wb.Sheets[sheetName];
-        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
+        // Cerca il foglio "Carte" — altrimenti usa il primo foglio non vuoto
+        const targetSheet =
+          wb.SheetNames.find(n => n.toLowerCase() === 'carte') ??
+          wb.SheetNames.find(n => !n.toLowerCase().includes('guida') &&
+                                  !n.toLowerCase().includes('riepilogo') &&
+                                  !n.toLowerCase().includes('legenda')) ??
+          wb.SheetNames[0];
+        const ws = wb.Sheets[targetSheet];
+        const allRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, {
           defval: '',
           raw: true,
         });
 
-        if (rows.length === 0) {
-          setUploadError('Il file è vuoto o non ha righe dati.');
+        // Filtra le righe completamente vuote (tutte le colonne stringa vuote o zero)
+        const rows = allRows.filter(row =>
+          Object.values(row).some(v => v !== '' && v !== 0 && v !== null && v !== undefined)
+        );
+
+        // Filtra le righe che sembrano separatori di sezione (card_id non è formato valido)
+        // oppure righe dove il Codice inizia con '━' o '─' (separatori)
+        const dataRows = rows.filter(row => {
+          const codice = String(row['Codice'] ?? row['card_id'] ?? '').trim();
+          return codice && !codice.startsWith('━') && !codice.startsWith('─') && !codice.startsWith('=');
+        });
+
+        if (dataRows.length === 0) {
+          setUploadError(`Il file non contiene righe dati valide nel foglio "${targetSheet}". Assicurati di usare il template scaricabile dal sito.`);
           setStep('error');
           return;
         }
 
-        const cards = rows.map(parseRow);
+        const cards = dataRows.map(parseRow);
         const errors: RowError[] = [];
         cards.forEach((c, i) => errors.push(...validateRow(c, i)));
 

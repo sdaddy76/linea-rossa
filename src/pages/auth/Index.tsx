@@ -6,7 +6,9 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'new-password'>('login');
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -41,8 +43,8 @@ export default function AuthPage() {
     }
     // Intercetta link di reset password: Supabase invia type=recovery
     if (hash.includes('type=recovery') || search.includes('type=recovery')) {
-      setMessage('🔑 Link valido! Inserisci la nuova password.');
-      setMode('reset');
+      setMessage('');
+      setMode('new-password');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
@@ -77,13 +79,23 @@ export default function AuthPage() {
           localStorage.removeItem('lr_remember_email');
         }
 
-      // ── RESET PASSWORD ────────────────────────────────────────────────
+      // ── RICHIESTA RESET PASSWORD ─────────────────────────────────────────
       } else if (mode === 'reset') {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: window.location.origin + window.location.pathname,
         });
         if (resetError) throw resetError;
         setMessage('📧 Email inviata! Controlla la tua casella e clicca il link per reimpostare la password.');
+
+      // ── IMPOSTA NUOVA PASSWORD ───────────────────────────────────────────
+      } else if (mode === 'new-password') {
+        if (newPassword.length < 6) { setError('La password deve essere di almeno 6 caratteri.'); setLoading(false); return; }
+        if (newPassword !== newPasswordConfirm) { setError('Le password non coincidono.'); setLoading(false); return; }
+        const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+        if (updateError) throw updateError;
+        setMessage('✅ Password aggiornata! Ora puoi accedere con la nuova password.');
+        setMode('login');
+        setNewPassword(''); setNewPasswordConfirm('');
       }
 
     } catch (err: unknown) {
@@ -95,14 +107,16 @@ export default function AuthPage() {
 
   // Etichette dinamiche in base alla modalità
   const TAB_LABEL: Record<typeof mode, string> = {
-    login:    '🔐 ACCEDI',
-    register: '📋 REGISTRATI',
-    reset:    '🔑 RESET',
+    login:          '🔐 ACCEDI',
+    register:       '📋 REGISTRATI',
+    reset:          '🔑 RESET',
+    'new-password': '🔑 NUOVA PASSWORD',
   };
   const SUBMIT_LABEL: Record<typeof mode, string> = {
-    login:    '🚀 ENTRA',
-    register: '✅ CREA ACCOUNT',
-    reset:    '📧 INVIA EMAIL RESET',
+    login:          '🚀 ENTRA',
+    register:       '✅ CREA ACCOUNT',
+    reset:          '📧 INVIA EMAIL RESET',
+    'new-password': '🔒 SALVA NUOVA PASSWORD',
   };
 
   return (
@@ -119,8 +133,8 @@ export default function AuthPage() {
         {/* Card */}
         <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-6 shadow-2xl shadow-[#00ff8820]">
 
-          {/* Tab switcher — mostra solo login/registrati (reset è modale separato) */}
-          {mode !== 'reset' && (
+          {/* Tab switcher — mostra solo login/registrati */}
+          {mode !== 'reset' && mode !== 'new-password' && (
             <div className="flex mb-6 bg-[#0a0e1a] rounded-lg p-1">
               {(['login', 'register'] as const).map(m => (
                 <button
@@ -140,12 +154,16 @@ export default function AuthPage() {
           {/* Titolo per modalità reset */}
           {mode === 'reset' && (
             <div className="mb-6 text-center">
-              <p className="text-[#00ff88] font-mono font-bold text-sm tracking-widest">
-                🔑 REIMPOSTA PASSWORD
-              </p>
-              <p className="text-[#8899aa] text-xs font-mono mt-1">
-                Inserisci la tua email per ricevere il link di reset
-              </p>
+              <p className="text-[#00ff88] font-mono font-bold text-sm tracking-widest">🔑 REIMPOSTA PASSWORD</p>
+              <p className="text-[#8899aa] text-xs font-mono mt-1">Inserisci la tua email per ricevere il link di reset</p>
+            </div>
+          )}
+
+          {/* Titolo per modalità nuova password */}
+          {mode === 'new-password' && (
+            <div className="mb-6 text-center">
+              <p className="text-[#00ff88] font-mono font-bold text-sm tracking-widest">🔒 NUOVA PASSWORD</p>
+              <p className="text-[#8899aa] text-xs font-mono mt-1">Scegli la tua nuova password di accesso</p>
             </div>
           )}
 
@@ -183,8 +201,8 @@ export default function AuthPage() {
               />
             </div>
 
-            {/* Campo password (non in modalità reset) */}
-            {mode !== 'reset' && (
+            {/* Campo password (solo login e registrazione) */}
+            {(mode === 'login' || mode === 'register') && (
               <div>
                 <label className="block text-xs font-mono text-[#8899aa] mb-1">PASSWORD</label>
                 <input
@@ -194,11 +212,48 @@ export default function AuthPage() {
                   placeholder="••••••••"
                   required
                   minLength={6}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   className="w-full bg-[#0a0e1a] border border-[#1e3a5f] rounded-lg px-4 py-2.5
                     text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]
                     placeholder-[#334455] transition-colors"
                 />
               </div>
+            )}
+
+            {/* Campi nuova password */}
+            {mode === 'new-password' && (
+              <>
+                <div>
+                  <label className="block text-xs font-mono text-[#8899aa] mb-1">NUOVA PASSWORD</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    placeholder="min. 6 caratteri"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    className="w-full bg-[#0a0e1a] border border-[#1e3a5f] rounded-lg px-4 py-2.5
+                      text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]
+                      placeholder-[#334455] transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono text-[#8899aa] mb-1">CONFERMA PASSWORD</label>
+                  <input
+                    type="password"
+                    value={newPasswordConfirm}
+                    onChange={e => setNewPasswordConfirm(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                    className="w-full bg-[#0a0e1a] border border-[#1e3a5f] rounded-lg px-4 py-2.5
+                      text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]
+                      placeholder-[#334455] transition-colors"
+                  />
+                </div>
+              </>
             )}
 
             {/* ── Riga "Ricordami" + "Password dimenticata" (solo login) ── */}
@@ -256,8 +311,8 @@ export default function AuthPage() {
               {loading ? '⏳ ...' : SUBMIT_LABEL[mode]}
             </button>
 
-            {/* Torna al login (da modalità reset) */}
-            {mode === 'reset' && (
+            {/* Torna al login (da reset o new-password) */}
+            {(mode === 'reset' || mode === 'new-password') && (
               <button
                 type="button"
                 onClick={() => { setMode('login'); setError(''); setMessage(''); }}
