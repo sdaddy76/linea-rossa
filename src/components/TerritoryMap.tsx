@@ -91,17 +91,17 @@ const TERR_SVG: TerrSVG[] = [
     path: `M 300,96 L 500,96 L 508,110 L 512,192
            L 472,210 L 420,222 L 368,228 L 330,226 L 302,212
            L 295,172 Z`,
-    labelPos: [404, 156],
+    labelPos: [400, 145],
     cubeAnchor: [302, 100],
-    labelSize: 11,
+    labelSize: 12,
   },
 
   // ── LIBANO  (33°N-34.5°N / 35.1°E-36.6°E) ────────────────────────────────
   {
     id: 'Libano', label: 'LIBANO', initialCubes: 2,
     type: 'normale', pvPerRound: 1,
-    path: `M 268,165 L 300,165 L 300,212 L 268,220 Z`,
-    labelPos: [212, 180],
+    path: `M 268,165 L 300,165 L 300,222 L 268,222 Z`,
+    labelPos: [212, 182],
     cubeAnchor: [175, 188],
     labelSize: 8,
   },
@@ -110,10 +110,10 @@ const TERR_SVG: TerrSVG[] = [
   {
     id: 'Israele', label: 'ISRAELE', initialCubes: 6,
     type: 'casa', pvPerRound: 3, homeFaction: 'Coalizione',
-    path: `M 246,220 L 268,220 L 272,238 L 274,275 L 268,310
-           L 256,314 L 244,310 L 236,275 L 234,245 Z`,
-    labelPos: [192, 250],
-    cubeAnchor: [148, 262],
+    path: `M 246,222 L 268,222 L 272,242 L 274,278 L 268,316
+           L 256,320 L 244,316 L 236,278 L 234,247 Z`,
+    labelPos: [192, 258],
+    cubeAnchor: [148, 268],
     labelSize: 9,
   },
 
@@ -121,11 +121,11 @@ const TERR_SVG: TerrSVG[] = [
   {
     id: 'Giordania', label: 'GIORDANIA', initialCubes: 2,
     type: 'normale', pvPerRound: 1,
-    path: `M 272,220 L 368,220 L 380,234 L 382,316
-           L 340,323 L 296,320 L 268,316 L 268,310
-           L 274,275 L 272,238 Z`,
-    labelPos: [326, 268],
-    cubeAnchor: [272, 318],
+    path: `M 272,222 L 368,228 L 380,248 L 382,340
+           L 340,348 L 296,345 L 268,340 L 268,334
+           L 274,295 L 272,242 Z`,
+    labelPos: [326, 288],
+    cubeAnchor: [272, 342],
     labelSize: 9,
   },
 
@@ -134,9 +134,9 @@ const TERR_SVG: TerrSVG[] = [
     id: 'Egitto', label: 'EGITTO', initialCubes: 4,
     type: 'normale', pvPerRound: 1,
     path: `M 20,278 L 198,278 L 228,222 L 248,222
-           L 236,248 L 238,278 L 245,312 L 258,316
-           L 254,342 L 248,375 L 250,422 L 226,465
-           L 185,475 L 108,475 L 20,462 Z`,
+           L 236,248 L 238,278 L 245,314 L 258,320
+           L 254,348 L 248,380 L 250,428 L 226,468
+           L 185,478 L 108,478 L 20,465 Z`,
     labelPos: [115, 385],
     cubeAnchor: [22, 280],
     labelSize: 11,
@@ -146,12 +146,12 @@ const TERR_SVG: TerrSVG[] = [
   {
     id: 'Iraq', label: 'IRAQ', initialCubes: 3,
     type: 'normale', pvPerRound: 1,
-    path: `M 368,105 L 512,105 L 520,118 L 525,145
-           L 558,162 L 572,188 L 572,260 L 558,282
-           L 548,325 L 496,332 L 424,338 L 382,318
-           L 380,236 L 368,222 Z`,
-    labelPos: [470, 218],
-    cubeAnchor: [370, 108],
+    path: `M 368,228 L 512,228 L 520,240 L 525,265
+           L 558,282 L 572,308 L 572,380 L 558,402
+           L 548,445 L 496,452 L 424,458 L 382,438
+           L 380,356 L 368,342 Z`,
+    labelPos: [470, 338],
+    cubeAnchor: [370, 230],
     labelSize: 11,
   },
 
@@ -162,7 +162,7 @@ const TERR_SVG: TerrSVG[] = [
     path: `M 500,62 L 565,54 L 635,56 L 695,66 L 748,78
            L 800,95 L 848,122 L 886,152 L 908,188
            L 918,232 L 910,285 L 890,328 L 862,358
-           L 828,378 L 786,385 L 748,382 L 710,368
+           L 828,378 L 768,382 L 730,376 L 706,366
            L 678,350 L 655,328 L 638,305 L 615,285
            L 585,278 L 558,278 L 572,260 L 572,188
            L 558,162 L 525,145 L 520,118 L 512,105
@@ -176,9 +176,9 @@ const TERR_SVG: TerrSVG[] = [
   {
     id: 'Kuwait', label: 'KUWAIT', initialCubes: 2,
     type: 'normale', pvPerRound: 1,
-    path: `M 548,322 L 598,318 L 604,338 L 598,358 L 565,360 L 548,350 Z`,
-    labelPos: [575, 372],
-    cubeAnchor: [548, 355],
+    path: `M 548,442 L 598,440 L 604,458 L 598,475 L 565,476 L 548,466 Z`,
+    labelPos: [575, 488],
+    cubeAnchor: [548, 462],
     labelSize: 8,
   },
 
@@ -186,13 +186,13 @@ const TERR_SVG: TerrSVG[] = [
   {
     id: 'ArabiaSaudita', label: 'ARABIA SAUDITA', initialCubes: 4,
     type: 'normale', pvPerRound: 1, isNaval: true,
-    path: `M 254,342 L 382,332 L 424,338 L 496,332 L 548,350
-           L 598,358 L 630,358 L 655,368 L 678,392 L 678,438
-           L 660,476 L 635,505 L 590,535 L 530,552
-           L 465,555 L 400,542 L 340,520 L 292,495
-           L 265,468 L 248,438 L 252,402 L 248,375 Z`,
-    labelPos: [440, 448],
-    cubeAnchor: [258, 345],
+    path: `M 254,348 L 382,340 L 424,348 L 496,445 L 548,458
+           L 598,462 L 630,462 L 655,470 L 678,492 L 678,536
+           L 660,572 L 635,598 L 590,625 L 530,640
+           L 465,642 L 400,630 L 340,610 L 292,585
+           L 265,558 L 248,528 L 252,492 L 248,460 Z`,
+    labelPos: [440, 538],
+    cubeAnchor: [258, 350],
     labelSize: 11,
   },
 
@@ -200,36 +200,36 @@ const TERR_SVG: TerrSVG[] = [
   {
     id: 'EmiratiArabi', label: 'EMIRATI A.U.', initialCubes: 2,
     type: 'normale', pvPerRound: 1, isNaval: true,
-    path: `M 680,360 L 748,364 L 780,378 L 795,395
-           L 790,422 L 772,436 L 744,444 L 716,442
-           L 692,428 L 680,412 L 680,395 Z`,
-    labelPos: [742, 455],
-    cubeAnchor: [700, 460],
-    labelSize: 8,
+    path: `M 672,470 L 728,472 L 755,482 L 768,496
+           L 764,520 L 748,532 L 722,538 L 696,536
+           L 672,525 L 672,510 L 672,492 Z`,
+    labelPos: [714, 550],
+    cubeAnchor: [674, 555],
+    labelSize: 9,
   },
 
   // ── OMAN  (16.7°N-24.7°N / 51.9°E-59.8°E) ────────────────────────────────
   {
     id: 'Oman', label: 'OMAN', initialCubes: 2,
     type: 'normale', pvPerRound: 1, isNaval: true,
-    path: `M 795,392 L 828,380 L 862,360 L 902,370
-           L 932,405 L 950,452 L 954,502
-           L 934,552 L 900,578 L 856,592
-           L 814,588 L 774,570 L 746,542
-           L 732,510 L 726,474 L 732,448
-           L 744,436 L 772,436 L 790,422 Z`,
-    labelPos: [850, 480],
-    cubeAnchor: [798, 394],
-    labelSize: 11,
+    path: `M 768,492 L 800,482 L 832,465 L 865,472
+           L 888,500 L 900,538 L 900,575
+           L 882,612 L 854,634 L 818,645
+           L 782,638 L 756,618 L 735,595
+           L 722,568 L 718,535 L 722,515
+           L 730,505 L 748,532 L 764,520 Z`,
+    labelPos: [810, 560],
+    cubeAnchor: [770, 494],
+    labelSize: 12,
   },
 
   // ── STRETTO DI HORMUZ  (zona navale) ─────────────────────────────────────
   {
     id: 'StrettoHormuz', label: 'HORMUZ ⭐', initialCubes: 0,
     type: 'strategico', pvPerRound: 2, isNaval: true,
-    path: `M 748,380 L 788,383 L 795,395 L 780,378 L 750,368 Z`,
-    labelPos: [706, 368],
-    cubeAnchor: [750, 382],
+    path: `M 730,475 L 766,478 L 770,492 L 755,482 L 732,469 Z`,
+    labelPos: [692, 463],
+    cubeAnchor: [732, 476],
     labelSize: 7,
   },
 ];
@@ -369,15 +369,15 @@ export default function TerritoryMap({
   const onMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     setTooltipPos([
-      (e.clientX - r.left)  * (1100 / r.width),
-      (e.clientY - r.top)   * (750  / r.height),
+      (e.clientX - r.left)  * (980 / r.width),
+      (e.clientY - r.top)   * (720  / r.height),
     ]);
   };
 
   return (
-    <div className="relative w-full select-none" style={{ paddingBottom: '68.2%' }}>
+    <div className="relative w-full select-none" style={{ paddingBottom: '73.5%' }}>
       <div className="absolute inset-0">
-        <svg viewBox="0 0 1100 750" className="w-full h-full"
+        <svg viewBox="0 0 980 720" className="w-full h-full"
           style={{ background: 'linear-gradient(160deg,#020a14 0%,#04101e 100%)', borderRadius: 12 }}
           onMouseMove={onMouseMove}
         >
@@ -445,9 +445,9 @@ export default function TerritoryMap({
           </text>
 
           {/* Golfo di Aden / Mar d'Arabia */}
-          <path d="M 590,610 L 1100,610 L 1100,750 L 545,750 Z"
+          <path d="M 560,610 L 980,610 L 980,750 L 520,750 Z"
             fill="#031c35" stroke="#0a3a5f" strokeWidth={0.5} opacity={0.7} />
-          <text x="820" y="698" textAnchor="middle"
+          <text x="760" y="698" textAnchor="middle"
             fill="#0a4a72" fontSize={9} fontFamily="monospace" fontStyle="italic">
             MAR D'ARABIA
           </text>
@@ -556,8 +556,8 @@ export default function TerritoryMap({
           {/* ── CONNESSIONI NAVALI ─────────────────────────────────────────── */}
           {([
             [[690, 340], [760, 375]],  // Iran → Hormuz
-            [[762, 380], [792, 392]],  // Hormuz → UAE
-            [[762, 380], [825, 380]],  // Hormuz → Oman
+            [[748, 478], [768, 492]],  // Hormuz → UAE
+            [[748, 478], [800, 486]],  // Hormuz → Oman
             [[560, 348], [545, 375]],  // Kuwait → G.Persico
           ] as [number, number][][]).map(([a, b], i) => (
             <line key={i}
@@ -618,7 +618,7 @@ export default function TerritoryMap({
           </g>
 
           {/* ── TITOLO ────────────────────────────────────────────────────── */}
-          <text x={550} y={742} textAnchor="middle"
+          <text x={490} y={712} textAnchor="middle"
             fill="#1e4a7f" fontSize={9} fontFamily="monospace"
             fontWeight="bold" letterSpacing="3">
             TEATRO OPERATIVO — GOLFO PERSICO / MEDIO ORIENTE
@@ -626,8 +626,8 @@ export default function TerritoryMap({
 
           {/* ── BARRA STATO ───────────────────────────────────────────────── */}
           {isMyTurn && (
-            <g transform="translate(588, 14)">
-              <rect x={0} y={0} width={495} height={26} rx={6}
+            <g transform="translate(460, 12)">
+              <rect x={0} y={0} width={510} height={26} rx={6}
                 fill="#00ff8812" stroke="#00ff88" strokeWidth={1} />
               <text x={12} y={18} fill="#00ff88"
                 fontSize={10} fontFamily="monospace" fontWeight="bold">
@@ -636,8 +636,8 @@ export default function TerritoryMap({
             </g>
           )}
           {attackMode && (
-            <g transform="translate(588, 44)">
-              <rect x={0} y={0} width={495} height={26} rx={6}
+            <g transform="translate(460, 40)">
+              <rect x={0} y={0} width={510} height={26} rx={6}
                 fill="#ef444412" stroke="#ef4444" strokeWidth={1} />
               <text x={12} y={18} fill="#ef4444"
                 fontSize={10} fontFamily="monospace" fontWeight="bold">
