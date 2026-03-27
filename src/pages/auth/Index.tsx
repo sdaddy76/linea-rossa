@@ -5,6 +5,9 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+// URL base per i redirect email — usa sempre l'origin reale (Vercel in prod, localhost in dev)
+const REDIRECT_URL = window.location.origin;
+
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'new-password'>('login');
   const [newPassword, setNewPassword] = useState('');
@@ -14,6 +17,7 @@ export default function AuthPage() {
   const [username, setUsername] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -61,7 +65,7 @@ export default function AuthPage() {
           email, password,
           options: {
             data: { username: username.trim() },
-            emailRedirectTo: window.location.origin + window.location.pathname,
+            emailRedirectTo: REDIRECT_URL,
           },
         });
         if (signUpError) throw signUpError;
@@ -82,7 +86,7 @@ export default function AuthPage() {
       // ── RICHIESTA RESET PASSWORD ─────────────────────────────────────────
       } else if (mode === 'reset') {
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + window.location.pathname,
+          redirectTo: REDIRECT_URL,
         });
         if (resetError) throw resetError;
         setMessage('📧 Email inviata! Controlla la tua casella e clicca il link per reimpostare la password.');
@@ -118,6 +122,25 @@ export default function AuthPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Reinvia email di conferma ──────────────────────────────────────────────
+  const handleResendConfirmation = async () => {
+    if (!email) { setError('Inserisci la tua email prima di reinviare.'); return; }
+    setResendLoading(true); setError(''); setMessage('');
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: REDIRECT_URL },
+      });
+      if (error) throw error;
+      setMessage('📧 Email di conferma inviata! Controlla la casella di posta e clicca il link.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Errore invio email');
+    } finally {
+      setResendLoading(false);
     }
   };
 
@@ -325,6 +348,19 @@ export default function AuthPage() {
               <div className="bg-[#00ff8815] border border-[#00ff88] rounded-lg p-3 text-[#00ff88] text-xs font-mono">
                 {message}
               </div>
+            )}
+
+            {/* Reinvia email conferma — visibile solo se errore email non confermata */}
+            {mode === 'login' && error.includes('confermare') && (
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={resendLoading}
+                className="w-full py-2.5 border border-[#4488cc] hover:border-[#00ff88]
+                  text-[#4488cc] hover:text-[#00ff88] font-mono text-xs rounded-lg
+                  transition-all disabled:opacity-50">
+                {resendLoading ? '⏳ Invio...' : '📧 Reinvia email di conferma'}
+              </button>
             )}
 
             {/* Pulsante submit */}
