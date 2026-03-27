@@ -1,22 +1,34 @@
 // =============================================
 // LINEA ROSSA — Pagina Auth (Login / Registrazione)
+// Funzionalità: Login, Registrazione, Ricordami, Reset Password
 // =============================================
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'reset'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  // Rileva se l'utente arriva da un link di conferma email
+  // Al mount: pre-compila email se salvata in localStorage (Ricordami)
+  useEffect(() => {
+    const saved = localStorage.getItem('lr_remember_email');
+    if (saved) {
+      setEmail(saved);
+      setRememberMe(true);
+    }
+  }, []);
+
+  // Rileva se l'utente arriva da un link di conferma email / reset password
   useEffect(() => {
     const hash = window.location.hash;
     const search = window.location.search;
+
     if (hash.includes('error=') || search.includes('error=')) {
       const params = new URLSearchParams(hash.replace('#', '') || search);
       const desc = params.get('error_description') ?? 'Link non valido o scaduto';
@@ -27,28 +39,53 @@ export default function AuthPage() {
       setMode('login');
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+    // Intercetta link di reset password: Supabase invia type=recovery
+    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+      setMessage('🔑 Link valido! Inserisci la nuova password.');
+      setMode('reset');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(''); setMessage(''); setLoading(true);
+
     try {
+      // ── REGISTRAZIONE ────────────────────────────────────────────────
       if (mode === 'register') {
         if (!username.trim()) { setError('Scegli un nome utente'); setLoading(false); return; }
         const { error: signUpError } = await supabase.auth.signUp({
           email, password,
           options: {
             data: { username: username.trim() },
-            // Reindirizza alla pagina corrente dopo la conferma email
             emailRedirectTo: window.location.origin + window.location.pathname,
           },
         });
         if (signUpError) throw signUpError;
         setMessage('✅ Registrazione completata! Controlla la tua email per confermare.');
-      } else {
+
+      // ── LOGIN ─────────────────────────────────────────────────────────
+      } else if (mode === 'login') {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
+
+        // Ricordami: salva o rimuovi email da localStorage
+        if (rememberMe) {
+          localStorage.setItem('lr_remember_email', email);
+        } else {
+          localStorage.removeItem('lr_remember_email');
+        }
+
+      // ── RESET PASSWORD ────────────────────────────────────────────────
+      } else if (mode === 'reset') {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + window.location.pathname,
+        });
+        if (resetError) throw resetError;
+        setMessage('📧 Email inviata! Controlla la tua casella e clicca il link per reimpostare la password.');
       }
+
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore sconosciuto');
     } finally {
@@ -56,9 +93,22 @@ export default function AuthPage() {
     }
   };
 
+  // Etichette dinamiche in base alla modalità
+  const TAB_LABEL: Record<typeof mode, string> = {
+    login:    '🔐 ACCEDI',
+    register: '📋 REGISTRATI',
+    reset:    '🔑 RESET',
+  };
+  const SUBMIT_LABEL: Record<typeof mode, string> = {
+    login:    '🚀 ENTRA',
+    register: '✅ CREA ACCOUNT',
+    reset:    '📧 INVIA EMAIL RESET',
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="text-5xl mb-3">☢️</div>
@@ -68,21 +118,40 @@ export default function AuthPage() {
 
         {/* Card */}
         <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-6 shadow-2xl shadow-[#00ff8820]">
-          {/* Tab switcher */}
-          <div className="flex mb-6 bg-[#0a0e1a] rounded-lg p-1">
-            {(['login','register'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                className={`flex-1 py-2 rounded-md text-sm font-mono font-bold transition-all ${
-                  mode === m
-                    ? 'bg-[#00ff88] text-[#0a0e1a]'
-                    : 'text-[#8899aa] hover:text-white'
-                }`}>
-                {m === 'login' ? '🔐 ACCEDI' : '📋 REGISTRATI'}
-              </button>
-            ))}
-          </div>
+
+          {/* Tab switcher — mostra solo login/registrati (reset è modale separato) */}
+          {mode !== 'reset' && (
+            <div className="flex mb-6 bg-[#0a0e1a] rounded-lg p-1">
+              {(['login', 'register'] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => { setMode(m); setError(''); setMessage(''); }}
+                  className={`flex-1 py-2 rounded-md text-sm font-mono font-bold transition-all ${
+                    mode === m
+                      ? 'bg-[#00ff88] text-[#0a0e1a]'
+                      : 'text-[#8899aa] hover:text-white'
+                  }`}>
+                  {TAB_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Titolo per modalità reset */}
+          {mode === 'reset' && (
+            <div className="mb-6 text-center">
+              <p className="text-[#00ff88] font-mono font-bold text-sm tracking-widest">
+                🔑 REIMPOSTA PASSWORD
+              </p>
+              <p className="text-[#8899aa] text-xs font-mono mt-1">
+                Inserisci la tua email per ricevere il link di reset
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* Campo username (solo registrazione) */}
             {mode === 'register' && (
               <div>
                 <label className="block text-xs font-mono text-[#8899aa] mb-1">NOME UTENTE</label>
@@ -98,6 +167,8 @@ export default function AuthPage() {
                 />
               </div>
             )}
+
+            {/* Campo email */}
             <div>
               <label className="block text-xs font-mono text-[#8899aa] mb-1">EMAIL</label>
               <input
@@ -111,21 +182,59 @@ export default function AuthPage() {
                   placeholder-[#334455] transition-colors"
               />
             </div>
-            <div>
-              <label className="block text-xs font-mono text-[#8899aa] mb-1">PASSWORD</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                minLength={6}
-                className="w-full bg-[#0a0e1a] border border-[#1e3a5f] rounded-lg px-4 py-2.5
-                  text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]
-                  placeholder-[#334455] transition-colors"
-              />
-            </div>
 
+            {/* Campo password (non in modalità reset) */}
+            {mode !== 'reset' && (
+              <div>
+                <label className="block text-xs font-mono text-[#8899aa] mb-1">PASSWORD</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  minLength={6}
+                  className="w-full bg-[#0a0e1a] border border-[#1e3a5f] rounded-lg px-4 py-2.5
+                    text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]
+                    placeholder-[#334455] transition-colors"
+                />
+              </div>
+            )}
+
+            {/* ── Riga "Ricordami" + "Password dimenticata" (solo login) ── */}
+            {mode === 'login' && (
+              <div className="flex items-center justify-between">
+                {/* Checkbox Ricordami */}
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div
+                    onClick={() => setRememberMe(v => !v)}
+                    className={`w-4 h-4 rounded border transition-all flex items-center justify-center cursor-pointer
+                      ${rememberMe
+                        ? 'bg-[#00ff88] border-[#00ff88]'
+                        : 'bg-[#0a0e1a] border-[#334455] group-hover:border-[#00ff88]'
+                      }`}>
+                    {rememberMe && (
+                      <svg className="w-3 h-3 text-[#0a0e1a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className="text-xs font-mono text-[#8899aa] group-hover:text-white transition-colors select-none">
+                    Ricordami
+                  </span>
+                </label>
+
+                {/* Link Reset Password */}
+                <button
+                  type="button"
+                  onClick={() => { setMode('reset'); setError(''); setMessage(''); }}
+                  className="text-xs font-mono text-[#4488cc] hover:text-[#00ff88] transition-colors underline underline-offset-2">
+                  Password dimenticata?
+                </button>
+              </div>
+            )}
+
+            {/* Messaggi errore / successo */}
             {error && (
               <div className="bg-[#ff000015] border border-[#ff4444] rounded-lg p-3 text-[#ff6666] text-xs font-mono">
                 ⚠️ {error}
@@ -137,14 +246,26 @@ export default function AuthPage() {
               </div>
             )}
 
+            {/* Pulsante submit */}
             <button
               type="submit"
               disabled={loading}
               className="w-full py-3 bg-[#00ff88] hover:bg-[#00dd77] disabled:opacity-50
                 text-[#0a0e1a] font-bold font-mono rounded-lg transition-all
                 shadow-lg shadow-[#00ff8840] text-sm tracking-widest">
-              {loading ? '⏳ ...' : mode === 'login' ? '🚀 ENTRA' : '✅ CREA ACCOUNT'}
+              {loading ? '⏳ ...' : SUBMIT_LABEL[mode]}
             </button>
+
+            {/* Torna al login (da modalità reset) */}
+            {mode === 'reset' && (
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(''); setMessage(''); }}
+                className="w-full py-2 text-xs font-mono text-[#8899aa] hover:text-white transition-colors">
+                ← Torna al login
+              </button>
+            )}
+
           </form>
         </div>
 
