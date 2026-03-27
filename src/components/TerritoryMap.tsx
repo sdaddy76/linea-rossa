@@ -109,7 +109,7 @@ const TERR_SVG: TerrSVG[] = [
   // ── ISRAELE  (29.5°N-33.4°N / 34.2°E-35.9°E) ────────────────────────────
   {
     id: 'Israele', label: 'ISRAELE', initialCubes: 6,
-    type: 'normale', pvPerRound: 1,
+    type: 'casa', pvPerRound: 3, homeFaction: 'Coalizione',
     path: `M 246,220 L 268,220 L 272,238 L 274,275 L 268,310
            L 256,314 L 244,310 L 236,275 L 234,245 Z`,
     labelPos: [192, 250],
@@ -185,7 +185,7 @@ const TERR_SVG: TerrSVG[] = [
   // ── ARABIA SAUDITA  (16°N-32°N / 36.5°E-56°E) ───────────────────────────
   {
     id: 'ArabiaSaudita', label: 'ARABIA SAUDITA', initialCubes: 4,
-    type: 'casa', pvPerRound: 3, homeFaction: 'Coalizione', isNaval: true,
+    type: 'normale', pvPerRound: 1, isNaval: true,
     path: `M 254,342 L 382,332 L 424,338 L 496,332 L 548,350
            L 598,358 L 630,358 L 655,368 L 678,392 L 678,438
            L 660,476 L 635,505 L 590,535 L 530,552
