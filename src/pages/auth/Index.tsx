@@ -99,7 +99,18 @@ export default function AuthPage() {
       }
 
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Errore sconosciuto');
+      // AbortError: richiesta annullata internamente da Supabase (es. PKCE exchange), non un errore reale
+      if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
+        // Ignora silenziosamente
+      } else if (err instanceof Error && err.message.includes('Invalid login credentials')) {
+        setError('Email o password non corretti. Controlla le credenziali e riprova.');
+      } else if (err instanceof Error && err.message.includes('Email not confirmed')) {
+        setError('Devi confermare la tua email prima di accedere. Controlla la casella di posta.');
+      } else if (err instanceof Error && err.message.includes('User already registered')) {
+        setError('Questa email è già registrata. Accedi o usa "Password dimenticata?".');
+      } else {
+        setError(err instanceof Error ? err.message : 'Errore sconosciuto');
+      }
     } finally {
       setLoading(false);
     }
@@ -178,6 +189,7 @@ export default function AuthPage() {
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder="es. Comandante_77"
+                  autoComplete="username"
                   maxLength={20}
                   className="w-full bg-[#0a0e1a] border border-[#1e3a5f] rounded-lg px-4 py-2.5
                     text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]
@@ -194,6 +206,7 @@ export default function AuthPage() {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 placeholder="email@esempio.com"
+                autoComplete="email"
                 required
                 className="w-full bg-[#0a0e1a] border border-[#1e3a5f] rounded-lg px-4 py-2.5
                   text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]

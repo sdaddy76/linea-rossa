@@ -5,11 +5,9 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-a
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // Rileva automaticamente i token dall'URL dopo il redirect email
     detectSessionInUrl: true,
-    // Persiste la sessione nel localStorage
     persistSession: true,
-    // Usa pkce per flussi OAuth/magic link più sicuri
-    flowType: 'pkce',
+    // implicit è più stabile per app SPA senza server OAuth dedicato
+    flowType: 'implicit',
   },
 })
