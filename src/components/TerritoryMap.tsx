@@ -4,11 +4,13 @@
 // cubeAnchor = centroide geometrico calcolato da ogni poligono
 // =============================================
 
+
 import { useState } from 'react';
 import type { Faction } from '@/types/game';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import { UNIT_MAP } from '@/lib/territoriesData';
 import { getController } from '@/lib/combatEngine';
+
 
 const FC: Record<Faction, string> = {
   Iran: '#ef4444', Coalizione: '#3b82f6', Russia: '#a855f7',
@@ -23,6 +25,7 @@ const FC_SOLID: Record<Faction, string> = {
   Cina: '#d97706', Europa: '#059669',
 };
 const FACTIONS: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
+
 
 export interface TerritoryState {
   [territory: string]: {
@@ -144,15 +147,14 @@ function InfluenceCubes({ influences, anchor }: {
   influences: Partial<Record<Faction, number>>;
   anchor: [number, number];
 }) {
-  // Raccogli solo fazioni con influenza > 0
   const entries = FACTIONS
     .map(f => ({ f, n: influences[f] ?? 0 }))
     .filter(e => e.n > 0);
   if (!entries.length) return null;
 
-  const CW = 36;   // larghezza cubo
-  const CH = 28;   // altezza cubo
-  const GAP = 4;   // spazio tra cubi
+  const CW = 52;   // larghezza cubo
+  const CH = 40;   // altezza cubo
+  const GAP = 6;
   const totalW = entries.length * CW + (entries.length - 1) * GAP;
   const ox = anchor[0] - totalW / 2;
   const oy = anchor[1] - CH / 2;
@@ -166,8 +168,7 @@ function InfluenceCubes({ influences, anchor }: {
         return (
           <g key={f}>
             {/* Ombra */}
-            <rect x={x+3} y={y+3} width={CW} height={CH} rx={6}
-              fill="#000" opacity={0.45} />
+            <rect x={x+2} y={y+2} width={CW} height={CH} rx={6} fill="#000" opacity={0.4} />
             {/* Cubo */}
             <rect x={x} y={y} width={CW} height={CH} rx={6}
               fill={color} stroke="#fff" strokeWidth={2} opacity={0.97} />
@@ -182,12 +183,12 @@ function InfluenceCubes({ influences, anchor }: {
               {n}
             </text>
             {/* Lettera fazione (piccola, in alto) */}
-            <text x={x + CW/2} y={y + 9}
+            <text x={x + CW/2} y={y + 10}
               textAnchor="middle"
-              fill="rgba(255,255,255,0.75)"
-              fontSize={7}
+              fill="#ffffffcc"
+              fontSize={8}
               fontFamily="monospace"
-              fontWeight="bold">
+              style={{ userSelect: 'none' }}>
               {f.slice(0, 3).toUpperCase()}
             </text>
           </g>
@@ -198,16 +199,14 @@ function InfluenceCubes({ influences, anchor }: {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// ICONE UNITÀ MILITARI — badge con icona + quantità per ogni tipo presente
+// ICONE UNITÀ MILITARI
 // ─────────────────────────────────────────────────────────────────────────
 function UnitBadges({ units, anchor }: {
   units: Partial<Record<Faction, Partial<Record<UnitType, number>>>>;
   anchor: [number, number];
 }) {
-  // Raccogli tutte le unità presenti (per fazione e tipo)
   type UnitEntry = { faction: Faction; unitType: UnitType; qty: number; icon: string };
   const entries: UnitEntry[] = [];
-
   for (const faction of FACTIONS) {
     const fUnits = units[faction];
     if (!fUnits) continue;
@@ -219,16 +218,15 @@ function UnitBadges({ units, anchor }: {
       entries.push({ faction, unitType: ut, qty, icon: def.icon });
     }
   }
-
   if (!entries.length) return null;
 
-  const BW = 46;   // larghezza badge
-  const BH = 30;   // altezza badge
+  const BW = 46;
+  const BH = 30;
   const GAP = 5;
   const PER_ROW = 3;
   const rows = Math.ceil(entries.length / PER_ROW);
   const totalH = rows * BH + (rows - 1) * GAP;
-  const oy = anchor[1] + 22;  // sotto i cubi influenza
+  const oy = anchor[1] + 22;
 
   return (
     <g style={{ pointerEvents: 'none' }}>
@@ -240,29 +238,23 @@ function UnitBadges({ units, anchor }: {
         const x = anchor[0] - rowW / 2 + col * (BW + GAP);
         const y = oy + row * (BH + GAP);
         const color = FC_SOLID[faction];
-
         return (
           <g key={`${faction}-${unitType}`}>
             {/* Ombra */}
-            <rect x={x+2} y={y+2} width={BW} height={BH} rx={7}
-              fill="#000" opacity={0.5} />
+            <rect x={x+2} y={y+2} width={BW} height={BH} rx={7} fill="#000" opacity={0.3} />
             {/* Badge sfondo */}
             <rect x={x} y={y} width={BW} height={BH} rx={7}
               fill="#0a1628" stroke={color} strokeWidth={2} opacity={0.97} />
             {/* Icona unità */}
-            <text x={x + 13} y={y + BH/2 + 6}
-              textAnchor="middle"
-              fontSize={15}
-              fontFamily="monospace">
+            <text x={x + 13} y={y + BH/2 + 5}
+              textAnchor="middle" fill="#fff" fontSize={14}
+              style={{ userSelect: 'none' }}>
               {icon}
             </text>
             {/* Quantità */}
-            <text x={x + BW - 12} y={y + BH/2 + 5}
-              textAnchor="middle"
-              fill="#fff"
-              fontSize={13}
-              fontWeight="bold"
-              fontFamily="monospace">
+            <text x={x + BW - 10} y={y + BH/2 + 5}
+              textAnchor="middle" fill="#fff" fontSize={11} fontWeight="bold"
+              fontFamily="monospace" style={{ userSelect: 'none' }}>
               {qty}
             </text>
             {/* Pallino colore fazione in angolo */}
@@ -285,7 +277,6 @@ function Tooltip({ terr, influences, units, mx, my }: {
   const ctrl = getController(influences as Record<Faction, number>);
   const inflRows = FACTIONS.filter(f => (influences[f] ?? 0) > 0);
 
-  // Righe unità
   type URow = { faction: Faction; label: string; icon: string; qty: number };
   const unitRows: URow[] = [];
   for (const f of FACTIONS) {
@@ -310,40 +301,27 @@ function Tooltip({ terr, influences, units, mx, my }: {
       <text x={tx+10} y={ty+19} fill="#00ff88" fontSize={15}
         fontWeight="bold" fontFamily="monospace">{terr.label}</text>
       <text x={tx+10} y={ty+33} fill="#6b7a8d" fontSize={9} fontFamily="monospace">
-        {terr.type==='casa'?`🏠 ${terr.homeFaction}`:terr.type==='strategico'?'⭐ Strategico':'📍 Normale'}
-        {' · '}{terr.pvPerRound}PV{terr.isNaval?' 🚢':''}
+        {terr.type==='casa'?`🏠 ${terr.homeFaction}`:terr.type==='strategico'?'⭐ Strategico':'📍 Normale'} {' · '}{terr.pvPerRound}PV{terr.isNaval?' 🚢':''}
       </text>
-      <rect x={tx+5} y={ty+40} width={W-14} height={17} rx={4}
-        fill={ctrl ? FC_BG[ctrl] : '#ffffff08'} />
-      <text x={tx+11} y={ty+51} fill={ctrl ? FC[ctrl] : '#4b5563'}
-        fontSize={9} fontFamily="monospace">
+      <line x1={tx} y1={ty+38} x2={tx+W-10} y2={ty+38} stroke="#1e3a5f" strokeWidth={1} />
+      <text x={tx+10} y={ty+52} fill="#94a3b8" fontSize={10} fontFamily="monospace">
         {ctrl ? `✅ Controllato da ${ctrl}` : '⚪ Non controllato'}
       </text>
-
-      {/* Influenze */}
       {inflRows.map((f, ri) => (
-        <g key={f}>
-          <rect x={tx+5} y={ty+61+ri*18} width={10} height={10} rx={2}
-            fill={FC_SOLID[f]} />
-          <text x={tx+20} y={ty+70+ri*18} fill={FC[f]}
-            fontSize={9.5} fontFamily="monospace">{f}: {influences[f]}</text>
-        </g>
+        <text key={f} x={tx+10} y={ty+66+ri*18} fill={FC[f]} fontSize={10} fontFamily="monospace">
+          {f}: {influences[f]}
+        </text>
       ))}
-
-      {/* Unità militari */}
       {unitRows.length > 0 && (
         <>
-          <text x={tx+10} y={ty+75+inflRows.length*18}
-            fill="#94a3b8" fontSize={9} fontFamily="monospace" fontWeight="bold">
+          <text x={tx+10} y={ty+66+inflRows.length*18+4} fill="#475569" fontSize={8} fontFamily="monospace">
             ── UNITÀ ──
           </text>
           {unitRows.map(({ faction, label, icon, qty }, ri) => (
-            <g key={`${faction}-${label}`}>
-              <text x={tx+10} y={ty+91+inflRows.length*18+ri*16}
-                fill={FC[faction]} fontSize={9} fontFamily="monospace">
-                {icon} {label.slice(0, 22)}: {qty}
-              </text>
-            </g>
+            <text key={`${faction}-${label}`} x={tx+10} y={ty+78+inflRows.length*18+ri*16}
+              fill={FC[faction]} fontSize={9} fontFamily="monospace">
+              {icon} {label.slice(0, 22)}: {qty}
+            </text>
           ))}
         </>
       )}
@@ -351,138 +329,163 @@ function Tooltip({ terr, influences, units, mx, my }: {
   );
 }
 
-// ── Componente principale ─────────────────────────────────────────────────
+// ── Componente principale ────────────────────────────────────────────────
 export default function TerritoryMap({
   territories, myFaction, isMyTurn,
   onSelectTerritory, selectedTerritory, attackMode,
 }: Props) {
   const [hovered, setHovered] = useState<TerritoryId | null>(null);
-  const [mPos, setMPos]       = useState<[number, number]>([0, 0]);
+  const [mPos, setMPos] = useState<[number, number]>([0, 0]);
 
   const onMM = (e: React.MouseEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     setMPos([
       (e.clientX - r.left) * (1920 / r.width),
-      (e.clientY - r.top)  * (1071 / r.height),
+      (e.clientY - r.top) * (1071 / r.height),
     ]);
   };
 
   return (
-    <div className="relative w-full select-none" style={{ paddingBottom: '55.8%' }}>
-      <div className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl shadow-black/60">
-        <svg viewBox="0 0 1920 1071" className="w-full h-full"
-          style={{ display: 'block' }} onMouseMove={onMM}>
+    <svg
+      viewBox="0 0 1920 1071"
+      style={{ width: '100%', height: '100%', display: 'block' }}
+      onMouseMove={onMM}
+    >
+      {/* Sfondo */}
+      <rect width={1920} height={1071} fill="#060d18" />
 
-          <image href="/plancia_map.png" x={0} y={0}
-            width={1920} height={1071} preserveAspectRatio="xMidYMid slice" />
+      {TERR_DEF.map(t => {
+        const ts = territories[t.id] ?? { influences: {}, units: {} };
+        const infl = ts.influences;
+        const units = ts.units;
+        const ctrl = getController(infl as Record<Faction, number>);
+        const isSel = selectedTerritory === t.id;
+        const isHov = hovered === t.id;
+        const canAttack = attackMode && myFaction && ctrl !== myFaction;
 
-          {TERR_DEF.map(t => {
-            const ts    = territories[t.id];
-            const infl  = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
-            const units = ts?.units ?? {};
-            const ctrl  = getController(infl as Record<Faction, number>);
-            const isSel = selectedTerritory === t.id;
-            const isHov = hovered === t.id;
+        return (
+          <g
+            key={t.id}
+            style={{ cursor: canAttack ? 'crosshair' : 'default' }}
+            onClick={() => onSelectTerritory?.(t.id)}
+            onMouseEnter={() => setHovered(t.id)}
+            onMouseLeave={() => setHovered(null)}>
 
-            return (
-              <g key={t.id}
-                style={{ cursor: isMyTurn ? 'pointer' : 'default' }}
-                onClick={() => onSelectTerritory?.(t.id)}
-                onMouseEnter={() => setHovered(t.id)}
-                onMouseLeave={() => setHovered(null)}>
+            {/* Poligono territorio */}
+            <polygon points={p(t.pts)}
+              fill={isSel ? (ctrl ? FC_BG[ctrl] : '#ffffff22') :
+                    isHov ? (ctrl ? FC_BG[ctrl] : '#ffffff18') :
+                    ctrl  ? FC_BG[ctrl] : '#ffffff0a'}
+              stroke={isSel ? '#00ff88' : ctrl ? FC[ctrl] : isHov ? '#ffffffcc' : '#ffffff66'}
+              strokeWidth={isSel ? 4 : isHov ? 3 : 2}
+              strokeLinejoin="round"
+              opacity={attackMode && !isSel ? 0.55 : 1} />
 
-                {/* Poligono territorio */}
-                <polygon points={p(t.pts)}
-                  fill={isSel ? (ctrl ? FC_BG[ctrl] : '#ffffff22') :
-                        isHov ? (ctrl ? FC_BG[ctrl] : '#ffffff12') :
-                        ctrl  ? FC_BG[ctrl] : 'transparent'}
-                  stroke={isSel ? '#00ff88' : ctrl ? FC[ctrl] : isHov ? '#ffffff55' : 'transparent'}
-                  strokeWidth={isSel ? 3 : 2}
-                  strokeLinejoin="round"
-                  opacity={attackMode && !isSel ? 0.45 : 1} />
+            {/* Glow selezione */}
+            {isSel && (
+              <polygon points={p(t.pts)} fill="none"
+                stroke="#00ff88" strokeWidth={9} opacity={0.15}
+                style={{ filter: 'blur(6px)' }} />
+            )}
 
-                {/* Glow selezione */}
-                {isSel && (
-                  <polygon points={p(t.pts)} fill="none"
-                    stroke="#00ff88" strokeWidth={9} opacity={0.15}
-                    style={{ filter: 'blur(6px)' }} />
-                )}
+            {/* Badge casa fazione */}
+            {t.type === 'casa' && t.homeFaction && (
+              <circle
+                cx={t.cubeAnchor[0]}
+                cy={t.cubeAnchor[1] - 46}
+                r={11}
+                fill={FC_SOLID[t.homeFaction]}
+                stroke="#fff" strokeWidth={2}
+                opacity={0.9}
+                style={{ pointerEvents: 'none' }} />
+            )}
 
-                {/* Badge casa fazione */}
-                {t.type === 'casa' && t.homeFaction && (
-                  <circle
-                    cx={t.cubeAnchor[0]}
-                    cy={t.cubeAnchor[1] - 46}
-                    r={11}
-                    fill={FC_SOLID[t.homeFaction]}
-                    stroke="#fff" strokeWidth={2}
-                    opacity={0.9}
-                    style={{ pointerEvents: 'none' }} />
-                )}
-
-                {/* Cubi influenza (grandi e visibili) */}
-                <InfluenceCubes influences={infl} anchor={t.cubeAnchor} />
-
-                {/* Icone unità militari */}
-                <UnitBadges units={units} anchor={t.cubeAnchor} />
-
-              </g>
-            );
-          })}
-
-          {/* Banner turno */}
-          {isMyTurn && (
-            <g transform="translate(430,14)">
-              <rect x={0} y={0} width={620} height={32} rx={8}
-                fill="#00ff8818" stroke="#00ff88" strokeWidth={1.2} />
-              <text x={16} y={22} fill="#00ff88" fontSize={13}
-                fontFamily="monospace" fontWeight="bold">
-                ▶ IL TUO TURNO — Clicca un territorio
-              </text>
+            {/* Nome stato — sempre visibile */}
+            <g style={{ pointerEvents: 'none' }}>
+              <text
+                x={t.cubeAnchor[0]}
+                y={t.cubeAnchor[1] - 18}
+                textAnchor="middle"
+                fill="#ffffff"
+                fontSize={13}
+                fontWeight="bold"
+                fontFamily="monospace"
+                style={{ filter: 'drop-shadow(0 1px 3px #000)' }}
+                opacity={0.92}
+              >{t.label}</text>
             </g>
-          )}
 
-          {/* Banner attacco */}
-          {attackMode && (
-            <g transform="translate(430,52)">
-              <rect x={0} y={0} width={620} height={32} rx={8}
-                fill="#ef444418" stroke="#ef4444" strokeWidth={1.2} />
-              <text x={16} y={22} fill="#ef4444" fontSize={13}
-                fontFamily="monospace" fontWeight="bold">
-                ⚔️ ATTACCO — Seleziona il bersaglio
-              </text>
-            </g>
-          )}
+            {/* Cubi influenza (grandi e visibili) */}
+            <InfluenceCubes influences={infl} anchor={t.cubeAnchor} />
 
-          {/* Legenda fazioni */}
-          <g transform="translate(18,880)">
+            {/* Icone unità militari */}
+            <UnitBadges units={units} anchor={t.cubeAnchor} />
+
+          </g>
+        );
+      })}
+
+      {/* Banner turno */}
+      {isMyTurn && (
+        <g transform="translate(430,14)">
+          <rect x={0} y={0} width={620} height={32} rx={8}
+            fill="#00ff8818" stroke="#00ff88" strokeWidth={1.2} />
+          <text x={16} y={22} fill="#00ff88" fontSize={13}
+            fontFamily="monospace" fontWeight="bold">
+            ▶ È IL TUO TURNO — {myFaction?.toUpperCase()} — Scegli azione
+          </text>
+        </g>
+      )}
+
+      {/* Banner attacco */}
+      {attackMode && (
+        <g transform="translate(430,50)">
+          <rect x={0} y={0} width={620} height={32} rx={8}
+            fill="#ef444418" stroke="#ef4444" strokeWidth={1.2} />
+          <text x={16} y={22} fill="#ef4444" fontSize={13}
+            fontFamily="monospace" fontWeight="bold">
+            ⚔ MODALITÀ ATTACCO — Seleziona territorio nemico
+          </text>
+        </g>
+      )}
+
+      {/* Legenda miniatura */}
+      {hovered && (() => {
+        const t = TERR_DEF.find(d => d.id === hovered)!;
+        const ts = territories[t.id] ?? { influences: {}, units: {} };
+        return (
+          <g transform="translate(14,880)">
             <rect x={0} y={0} width={158} height={122} rx={8}
               fill="#060d18e0" stroke="#1e3a5f" strokeWidth={1.2} />
             <text x={10} y={18} fill="#94a3b8" fontSize={9}
-              fontFamily="monospace" fontWeight="bold" letterSpacing="2">INFLUENZE</text>
-            {FACTIONS.map((f, i) => (
-              <g key={f} transform={`translate(10,${27 + i * 19})`}>
-                <rect x={0} y={-12} width={14} height={14} rx={3}
-                  fill={FC_SOLID[f]} opacity={0.92} />
-                <text x={19} y={0} fill={FC[f]} fontSize={10} fontFamily="monospace">{f}</text>
-              </g>
+              fontFamily="monospace">
+              {t.type === 'casa' ? '🏠' : t.type === 'strategico' ? '⭐' : '📍'} {t.label}
+            </text>
+            <text x={10} y={32} fill="#475569" fontSize={8} fontFamily="monospace">
+              {t.pvPerRound}PV/round {t.isNaval ? '🚢' : ''}
+            </text>
+            {FACTIONS.filter(f => (ts.influences[f] ?? 0) > 0).map((f, i) => (
+              <text key={f} x={10} y={48+i*14} fill={FC[f]} fontSize={9} fontFamily="monospace">
+                {f}: {ts.influences[f]}
+              </text>
             ))}
           </g>
+        );
+      })()}
 
-          {/* Tooltip hover */}
-          {hovered && (() => {
-            const t    = TERR_DEF.find(d => d.id === hovered)!;
-            const ts   = territories[hovered];
-            const infl = (ts?.influences ?? {}) as Partial<Record<Faction, number>>;
-            const units= ts?.units ?? {};
-            return (
-              <Tooltip terr={t} influences={infl} units={units}
-                mx={mPos[0]} my={mPos[1]} />
-            );
-          })()}
-
-        </svg>
-      </div>
-    </div>
+      {/* Tooltip hover */}
+      {hovered && (() => {
+        const t = TERR_DEF.find(d => d.id === hovered)!;
+        const ts = territories[t.id] ?? { influences: {}, units: {} };
+        return (
+          <Tooltip
+            terr={t}
+            influences={ts.influences}
+            units={ts.units}
+            mx={mPos[0]} my={mPos[1]}
+          />
+        );
+      })()}
+    </svg>
   );
 }
