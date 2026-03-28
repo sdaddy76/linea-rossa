@@ -11,6 +11,7 @@ import {
   botSelectCard, applyCardEffects, checkWinCondition, nextFaction,
 } from '@/lib/botEngine';
 import { getFullDeck, shuffleDeck } from '@/data/mazzi';
+import { TERRITORIES } from '@/lib/territoriesData';
 
 interface OnlineGameStore {
   // Auth
@@ -198,11 +199,23 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     }
     await supabase.from('cards_deck').insert(deckRows);
 
-    // 3. Ricarica tutto (stato + mazzo appena creato)
+    // 3. Inizializza territori con influenze a zero
+    const terrRows = TERRITORIES.map(t => ({
+      game_id: game.id,
+      territory: t.id,
+      inf_iran:       0,
+      inf_coalizione: 0,
+      inf_russia:     0,
+      inf_cina:       0,
+      inf_europa:     0,
+    }));
+    await supabase.from('territories').upsert(terrRows, { onConflict: 'game_id,territory' });
+
+    // 4. Ricarica tutto (stato + mazzo + territori appena creati)
     await get().loadGame(game.id);
     set({ loading: false });
 
-    // 4. Se il primo turno è di un bot, eseguilo
+    // 5. Se il primo turno è di un bot, eseguilo
     const state = get().gameState;
     const firstPlayer = players.find(p => p.faction === state?.active_faction);
     if (firstPlayer?.is_bot) {
