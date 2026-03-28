@@ -8,7 +8,7 @@ import { useOnlineGameStore } from "@/store/onlineGameStore";
 import { supabase } from "@/integrations/supabase/client";
 
 // Pagine
-import Index from "./pages/home/Index";
+import CoverPage from "./pages/home/CoverPage";
 import AuthPage from "./pages/auth/Index";
 import LobbyPage from "./pages/lobby/Index";
 import GamePage from "./pages/game/Index";
@@ -21,7 +21,7 @@ const queryClient = new QueryClient();
 // ------------------------------------------------
 function AppRouter() {
   const { profile, session, game, initAuth, loadGame, subscribeToGame, logout } = useOnlineGameStore();
-  const [view, setView] = useState<'home' | 'auth' | 'lobby' | 'game'>('home');
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game'>('cover');
 
   useEffect(() => {
     initAuth();
@@ -68,11 +68,11 @@ function AppRouter() {
 
   // Quando cambia la sessione/profilo, reindirizza
   useEffect(() => {
-    if (session && profile && view === 'auth') {
+    if (session && profile && (view === 'auth' || view === 'cover')) {
       setView('lobby');
     }
     if (!session && view === 'lobby') {
-      setView('auth');
+      setView('cover');
     }
   }, [session, profile]);
 
@@ -107,27 +107,11 @@ function AppRouter() {
     <GamePage onBack={() => setView('lobby')} />
   );
 
+  // Cover page (default / home)
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={
-          <div>
-            <Index />
-            {/* Pulsante flottante per accedere al multiplayer */}
-            <div className="fixed bottom-6 right-6 z-50">
-              <button
-                onClick={() => session ? setView('lobby') : setView('auth')}
-                className="flex items-center gap-2 px-4 py-3 bg-[#00ff88] hover:bg-[#00dd77]
-                  text-[#0a0e1a] font-bold font-mono rounded-xl shadow-2xl shadow-[#00ff8860]
-                  transition-all hover:scale-105 text-sm">
-                🌐 {session ? 'PARTITE ONLINE' : 'ACCEDI / GIOCA ONLINE'}
-              </button>
-            </div>
-          </div>
-        } />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </HashRouter>
+    <CoverPage
+      onPlay={() => session ? setView('lobby') : setView('auth')}
+    />
   );
 }
 
