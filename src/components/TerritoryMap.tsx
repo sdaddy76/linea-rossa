@@ -346,13 +346,13 @@ export default function TerritoryMap({
   };
 
   return (
-    <svg
-      viewBox="0 0 1920 1071"
-      style={{ width: '100%', height: '100%', display: 'block' }}
-      onMouseMove={onMM}
-    >
-      {/* Sfondo */}
-      <rect width={1920} height={1071} fill="#060d18" />
+    <div className="relative w-full select-none" style={{ paddingBottom: '55.8%' }}>
+      <div className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl shadow-black/60">
+        <svg viewBox="0 0 1920 1071" className="w-full h-full"
+          style={{ display: 'block' }} onMouseMove={onMM}>
+
+          <image href="/plancia_map.png" x={0} y={0}
+            width={1920} height={1071} preserveAspectRatio="xMidYMid slice" />
 
       {TERR_DEF.map(t => {
         const ts = territories[t.id] ?? { influences: {}, units: {} };
@@ -486,6 +486,8 @@ export default function TerritoryMap({
           />
         );
       })()}
-    </svg>
+        </svg>
+      </div>
+    </div>
   );
 }
