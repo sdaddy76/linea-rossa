@@ -37,22 +37,41 @@ export interface CardEffects {
 export interface GameState {
   id: string;
   game_id: string;
-  nucleare: number;
-  sanzioni: number;
-  opinione: number;
-  defcon: number;
-  risorse_iran: number;
-  risorse_coalizione: number;
-  risorse_russia: number;
-  risorse_cina: number;
-  risorse_europa: number;
-  stabilita_iran: number;
+  // ─── Tracciati GLOBALI ──────────────────────────────────
+  nucleare: number;           // Nucleare Iraniano [1-15]
+  sanzioni: number;           // Sanzioni / Stabilità Economica [1-10]
+  opinione: number;           // Opinione Globale [-10,+10]
+  defcon: number;             // DEFCON [5→1]
+  // ─── Tracciati IRAN ─────────────────────────────────────
+  risorse_iran: number;               // Risorse Economiche [1-10] → PO
+  forze_militari_iran: number;        // Forze Militari [1-10]
+  tecnologia_nucleare_iran: number;   // Tecnologia Nucleare (fazione) [1-10]
+  stabilita_iran: number;             // Indicatore Stabilità Interna [1-10]
+  // ─── Tracciati COALIZIONE ────────────────────────────────
+  risorse_coalizione: number;                 // Risorse Militari [1-15] → PO
+  influenza_diplomatica_coalizione: number;   // Influenza Diplomatica [1-10]
+  tecnologia_avanzata_coalizione: number;     // Tecnologia Avanzata [1-10]
+  supporto_pubblico_coalizione: number;       // Indicatore Supporto Pubblico [1-10]
+  // ─── Tracciati RUSSIA ────────────────────────────────────
+  risorse_russia: number;             // Energia/Risorse [1-10] → PO
+  influenza_militare_russia: number;  // Influenza Militare [1-10]
+  veto_onu_russia: number;            // Veto ONU [0-3]
+  stabilita_economica_russia: number; // Indicatore Stabilità Economica [1-10]
+  // ─── Tracciati CINA ──────────────────────────────────────
+  risorse_cina: number;               // Potenza Economica [1-12] → PO
+  influenza_commerciale_cina: number; // Influenza Commerciale [1-10]
+  cyber_warfare_cina: number;         // Cyber Warfare [1-10]
+  stabilita_rotte_cina: number;       // Indicatore Stabilità Rotte Commerciali [1-10]
+  // ─── Tracciati EUROPA ────────────────────────────────────
+  risorse_europa: number;             // Stabilità Energetica [1-10] → PO
+  influenza_diplomatica_europa: number; // Influenza Diplomatica [1-10]
+  aiuti_umanitari_europa: number;     // Aiuti Umanitari [1-10]
+  coesione_ue_europa: number;         // Indicatore Coesione Interna UE [1-10]
+  // ─── Tracciati militari (legacy, mantenuti per compatibilità) ──
   stabilita_coalizione: number;
   stabilita_russia: number;
   stabilita_cina: number;
   stabilita_europa: number;
-  // Tracciati militari
-  forze_militari_iran: number;
   forze_militari_coalizione: number;
   forze_militari_russia: number;
   forze_militari_cina: number;

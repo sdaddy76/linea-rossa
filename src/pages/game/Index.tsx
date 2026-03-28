@@ -86,26 +86,87 @@ const TRACKS: TrackDef[] = [
 
 // ─── Definizione tracciati per-fazione ────────
 interface FactionTrackZone { from: number; to: number; color: string; bg: string; label: string; }
-interface FactionTrackDef { id: string; label: string; icon: string; min: number; max: number; color: string; zones: FactionTrackZone[]; }
+interface FactionTrackDef {
+  id: string; label: string; icon: string; min: number; max: number;
+  color: string; zones: FactionTrackZone[];
+  isPO?: boolean;      // tracciato che determina i Punti Operazione
+  isIndicator?: boolean; // indicatore (non tracciato principale)
+}
 
-const RISORSE_ZONES: FactionTrackZone[] = [
-  { from: 1,  to: 2,  color: '#ef4444', bg: '#ef444422', label: 'Bancarotta' },
-  { from: 3,  to: 4,  color: '#f97316', bg: '#f9731622', label: 'Scarse' },
-  { from: 5,  to: 6,  color: '#f59e0b', bg: '#f59e0b22', label: 'Standard' },
-  { from: 7,  to: 8,  color: '#84cc16', bg: '#84cc1622', label: 'Buone' },
-  { from: 9,  to: 10, color: '#22c55e', bg: '#22c55e22', label: 'Abbondanti' },
+// ─── Zone comuni riutilizzabili ───────────────
+const ZONE_STANDARD: FactionTrackZone[] = [
+  { from: 1,  to: 2,  color: '#ef4444', bg: '#ef444422', label: 'Critico' },
+  { from: 3,  to: 4,  color: '#f97316', bg: '#f9731622', label: 'Basso' },
+  { from: 5,  to: 6,  color: '#f59e0b', bg: '#f59e0b22', label: 'Medio' },
+  { from: 7,  to: 8,  color: '#84cc16', bg: '#84cc1622', label: 'Alto' },
+  { from: 9,  to: 10, color: '#22c55e', bg: '#22c55e22', label: 'Massimo' },
 ];
-const STABILITA_ZONES: FactionTrackZone[] = [
+const ZONE_MILITARI_15: FactionTrackZone[] = [
+  { from: 1,  to: 3,  color: '#ef4444', bg: '#ef444422', label: 'Scarso' },
+  { from: 4,  to: 6,  color: '#f97316', bg: '#f9731622', label: 'Limitato' },
+  { from: 7,  to: 9,  color: '#f59e0b', bg: '#f59e0b22', label: 'Adeguato' },
+  { from: 10, to: 12, color: '#84cc16', bg: '#84cc1622', label: 'Forte' },
+  { from: 13, to: 15, color: '#22c55e', bg: '#22c55e22', label: 'Dominante' },
+];
+const ZONE_ECONOMICA_12: FactionTrackZone[] = [
+  { from: 1,  to: 3,  color: '#ef4444', bg: '#ef444422', label: 'Debole' },
+  { from: 4,  to: 6,  color: '#f97316', bg: '#f9731622', label: 'In crescita' },
+  { from: 7,  to: 9,  color: '#f59e0b', bg: '#f59e0b22', label: 'Sviluppata' },
+  { from: 10, to: 12, color: '#22c55e', bg: '#22c55e22', label: 'Potenza' },
+];
+const ZONE_NUCLEARE_IRAN: FactionTrackZone[] = [
+  { from: 1,  to: 3,  color: '#22c55e', bg: '#22c55e22', label: 'Ricerca' },
+  { from: 4,  to: 6,  color: '#84cc16', bg: '#84cc1622', label: 'Sviluppo' },
+  { from: 7,  to: 8,  color: '#f59e0b', bg: '#f59e0b22', label: 'Avanzato' },
+  { from: 9,  to: 10, color: '#ef4444', bg: '#ef444422', label: 'Critico' },
+];
+const ZONE_VETO: FactionTrackZone[] = [
+  { from: 0,  to: 0,  color: '#ef4444', bg: '#ef444422', label: 'Esauriti' },
+  { from: 1,  to: 1,  color: '#f97316', bg: '#f9731622', label: '1 rimasto' },
+  { from: 2,  to: 2,  color: '#f59e0b', bg: '#f59e0b22', label: '2 rimasti' },
+  { from: 3,  to: 3,  color: '#22c55e', bg: '#22c55e22', label: 'Pieno' },
+];
+const ZONE_STABILITA: FactionTrackZone[] = [
   { from: 1,  to: 2,  color: '#ef4444', bg: '#ef444422', label: 'Collasso' },
   { from: 3,  to: 4,  color: '#f97316', bg: '#f9731622', label: 'Instabile' },
   { from: 5,  to: 6,  color: '#f59e0b', bg: '#f59e0b22', label: 'Precaria' },
   { from: 7,  to: 8,  color: '#84cc16', bg: '#84cc1622', label: 'Stabile' },
-  { from: 9,  to: 10, color: '#22c55e', bg: '#22c55e22', label: 'Blindata' },
+  { from: 9,  to: 10, color: '#22c55e', bg: '#22c55e22', label: 'Solida' },
 ];
-const FACTION_TRACK_DEFS: FactionTrackDef[] = [
-  { id: 'risorse',  label: 'Risorse Economiche', icon: '💰', min: 1, max: 10, color: '#f59e0b', zones: RISORSE_ZONES },
-  { id: 'stabilita', label: 'Stabilità Interna',  icon: '🛡️', min: 1, max: 10, color: '#a78bfa', zones: STABILITA_ZONES },
-];
+
+// ─── Tracciati per-fazione dal regolamento ────
+const FACTION_TRACKS: Record<string, FactionTrackDef[]> = {
+  Iran: [
+    { id: 'risorse_iran',             label: 'Risorse Economiche', icon: '💰', min: 1, max: 10, color: '#f59e0b', zones: ZONE_STANDARD,       isPO: true },
+    { id: 'forze_militari_iran',      label: 'Forze Militari',     icon: '⚔️', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
+    { id: 'tecnologia_nucleare_iran', label: 'Tecnologia Nucleare',icon: '☢️', min: 1, max: 10, color: '#22c55e', zones: ZONE_NUCLEARE_IRAN },
+    { id: 'stabilita_iran',           label: 'Stabilità Interna',  icon: '🏛️', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STABILITA,      isIndicator: true },
+  ],
+  Coalizione: [
+    { id: 'risorse_coalizione',               label: 'Risorse Militari',      icon: '🪖', min: 1, max: 15, color: '#3b82f6', zones: ZONE_MILITARI_15, isPO: true },
+    { id: 'influenza_diplomatica_coalizione', label: 'Influenza Diplomatica', icon: '🤝', min: 1, max: 10, color: '#60a5fa', zones: ZONE_STANDARD },
+    { id: 'tecnologia_avanzata_coalizione',   label: 'Tecnologia Avanzata',   icon: '🛸', min: 1, max: 10, color: '#818cf8', zones: ZONE_STANDARD },
+    { id: 'supporto_pubblico_coalizione',     label: 'Supporto Pubblico',     icon: '📊', min: 1, max: 10, color: '#c084fc', zones: ZONE_STABILITA, isIndicator: true },
+  ],
+  Russia: [
+    { id: 'risorse_russia',           label: 'Energia / Risorse',  icon: '⛽', min: 1, max: 10, color: '#f97316', zones: ZONE_STANDARD,  isPO: true },
+    { id: 'influenza_militare_russia',label: 'Influenza Militare', icon: '🪖', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
+    { id: 'veto_onu_russia',          label: 'Veto ONU',           icon: '🏛️', min: 0, max: 3,  color: '#fbbf24', zones: ZONE_VETO },
+    { id: 'stabilita_economica_russia',label:'Stabilità Economica',icon: '💹', min: 1, max: 10, color: '#a3e635', zones: ZONE_STABILITA, isIndicator: true },
+  ],
+  Cina: [
+    { id: 'risorse_cina',              label: 'Potenza Economica',   icon: '💴', min: 1, max: 12, color: '#f59e0b', zones: ZONE_ECONOMICA_12, isPO: true },
+    { id: 'influenza_commerciale_cina',label: 'Influenza Commerciale',icon:'🛒', min: 1, max: 10, color: '#fbbf24', zones: ZONE_STANDARD },
+    { id: 'cyber_warfare_cina',        label: 'Cyber Warfare',       icon: '💻', min: 1, max: 10, color: '#34d399', zones: ZONE_STANDARD },
+    { id: 'stabilita_rotte_cina',      label: 'Stabilità Rotte',     icon: '🚢', min: 1, max: 10, color: '#6ee7b7', zones: ZONE_STABILITA, isIndicator: true },
+  ],
+  Europa: [
+    { id: 'risorse_europa',             label: 'Stabilità Energetica', icon: '⚡', min: 1, max: 10, color: '#8b5cf6', zones: ZONE_STANDARD,  isPO: true },
+    { id: 'influenza_diplomatica_europa',label:'Influenza Diplomatica',icon: '🤝', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STANDARD },
+    { id: 'aiuti_umanitari_europa',     label: 'Aiuti Umanitari',      icon: '🏥', min: 1, max: 10, color: '#c084fc', zones: ZONE_STANDARD },
+    { id: 'coesione_ue_europa',         label: 'Coesione Interna UE',  icon: '🇪🇺', min: 1, max: 10, color: '#7c3aed', zones: ZONE_STABILITA, isIndicator: true },
+  ],
+};
 
 // ─── Componente singolo segmento numerato ─────
 function Segment({
@@ -213,7 +274,15 @@ function FactionSingleTrack({
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="font-mono text-[10px] text-[#8899aa]">{track.icon} {track.label}</span>
+        <span className="font-mono text-[10px] text-[#8899aa] flex items-center gap-1">
+          {track.icon} {track.label}
+          {track.isPO && (
+            <span className="text-[8px] font-bold px-1 rounded" style={{ color: factionColor, backgroundColor: `${factionColor}22` }}>PO</span>
+          )}
+          {track.isIndicator && (
+            <span className="text-[8px] font-bold px-1 rounded text-[#8899aa] bg-[#1e2a3a]">IND</span>
+          )}
+        </span>
         <span className="font-mono text-xs font-bold" style={{ color: activeZone.color }}>
           {value}/{track.max} · {activeZone.label}
         </span>
@@ -240,29 +309,31 @@ function FactionSingleTrack({
 
 // ─── Card tracciati per singola fazione ──────────────────────────────────
 function FactionTrackCard({
-  faction, risorse, stabilita,
-}: { faction: string; risorse: number; stabilita: number }) {
+  faction, gameState,
+}: { faction: string; gameState: import('@/types/game').GameState }) {
   const fc = FACTION_COLORS[faction] ?? '#8899aa';
-  const values: Record<string, number> = { risorse, stabilita };
+  const tracks = FACTION_TRACKS[faction] ?? [];
 
   return (
-    <div className="rounded-xl border p-4 space-y-3"
+    <div className="rounded-xl border p-4 space-y-2"
       style={{ backgroundColor: '#0d1117', borderColor: `${fc}44` }}>
       {/* Header fazione */}
       <div className="flex items-center gap-2 pb-2 border-b" style={{ borderColor: `${fc}22` }}>
         <span className="text-xl">{FACTION_FLAGS[faction]}</span>
         <span className="font-mono text-sm font-bold" style={{ color: fc }}>{faction}</span>
       </div>
-      {/* Tracciati */}
-      <div className="space-y-3">
-        {FACTION_TRACK_DEFS.map(track => (
-          <FactionSingleTrack
-            key={track.id}
-            track={track}
-            value={values[track.id] ?? track.min}
-            factionColor={fc}
-          />
-        ))}
+      {/* Tracciati — separati da linea sottile prima dell'indicatore */}
+      <div className="space-y-2.5">
+        {tracks.map((track, idx) => {
+          const value = (gameState[track.id as keyof typeof gameState] as number) ?? track.min;
+          const showDivider = idx > 0 && track.isIndicator && !tracks[idx - 1].isIndicator;
+          return (
+            <div key={track.id}>
+              {showDivider && <div className="border-t border-dashed my-1" style={{ borderColor: `${fc}22` }} />}
+              <FactionSingleTrack track={track} value={value} factionColor={fc} />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -564,8 +635,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                         {/* Card tracciati */}
                         <FactionTrackCard
                           faction={p.faction}
-                          risorse={getRisorse(p.faction)}
-                          stabilita={getStabilita(p.faction)}
+                          gameState={gameState}
                         />
                       </div>
                     );
