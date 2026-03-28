@@ -111,6 +111,14 @@ const TERR_DEF: TerrDef[] = [
     pts: [[967,519],[935,517],[914,543],[935,546],[945,562],[973,563]],
     cubeAnchor: [949, 539], maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
+  { id: 'Bahrain', label: 'BAHRAIN',
+    pts: [[1086,576],[1075,595],[1090,612],[1106,610],[1108,590]],
+    cubeAnchor: [1093, 596], maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+
+  { id: 'Qatar', label: 'QATAR',
+    pts: [[1115,598],[1108,618],[1108,650],[1124,672],[1138,652],[1140,618],[1128,599]],
+    cubeAnchor: [1124, 633], maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+
   { id: 'ArabiaSaudita', label: 'ARABIA S.',
     pts: [[971,571],[1060,701],[1118,762],[1225,779],[1224,856],[1107,899],
           [1002,920],[945,966],[849,950],[794,947],[782,981],[642,802],[642,760],
@@ -132,7 +140,7 @@ const TERR_DEF: TerrDef[] = [
   { id: 'StrettoHormuz', label: 'HORMUZ',
     pts: [[1195,629],[1218,664],[1262,631],[1272,688],[1337,709],[1353,673],
           [1291,648],[1275,606],[1228,628]],
-    cubeAnchor: [1281, 659], maxSlots: 0, pvPerRound: 2, type: 'strategico', isNaval: true },
+    cubeAnchor: [1281, 659], maxSlots: 1, pvPerRound: 2, type: 'strategico', isNaval: true },
 
   { id: 'Yemen', label: 'YEMEN',
     pts: [[1105,913],[1139,977],[1086,1022],[790,1026],[787,990],[802,955],
@@ -148,7 +156,7 @@ function InfluenceCubes({ influences, anchor, maxSlots }: {
   anchor: [number, number];
   maxSlots: number;
 }) {
-  if (maxSlots === 0) return null; // Stretto di Hormuz: nessuno slot
+  if (maxSlots === 0) return null;
 
   // Costruisce array di slot: fazione o null (vuoto)
   const slots: (Faction | null)[] = [];
