@@ -43,7 +43,8 @@ function normalizeFaction(raw: string): string {
 
 // ─── Riconosce righe separatore (non sono carte) ─────────────────────────────
 const SEP_REGEX = /^(🇮🇷|🇺🇸|🇪🇺|🇷🇺|🇨🇳|🇮🇱|📦|\s*(IRAN|COALIZIONE|EUROPA|RUSSIA|CINA|ISRAELE))/i;
-const ID_REGEX  = /^[A-Z]{2,4}-[A-Z]{2,5}-\d{2,3}$/;
+// ID_REGEX allargato: accetta qualsiasi stringa alfanumerica con trattini, anche corta
+const ID_REGEX  = /^[A-Za-z0-9][A-Za-z0-9_\-]{1,30}$/;
 
 // ─── Header lookup (cerca per parola chiave, tollerante alle varianti) ───────
 function findCol(headers: string[], ...keywords: string[]): number {
@@ -71,14 +72,25 @@ export function parseBotCardsExcel(file: File): Promise<BotCardParseResult> {
         const ws = wb.Sheets[sheetName];
         const rows: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
-        // Trova riga header (contiene "ID" come prima colonna)
+        // Trova riga header — cerca "ID" in qualsiasi colonna nelle prime 8 righe
         let headerRow = -1;
-        for (let i = 0; i < Math.min(6, rows.length); i++) {
-          const first = String((rows[i] as string[])[0] ?? '').trim().toUpperCase();
-          if (first === 'ID' || first === 'ID CARTA') { headerRow = i; break; }
+        for (let i = 0; i < Math.min(8, rows.length); i++) {
+          const rowStr = (rows[i] as string[]).map(c => String(c ?? '').trim().toUpperCase());
+          // Accetta se una cella contiene "ID" o "CARTA" o "FAZIONE"
+          if (rowStr.some(c => c === 'ID' || c === 'ID CARTA' || c === 'FAZIONE' || c === 'FACTION')) {
+            headerRow = i; break;
+          }
         }
         if (headerRow === -1) {
-          resolve({ cards: [], errors: ['Intestazione "ID Carta" non trovata nelle prime 6 righe.'], warnings: [] });
+          // Debug: mostra le prime 3 righe per aiutare l'utente
+          const preview = rows.slice(0, 3).map((r, i) =>
+            `Riga ${i+1}: ${(r as string[]).slice(0,5).join(' | ')}`
+          ).join('\n');
+          resolve({ cards: [], errors: [
+            'Intestazione non trovata nelle prime 8 righe.\n' +
+            'Assicurati che la prima riga contenga: ID Carta | Fazione | ...\n\n' +
+            'Anteprima file:\n' + preview
+          ], warnings: [] });
           return;
         }
 
