@@ -189,9 +189,9 @@ function InfluenceCubes({ influences, anchor, maxSlots }: {
             {/* Slot: pieno = colore fazione, vuoto = contorno grigio */}
             <rect x={x} y={y} width={SW} height={SH} rx={5}
               fill={color ?? 'none'}
-              stroke={color ?? '#ffffff30'}
+              stroke={color ?? '#ffffffaa'}
               strokeWidth={faction ? 2 : 1.5}
-              opacity={faction ? 0.95 : 0.55} />
+              opacity={faction ? 0.97 : 0.85} />
             {/* Lettera iniziale fazione */}
             {faction && (
               <text x={x + SW/2} y={y + SH/2 + 4}
@@ -412,21 +412,6 @@ export default function TerritoryMap({
                 opacity={0.9}
                 style={{ pointerEvents: 'none' }} />
             )}
-
-            {/* Nome stato — sempre visibile */}
-            <g style={{ pointerEvents: 'none' }}>
-              <text
-                x={t.cubeAnchor[0]}
-                y={t.cubeAnchor[1] - 18}
-                textAnchor="middle"
-                fill="#ffffff"
-                fontSize={13}
-                fontWeight="bold"
-                fontFamily="monospace"
-                style={{ filter: 'drop-shadow(0 1px 3px #000)' }}
-                opacity={0.92}
-              >{t.label}</text>
-            </g>
 
             {/* Cubi influenza (grandi e visibili) */}
             <InfluenceCubes influences={infl} anchor={t.cubeAnchor} maxSlots={t.maxSlots} />
