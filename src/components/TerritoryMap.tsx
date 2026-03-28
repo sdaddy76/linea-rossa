@@ -1,7 +1,7 @@
 // =============================================
 // LINEA ROSSA — TerritoryMap
-// Poligoni rilevati con algoritmo Watershed dall'immagine originale 1920×1071
-// cubeAnchor = pixel interni misurati per campionamento diretto (temperatura 0)
+// Poligoni disegnati manualmente dall'utente sul tool interattivo
+// cubeAnchor = centroide geometrico calcolato da ogni poligono
 // =============================================
 
 import { useState } from 'react';
@@ -49,96 +49,101 @@ interface TerrDef {
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// TERRITORI — poligoni watershed + anchor da campionamento pixel
+// TERRITORI — poligoni disegnati dall'utente + cubeAnchor = centroide reale
 // ─────────────────────────────────────────────────────────────────────────
 const TERR_DEF: TerrDef[] = [
 
   { id: 'Turchia', label: 'TURCHIA',
-    pts: [[735,98],[671,97],[635,61],[76,63],[75,135],[185,155],[210,196],
-          [189,220],[220,232],[229,274],[309,295],[353,269],[417,299],[459,291],
-          [493,242],[547,252],[548,280],[686,269],[674,217],[710,209],[643,166]],
-    cubeAnchor: [350, 130],
+    pts: [[255,146],[205,198],[245,267],[329,287],[343,271],[407,295],[484,276],
+          [529,300],[553,267],[610,268],[687,263],[752,254],[812,251],[834,254],
+          [826,185],[837,168],[807,154],[795,119],[738,108],[651,125],[557,116],
+          [533,107],[496,93],[423,88]],
+    cubeAnchor: [518, 194],
     initialCubes: 4, pvPerRound: 1, type: 'normale' },
 
   { id: 'Siria', label: 'SIRIA',
-    pts: [[757,261],[547,274],[533,247],[480,266],[498,288],[414,301],[345,271],
-          [322,294],[329,341],[399,342],[452,320],[451,342],[541,348],[556,364],
-          [545,382],[618,401],[710,356],[718,291]],
-    cubeAnchor: [530, 270],
+    pts: [[531,308],[545,347],[556,376],[527,396],[558,428],[608,408],[712,354],
+          [725,292],[761,263],[704,265],[618,270],[554,272]],
+    cubeAnchor: [625, 332],
     initialCubes: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Libano', label: 'LIBANO',
-    pts: [[508,248],[496,242],[483,253],[464,258],[463,275],[470,278],
-          [474,290],[486,285],[506,286],[503,280],[492,276],[480,264],[509,250]],
-    cubeAnchor: [475, 272],
+    pts: [[523,325],[528,353],[546,354],[547,366],[529,386],[508,404],
+          [495,404],[436,382],[437,364]],
+    cubeAnchor: [494, 369],
     initialCubes: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Israele', label: 'ISRAELE',
-    pts: [[326,296],[325,458],[381,458],[407,471],[444,471],[466,464],[484,439],
-          [494,402],[508,384],[516,358],[527,352],[524,342],[461,342],[458,326],
-          [474,313],[456,323],[423,323],[399,334],[394,343],[332,343],[326,339]],
-    cubeAnchor: [442, 390],
+    pts: [[492,406],[512,406],[509,470],[488,530],[464,468]],
+    cubeAnchor: [491, 461],
     initialCubes: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione' },
 
   { id: 'Giordania', label: 'GIORDANIA',
-    pts: [[529,349],[518,357],[510,384],[496,402],[481,449],[462,468],[474,488],
-          [486,536],[531,541],[555,520],[582,514],[597,497],[572,464],[637,446],
-          [644,434],[629,399],[618,402],[610,391],[549,383],[552,361],[543,350]],
-    cubeAnchor: [555, 430],
+    pts: [[497,529],[522,468],[520,423],[554,436],[627,401],[641,441],[573,463],
+          [597,497],[587,513],[557,519],[530,543]],
+    cubeAnchor: [561, 471],
     initialCubes: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Egitto', label: 'EGITTO',
-    pts: [[122,514],[160,511],[173,513],[359,517],[355,482],[399,469],
-          [324,457],[324,296],[226,264],[221,233],[188,212],[208,214],[122,514]],
-    cubeAnchor: [175, 419],
+    pts: [[136,454],[282,484],[357,456],[394,472],[459,474],[481,529],[471,589],
+          [407,514],[396,527],[512,720],[132,721]],
+    cubeAnchor: [300, 598],
     initialCubes: 4, pvPerRound: 1, type: 'normale' },
 
   { id: 'Iraq', label: 'IRAQ',
-    pts: [[661,130],[673,161],[632,170],[660,179],[659,206],[699,210],[673,217],
-          [677,266],[756,262],[720,291],[720,341],[893,335],[899,310],[864,299],
-          [829,233],[825,186],[844,170],[806,154],[802,121],[731,106]],
-    cubeAnchor: [810, 280],
+    pts: [[637,398],[646,440],[679,447],[835,543],[904,543],[932,511],[970,512],
+          [945,477],[951,453],[932,429],[896,412],[874,370],[893,339],[896,310],
+          [845,266],[778,256],[730,290],[725,356]],
+    cubeAnchor: [809, 409],
     initialCubes: 3, pvPerRound: 1, type: 'normale' },
 
   { id: 'Iran', label: 'IRAN',
-    pts: [[1611,234],[1329,69],[1283,64],[1251,97],[1040,296],[1071,309],
-          [1066,339],[1090,356],[1340,340],[1419,340],[1477,323]],
-    cubeAnchor: [1150, 226],
+    pts: [[837,174],[829,179],[894,298],[892,363],[933,421],[961,474],[984,512],
+          [996,500],[1019,505],[1032,502],[1084,579],[1156,612],[1191,624],
+          [1219,621],[1276,600],[1301,644],[1407,660],[1442,672],[1465,632],
+          [1506,602],[1487,565],[1422,511],[1451,473],[1446,457],[1416,453],
+          [1406,364],[1428,316],[1422,285],[1366,264],[1335,245],[1288,232],
+          [1263,220],[1182,257],[1165,274],[1103,286],[1031,257],[997,246],
+          [993,220],[966,208],[968,182],[957,171],[910,199],[872,199]],
+    cubeAnchor: [1191, 422],
     initialCubes: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Iran', isNaval: true },
 
   { id: 'Kuwait', label: 'KUWAIT',
-    pts: [[718,408],[832,408],[840,432],[835,458],[812,472],
-          [782,475],[752,468],[730,450],[722,428]],
-    cubeAnchor: [762, 458],
+    pts: [[967,519],[935,517],[914,543],[935,546],[945,562],[973,563]],
+    cubeAnchor: [949, 539],
     initialCubes: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'ArabiaSaudita', label: 'ARABIA S.',
-    pts: [[903,549],[643,443],[531,543],[461,469],[560,781],
-          [600,714],[688,803],[672,612],[857,653]],
-    cubeAnchor: [640, 586],
+    pts: [[971,571],[1060,701],[1118,762],[1225,779],[1224,856],[1107,899],
+          [1002,920],[945,966],[849,950],[794,947],[782,981],[642,802],[642,760],
+          [593,713],[574,682],[504,586],[478,583],[493,541],[536,539],[553,526],
+          [604,520],[611,498],[596,480],[641,464],[682,465],[755,508],[813,544]],
+    cubeAnchor: [840, 728],
     initialCubes: 4, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'EmiratiArabi', label: 'UAE',
-    pts: [[928,510],[921,513],[791,513],[835,542],[854,543],
-          [902,546],[906,545],[906,542],[916,531]],
-    cubeAnchor: [874, 530],
+    pts: [[1097,714],[1134,753],[1215,765],[1239,718],[1246,689],[1262,687],
+          [1262,645],[1230,672],[1208,698],[1186,712],[1165,719],[1130,716],[1110,717]],
+    cubeAnchor: [1194, 721],
     initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'Oman', label: 'OMAN',
-    pts: [[866,587],[859,650],[914,682],[912,695],[978,680],[1013,661],
-          [1038,655],[1032,625],[987,591],[976,564],[947,566],[936,550],[903,547]],
-    cubeAnchor: [957, 632],
+    pts: [[1271,696],[1253,728],[1244,762],[1253,788],[1234,863],[1136,903],
+          [1130,920],[1163,969],[1216,970],[1268,942],[1329,902],[1351,852],
+          [1394,778],[1348,736]],
+    cubeAnchor: [1272, 846],
     initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'StrettoHormuz', label: 'HORMUZ',
-    pts: [[975,445],[1068,443],[1072,478],[1058,492],[988,490],[968,472]],
-    cubeAnchor: [1022, 466],
+    pts: [[1195,629],[1218,664],[1262,631],[1272,688],[1337,709],[1353,673],
+          [1291,648],[1275,606],[1228,628]],
+    cubeAnchor: [1281, 659],
     initialCubes: 0, pvPerRound: 2, type: 'strategico', isNaval: true },
 
   { id: 'Yemen', label: 'YEMEN',
-    pts: [[674,612],[676,757],[692,801],[670,847],[699,864],[930,690],
-          [824,644],[816,615],[795,615],[771,628],[764,615],[728,624],[710,602]],
-    cubeAnchor: [770, 725],
+    pts: [[1105,913],[1139,977],[1086,1022],[790,1026],[787,990],[802,955],
+          [903,970],[950,978],[993,929]],
+    cubeAnchor: [976, 982],
     initialCubes: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 ];
 
@@ -148,18 +153,18 @@ function CubeGrid({ initialCubes, influences, anchor }: {
   influences: Partial<Record<Faction, number>>;
   anchor: [number, number];
 }) {
-  const C = 18, G = 4, PR = 3;
-  const slots: Array<Faction | null> = [];
-  for (const f of FACTIONS) for (let i = 0; i < (influences[f] ?? 0); i++) slots.push(f);
-  const empty = Math.max(0, initialCubes - slots.length);
-  for (let i = 0; i < empty; i++) slots.push(null);
+  const C=18, G=4, PR=3;
+  const slots: Array<Faction|null>=[];
+  for (const f of FACTIONS) for (let i=0;i<(influences[f]??0);i++) slots.push(f);
+  const empty=Math.max(0,initialCubes-slots.length);
+  for (let i=0;i<empty;i++) slots.push(null);
   if (!slots.length) return null;
-  const cols = Math.min(slots.length, PR), rows = Math.ceil(slots.length / PR);
-  const gW = cols*C+(cols-1)*G, gH = rows*C+(rows-1)*G;
-  const ox = anchor[0]-gW/2, oy = anchor[1]-gH/2;
+  const cols=Math.min(slots.length,PR), rows=Math.ceil(slots.length/PR);
+  const gW=cols*C+(cols-1)*G, gH=rows*C+(rows-1)*G;
+  const ox=anchor[0]-gW/2, oy=anchor[1]-gH/2;
   return (
     <g style={{pointerEvents:'none'}}>
-      {slots.map((f,i) => {
+      {slots.map((f,i)=>{
         const col=i%PR, row=Math.floor(i/PR);
         return <rect key={i} x={ox+col*(C+G)} y={oy+row*(C+G)} width={C} height={C} rx={3}
           fill={f?FC[f]:'#0a1628'} stroke={f?'#000':'#2a4060'}
@@ -171,10 +176,10 @@ function CubeGrid({ initialCubes, influences, anchor }: {
 
 // ── Tooltip ───────────────────────────────────────────────────────────────
 function Tooltip({ terr, influences, mx, my }: {
-  terr: TerrDef; influences: Partial<Record<Faction, number>>; mx:number; my:number;
+  terr: TerrDef; influences: Partial<Record<Faction,number>>; mx:number; my:number;
 }) {
-  const ctrl = getController(influences as Record<Faction, number>);
-  const rows = FACTIONS.filter(f => (influences[f]??0)>0);
+  const ctrl=getController(influences as Record<Faction,number>);
+  const rows=FACTIONS.filter(f=>(influences[f]??0)>0);
   const W=230, H=86+rows.length*18;
   const tx=Math.min(mx+20,1660), ty=Math.max(my-10,4);
   return (
@@ -211,11 +216,11 @@ export default function TerritoryMap({
   territories, myFaction, isMyTurn,
   onSelectTerritory, selectedTerritory, attackMode,
 }: Props) {
-  const [hovered, setHovered] = useState<TerritoryId | null>(null);
-  const [mPos, setMPos] = useState<[number,number]>([0,0]);
+  const [hovered, setHovered]=useState<TerritoryId|null>(null);
+  const [mPos, setMPos]=useState<[number,number]>([0,0]);
 
-  const onMM = (e: React.MouseEvent<SVGSVGElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
+  const onMM=(e: React.MouseEvent<SVGSVGElement>)=>{
+    const r=e.currentTarget.getBoundingClientRect();
     setMPos([(e.clientX-r.left)*(1920/r.width),(e.clientY-r.top)*(1071/r.height)]);
   };
 
@@ -228,17 +233,16 @@ export default function TerritoryMap({
           <image href="/plancia_map.png" x={0} y={0}
             width={1920} height={1071} preserveAspectRatio="xMidYMid slice"/>
 
-          {TERR_DEF.map(t => {
-            const ts   = territories[t.id];
-            const infl = (ts?.influences??{}) as Partial<Record<Faction,number>>;
-            const units= ts?.units??{};
-            const ctrl = getController(infl as Record<Faction,number>);
-            const isSel= selectedTerritory===t.id;
-            const isHov= hovered===t.id;
+          {TERR_DEF.map(t=>{
+            const ts=territories[t.id];
+            const infl=(ts?.influences??{}) as Partial<Record<Faction,number>>;
+            const units=ts?.units??{};
+            const ctrl=getController(infl as Record<Faction,number>);
+            const isSel=selectedTerritory===t.id;
+            const isHov=hovered===t.id;
             let totalUnits=0;
             for (const um of Object.values(units))
               for (const q of Object.values(um??{})) totalUnits+=q??0;
-
             return (
               <g key={t.id}
                 style={{cursor:isMyTurn?'pointer':'default'}}
