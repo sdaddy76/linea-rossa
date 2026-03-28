@@ -225,7 +225,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   // -----------------------------------------------
   playCard: async (cardId: string) => {
-    const { game, gameState, myFaction, players, moves } = get();
+    const { game, gameState, myFaction, players } = get();
     if (!game || !gameState || !myFaction) return;
     if (gameState.active_faction !== myFaction) {
       set({ error: 'Non è il tuo turno!' }); return;
@@ -234,8 +234,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      // Trova la carta nel mazzo
-      const { data: deckCard } = await supabase
+      // ── 1. Trova la carta nel mazzo DB ──────────────────────────────
+      const { data: deckCard, error: deckErr } = await supabase
         .from('cards_deck')
         .select('*')
         .eq('game_id', game.id)
@@ -243,30 +243,32 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .eq('status', 'available')
         .single();
 
-      if (!deckCard) throw new Error('Carta non disponibile');
+      if (deckErr || !deckCard) throw new Error(`Carta non trovata nel mazzo: ${deckErr?.message ?? 'nessun record'}`);
 
-      // Importa carta dalla libreria mazzi per effetti
+      // ── 2. Recupera definizione carta (effetti) ──────────────────────
       const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } = await import('@/data/mazzi');
       const allCards = [
         ...(MAZZI_PER_FAZIONE[myFaction] ?? []),
         ...(MAZZI_SPECIALI[myFaction] ?? []),
       ];
-      const cardDef = allCards.find(c => c.card_id === cardId);
-      if (!cardDef) throw new Error('Definizione carta non trovata');
+      // Se la definizione non esiste usa effetti vuoti (carta senza effetti meccanici)
+      const cardDef = allCards.find(c => c.card_id === cardId) ?? {
+        card_id: cardId,
+        card_name: deckCard.card_name,
+        effects: {},
+        description: deckCard.card_name,
+      };
 
-      // Applica effetti
-      const { newState, deltas } = applyCardEffects(cardDef, gameState, myFaction);
-
-      // Controlla vittoria
+      // ── 3. Applica effetti e calcola prossimo stato ──────────────────
+      const { newState, deltas } = applyCardEffects(cardDef as Parameters<typeof applyCardEffects>[0], gameState, myFaction);
       const merged = { ...gameState, ...newState } as GameState;
       const winCheck = checkWinCondition(merged, game.current_turn, game.max_turns);
 
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(myFaction);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
-      // Transazione: aggiorna stato + segna carta giocata + log mossa
-      const { profile } = get();
-      await Promise.all([
+      // ── 4. Query CRITICHE (devono riuscire per passare il turno) ─────
+      const [stateRes, deckRes] = await Promise.all([
         supabase.from('game_state').update({
           ...newState,
           active_faction: nextFact,
@@ -276,48 +278,30 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           status: 'played',
           played_at_turn: game.current_turn,
         }).eq('id', deckCard.id),
-
-        supabase.from('moves_log').insert({
-          game_id: game.id,
-          turn_number: game.current_turn,
-          faction: myFaction,
-          player_id: profile?.id,
-          is_bot_move: false,
-          card_id: cardId,
-          card_name: deckCard.card_name,
-          card_type: deckCard.card_type,
-          delta_nucleare: deltas.nucleare,
-          delta_sanzioni: deltas.sanzioni,
-          delta_opinione: deltas.opinione,
-          delta_defcon: deltas.defcon,
-          delta_risorse: deltas.risorse,
-          delta_stabilita: deltas.stabilita,
-          stato_nucleare: merged.nucleare,
-          stato_sanzioni: merged.sanzioni,
-          stato_opinione: merged.opinione,
-          stato_defcon: merged.defcon,
-          description: cardDef.description,
-        }),
-
-        winCheck.isOver
-          ? supabase.from('games').update({
-              status: 'finished',
-              winner_faction: winCheck.winner,
-              winner_condition: winCheck.condition,
-              finished_at: new Date().toISOString(),
-            }).eq('id', game.id)
-          : supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id),
       ]);
 
-      // Aggiorna stato locale:
-      // - rimuove la carta giocata da deckCards
-      // - aggiorna gameState e game
+      if (stateRes.error) throw new Error(`Errore aggiornamento stato: ${stateRes.error.message}`);
+      if (deckRes.error)  throw new Error(`Errore aggiornamento carta: ${deckRes.error.message}`);
+
+      // Aggiorna turno/partita
+      if (winCheck.isOver) {
+        await supabase.from('games').update({
+          status: 'finished',
+          winner_faction: winCheck.winner,
+          winner_condition: winCheck.condition,
+          finished_at: new Date().toISOString(),
+        }).eq('id', game.id);
+      } else {
+        await supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id);
+      }
+
+      // ── 5. Aggiorna stato locale subito (turno passa immediatamente) ─
       set(s => ({
         gameState: { ...s.gameState!, ...newState, active_faction: nextFact },
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
-        // Rimuove la carta appena giocata dall'array locale
         deckCards: s.deckCards.filter(dc => dc.card_id !== cardId || dc.faction !== myFaction),
         loading: false,
+        notification: `✅ ${myFaction}: "${deckCard.card_name}" giocata — turno di ${nextFact}`,
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
           condition: winCheck.condition ?? '',
@@ -325,15 +309,44 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         } : null,
       }));
 
-      // Se il prossimo è un bot, eseguilo
+      // ── 6. Log mossa (non bloccante — non influenza il flusso) ───────
+      const { profile } = get();
+      supabase.from('moves_log').insert({
+        game_id: game.id,
+        turn_number: game.current_turn,
+        faction: myFaction,
+        player_id: profile?.id,
+        is_bot_move: false,
+        card_id: cardId,
+        card_name: deckCard.card_name,
+        card_type: deckCard.card_type,
+        delta_nucleare: deltas.nucleare,
+        delta_sanzioni: deltas.sanzioni,
+        delta_opinione: deltas.opinione,
+        delta_defcon: deltas.defcon,
+        delta_risorse: deltas.risorse,
+        delta_stabilita: deltas.stabilita,
+        stato_nucleare: merged.nucleare,
+        stato_sanzioni: merged.sanzioni,
+        stato_opinione: merged.opinione,
+        stato_defcon: merged.defcon,
+        description: cardDef.description,
+      }).then(({ error }) => {
+        if (error) console.warn('moves_log non salvato (non bloccante):', error.message);
+      });
+
+      // ── 7. Se il prossimo è un bot, eseguilo ────────────────────────
       if (!winCheck.isOver) {
         const nextPlayer = players.find(p => p.faction === nextFact);
         if (nextPlayer?.is_bot) {
           setTimeout(() => get().runBotTurn(), 2000);
         }
       }
+
     } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : 'Errore', loading: false });
+      const msg = err instanceof Error ? err.message : 'Errore sconosciuto';
+      console.error('playCard error:', msg);
+      set({ error: msg, loading: false });
     }
   },
 
