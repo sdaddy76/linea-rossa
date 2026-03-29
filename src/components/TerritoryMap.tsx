@@ -50,6 +50,7 @@ interface TerrDef {
   pts: [number, number][];
   cubeAnchor: [number, number];
   cubeOffsetY?: number;   // offset Y dei cubi rispetto all'anchor (default 0)
+  cubeOffsetX?: number;   // offset X dei cubi rispetto all'anchor (default 0)
   maxSlots: number;   // slot totali visibili (capacità massima influenza)
   pvPerRound: number;
   type: 'casa' | 'strategico' | 'normale';
@@ -76,11 +77,11 @@ const TERR_DEF: TerrDef[] = [
   { id: 'Libano', label: 'LIBANO',
     pts: [[523,325],[528,353],[546,354],[547,366],[529,386],[508,404],
           [495,404],[436,382],[437,364]],
-    cubeAnchor: [494, 369], cubeOffsetY: -18, maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [494, 369], cubeOffsetY: 0, maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Israele', label: 'ISRAELE',
     pts: [[492,406],[512,406],[509,470],[488,530],[464,468]],
-    cubeAnchor: [491, 461], cubeOffsetY: 32, maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione' },
+    cubeAnchor: [491, 461], cubeOffsetY: 0, cubeOffsetX: -70, maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione' },
 
   { id: 'Giordania', label: 'GIORDANIA',
     pts: [[497,529],[522,468],[520,423],[554,436],[627,401],[641,441],[573,463],
@@ -90,7 +91,7 @@ const TERR_DEF: TerrDef[] = [
   { id: 'Egitto', label: 'EGITTO',
     pts: [[136,454],[282,484],[357,456],[394,472],[459,474],[481,529],[471,589],
           [407,514],[396,527],[512,720],[132,721]],
-    cubeAnchor: [300, 598], cubeOffsetY: 40, maxSlots: 4, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [300, 598], cubeOffsetY: 65, maxSlots: 4, pvPerRound: 1, type: 'normale' },
 
   { id: 'Iraq', label: 'IRAQ',
     pts: [[637,398],[646,440],[679,447],[835,543],[904,543],[932,511],[970,512],
@@ -110,7 +111,7 @@ const TERR_DEF: TerrDef[] = [
 
   { id: 'Kuwait', label: 'KUWAIT',
     pts: [[967,519],[935,517],[914,543],[935,546],[945,562],[973,563]],
-    cubeAnchor: [949, 539], cubeOffsetY: -20, maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [949, 539], cubeOffsetY: -38, maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Bahrain', label: 'BAHRAIN',
     pts: [[1086,576],[1075,595],[1090,612],[1106,610],[1108,590]],
@@ -152,11 +153,12 @@ const TERR_DEF: TerrDef[] = [
 // ─────────────────────────────────────────────────────────────────────────
 // CUBI INFLUENZA — slot fissi visibili, colorati per fazione
 // ─────────────────────────────────────────────────────────────────────────
-function InfluenceCubes({ influences, anchor, maxSlots, offsetY = 0 }: {
+function InfluenceCubes({ influences, anchor, maxSlots, offsetY = 0, offsetX = 0 }: {
   influences: Partial<Record<Faction, number>>;
   anchor: [number, number];
   maxSlots: number;
   offsetY?: number;
+  offsetX?: number;
 }) {
   if (maxSlots === 0) return null;
 
@@ -172,7 +174,7 @@ function InfluenceCubes({ influences, anchor, maxSlots, offsetY = 0 }: {
   const SH = 26;   // altezza slot
   const GAP = 4;   // spazio tra slot
   const totalW = maxSlots * SW + (maxSlots - 1) * GAP;
-  const ox = anchor[0] - totalW / 2;
+  const ox = anchor[0] - totalW / 2 + offsetX;
   const oy = anchor[1] - SH / 2 + offsetY;
 
   return (
@@ -416,7 +418,7 @@ export default function TerritoryMap({
             )}
 
             {/* Cubi influenza (grandi e visibili) */}
-            <InfluenceCubes influences={infl} anchor={t.cubeAnchor} maxSlots={t.maxSlots} offsetY={t.cubeOffsetY ?? 0} />
+            <InfluenceCubes influences={infl} anchor={t.cubeAnchor} maxSlots={t.maxSlots} offsetY={t.cubeOffsetY ?? 0} offsetX={t.cubeOffsetX ?? 0} />
 
             {/* Icone unità militari */}
             <UnitBadges units={units} anchor={t.cubeAnchor} />
