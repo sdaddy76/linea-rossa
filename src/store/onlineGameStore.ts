@@ -352,8 +352,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   // -----------------------------------------------
   runBotTurn: async () => {
-    const { game, gameState, players } = get();
+    const { game, gameState, players, isBotThinking } = get();
     if (!game || !gameState || game.status !== 'active') return;
+    if (isBotThinking) return; // guard: evita doppia esecuzione concorrente
 
     const botFaction = gameState.active_faction as Faction;
     const botPlayer = players.find(p => p.faction === botFaction);
@@ -481,7 +482,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         event: 'UPDATE', schema: 'public', table: 'game_state',
         filter: `game_id=eq.${gameId}`,
       }, payload => {
-        set({ gameState: payload.new as GameState });
+        // Merge con lo stato esistente: payload.new può contenere solo i campi aggiornati
+        set(s => ({ gameState: { ...s.gameState, ...payload.new } as GameState }));
       })
       .subscribe();
 
@@ -504,7 +506,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         event: 'UPDATE', schema: 'public', table: 'games',
         filter: `id=eq.${gameId}`,
       }, payload => {
-        set({ game: payload.new as Game });
+        set(s => ({ game: { ...s.game, ...payload.new } as Game }));
       })
       .subscribe();
 
@@ -777,10 +779,22 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // Controlla DEFCON 1
       if (newDefcon <= 1) {
         set({ gameOverInfo: { winner: null, condition: 'defcon', message: '☢️ GUERRA TERMONUCLEARE — tutti perdono!' } });
+        await supabase.from('games').update({ status: 'finished', winner_condition: 'defcon' }).eq('id', game.id);
       }
 
-      // Passa turno al bot se necessario
+      // Passa il turno su DB (altrimenti gli altri client non vedono il cambio via realtime)
       const nextFact = nextFaction(myFaction);
+      const nextTurnNum = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
+      await Promise.all([
+        supabase.from('game_state').update({ active_faction: nextFact }).eq('game_id', game.id),
+        supabase.from('games').update({ current_turn: nextTurnNum }).eq('id', game.id),
+      ]);
+      set(s => ({
+        gameState: { ...s.gameState!, active_faction: nextFact },
+        game: { ...s.game!, current_turn: nextTurnNum },
+      }));
+
+      // Avvia bot se necessario
       const nextPlayer = players.find(p => p.faction === nextFact);
       if (nextPlayer?.is_bot) {
         setTimeout(() => get().runBotTurn(), 2000);

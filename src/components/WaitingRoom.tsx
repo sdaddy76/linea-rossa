@@ -57,9 +57,15 @@ export default function WaitingRoom({
       .order('turn_order');
     if (data) {
       setPlayers(data as LobbyPlayer[]);
-      // Recupera la fazione che ho già scelto (se torno in sala)
+      // Recupera la fazione che ho già scelto (sync con DB)
       const me = data.find((p: LobbyPlayer) => p.player_id === profile.id);
-      if (me?.faction) setMyFaction(me.faction as Faction);
+      if (me?.faction) {
+        setMyFaction(me.faction as Faction);
+      } else if (!me) {
+        // Non sono più nella lista → deseleziono
+        setMyFaction(null);
+      }
+      // Se me esiste ma faction è null → utente ha deselezionato
     }
   }, [gameId, profile.id]);
 
@@ -181,7 +187,9 @@ export default function WaitingRoom({
     setStarting(true); setError('');
     try {
       // Fazioni non prese da umani → assegna bot
+      // Includo myFaction come taken anche se il RT non ha ancora aggiornato players
       const takenFactions = new Set(players.filter(p => p.player_id).map(p => p.faction));
+      if (myFaction) takenFactions.add(myFaction);
       const botFactions = TURN_ORDER.filter(f => !takenFactions.has(f));
 
       // Inserisci bot per le fazioni libere
@@ -218,7 +226,7 @@ export default function WaitingRoom({
         .eq('game_id', gameId);
       const allFactions = (allPlayers.data ?? []).map(p => p.faction) as Faction[];
 
-      const deckRows: { game_id: string; faction: Faction; card_id: string; card_name: string; card_type: string; status: string; position: number }[] = [];
+      const deckRows: { game_id: string; faction: Faction; card_id: string; card_name: string; card_type: string; op_points: number; deck_type: string; status: string; position: number }[] = [];
       for (const f of allFactions) {
         const deck = getFullDeck(f);
         deck.forEach((card, i) => deckRows.push({
@@ -227,21 +235,26 @@ export default function WaitingRoom({
           card_id: card.card_id,
           card_name: card.card_name,
           card_type: card.card_type,
+          op_points: card.op_points ?? 0,
+          deck_type: card.deck_type ?? 'base',
           status: 'available',
           position: i,
         }));
       }
       await supabase.from('cards_deck').insert(deckRows);
 
-      // Inizializza territori
+      // Inizializza territori (stesso schema usato da onlineGameStore: territories + territory + inf_*)
       const { TERRITORIES } = await import('@/lib/territoriesData');
       const terrRows = TERRITORIES.map(t => ({
         game_id: gameId,
-        territory_id: t.id,
-        influenza_iran: 0,
-        influenza_coalizione: 0,
+        territory: t.id,
+        inf_iran:       0,
+        inf_coalizione: 0,
+        inf_russia:     0,
+        inf_cina:       0,
+        inf_europa:     0,
       }));
-      await supabase.from('territory_state').upsert(terrRows, { onConflict: 'game_id,territory_id' });
+      await supabase.from('territories').upsert(terrRows, { onConflict: 'game_id,territory' });
 
       // Cambia status → active (triggera real-time su tutti i client)
       const { error: gameErr } = await supabase
