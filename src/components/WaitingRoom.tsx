@@ -128,18 +128,27 @@ export default function WaitingRoom({
     // Se già selezionata → deseleziona
     if (myFaction === faction) {
       setLoading(true); setError('');
-      isSwitchingFaction.current = true; // ← FIX: blocca il real-time anche durante la deselezione
+      isSwitchingFaction.current = true;
+      // Aggiorna UI subito (ottimistico) — la subscription non sovrascriverà
+      // finché isSwitchingFaction.current rimane true
+      setMyFaction(null);
+      myFactionRef.current = null;
       try {
-        await supabase
+        const { error: delErr } = await supabase
           .from('game_players')
           .delete()
           .eq('game_id', gameId)
           .eq('player_id', profile.id);
-        setMyFaction(null);
-        myFactionRef.current = null;
-      } catch { setError('Errore nella deselezione'); }
-      finally {
-        isSwitchingFaction.current = false; // riabilita
+        if (delErr) throw delErr;
+      } catch {
+        // Rollback UI se il delete fallisce
+        setMyFaction(faction);
+        myFactionRef.current = faction;
+        setError('Errore nella deselezione');
+      } finally {
+        // Aspetta un tick prima di riabilitare la subscription,
+        // così l'evento real-time del delete non rimette la fazione
+        setTimeout(() => { isSwitchingFaction.current = false; }, 500);
         setLoading(false);
       }
       return;
@@ -151,19 +160,19 @@ export default function WaitingRoom({
 
     setLoading(true); setError('');
     isSwitchingFaction.current = true;
+    // Aggiorna UI subito (ottimistico)
+    const prevFaction = myFaction;
+    setMyFaction(faction);
+    myFactionRef.current = faction;
     try {
-      // 1. Rimuove l'eventuale scelta precedente del giocatore (qualsiasi fazione)
+      // 1. Rimuove la scelta precedente del giocatore
       await supabase
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('player_id', profile.id);
 
-      // 2. Rimuove QUALSIASI riga per quella fazione che non appartenga
-      //    ad un altro umano reale: copre bot (player_id null), placeholder
-      //    e righe stale di chi ha appena lasciato.
-      //    La condizione .or rimuove: player_id IS NULL  oppure  player_id = me
-      //    (me è già stato rimosso al passo 1, ma il secondo branch è innocuo)
+      // 2. Pulisce righe stale della fazione target (bot/placeholder/chi ha lasciato)
       await supabase
         .from('game_players')
         .delete()
@@ -171,7 +180,7 @@ export default function WaitingRoom({
         .eq('faction', faction)
         .or(`player_id.is.null,player_id.eq.${profile.id}`);
 
-      // 3. Insert diretto — il slot è ora garantito libero
+      // 3. Insert diretto — slot garantito libero
       const { error: insErr } = await supabase
         .from('game_players')
         .insert({
@@ -186,20 +195,23 @@ export default function WaitingRoom({
 
       if (insErr) {
         if (insErr.code === '23505') {
-          // C'è ancora una riga con un altro player_id reale → qualcuno l'ha presa nel frattempo
+          // Rollback: un altro giocatore ha preso la fazione nel frattempo
+          setMyFaction(prevFaction);
+          myFactionRef.current = prevFaction;
           setError(`${faction} è stata appena presa da un altro giocatore`);
-          await loadPlayers(); // aggiorna la lista
+          await loadPlayers();
         } else {
           throw insErr;
         }
-      } else {
-        setMyFaction(faction);
-        myFactionRef.current = faction;
       }
     } catch (err: unknown) {
+      // Rollback UI
+      setMyFaction(prevFaction);
+      myFactionRef.current = prevFaction;
       setError(err instanceof Error ? err.message : 'Errore nella scelta');
     } finally {
-      isSwitchingFaction.current = false;
+      // Attesa 500ms prima di riabilitare la subscription real-time
+      setTimeout(() => { isSwitchingFaction.current = false; }, 500);
       setLoading(false);
     }
   };
