@@ -309,21 +309,28 @@ export default function WaitingRoom({
       }
 
       console.log('[startGame] step 4 — territori');
-      // Inizializza territori (stesso schema usato da onlineGameStore: territories + territory + inf_*)
-      const { TERRITORIES } = await import('@/lib/territoriesData');
-      const terrRows = TERRITORIES.map(t => ({
-        game_id: gameId,
-        territory: t.id,
-        inf_iran:       0,
-        inf_coalizione: 0,
-        inf_russia:     0,
-        inf_cina:       0,
-        inf_europa:     0,
-      }));
-      const { error: terrErr } = await supabase
-        .from('territories')
-        .upsert(terrRows, { onConflict: 'game_id,territory' });
-      if (terrErr) { console.error('[startGame] territori err:', terrErr); throw terrErr; }
+      // Inizializza territori — non bloccante se la tabella non esiste ancora
+      try {
+        const { TERRITORIES } = await import('@/lib/territoriesData');
+        const terrRows = TERRITORIES.map(t => ({
+          game_id: gameId,
+          territory: t.id,
+          inf_iran: 0, inf_coalizione: 0, inf_russia: 0, inf_cina: 0, inf_europa: 0,
+        }));
+        const { error: terrErr } = await supabase
+          .from('territories')
+          .upsert(terrRows, { onConflict: 'game_id,territory' });
+        if (terrErr) {
+          // PGRST205 = tabella non nel cache schema → non bloccante, la mappa sarà vuota
+          if (terrErr.code === 'PGRST205' || terrErr.code === '42P01') {
+            console.warn('[startGame] tabella territories non presente — mappa disabilitata');
+          } else {
+            throw terrErr;
+          }
+        }
+      } catch (e) {
+        console.warn('[startGame] territori skip:', e);
+      }
       console.log('[startGame] step 5 — aggiorna games.status');
 
       // Cambia status → active (triggera real-time su tutti i client)

@@ -942,16 +942,25 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   loadTerritories: async () => {
     const { game } = get();
     if (!game) return;
-    const [{ data: terr }, { data: units }, { data: clog }] = await Promise.all([
-      supabase.from('territories').select('*').eq('game_id', game.id),
-      supabase.from('military_units').select('*').eq('game_id', game.id),
-      supabase.from('combat_log').select('*').eq('game_id', game.id).order('created_at', { ascending: false }).limit(20),
-    ]);
-    set({
-      territories:  terr  ?? [],
-      militaryUnits: units ?? [],
-      combatLog:    clog  ?? [],
-    });
+    try {
+      const [{ data: terr, error: terrErr }, { data: units }, { data: clog }] = await Promise.all([
+        supabase.from('territories').select('*').eq('game_id', game.id),
+        supabase.from('military_units').select('*').eq('game_id', game.id),
+        supabase.from('combat_log').select('*').eq('game_id', game.id).order('created_at', { ascending: false }).limit(20),
+      ]);
+      // PGRST205 = tabella non ancora creata → ignora silenziosamente
+      if (terrErr && terrErr.code !== 'PGRST205' && terrErr.code !== '42P01') {
+        console.warn('[loadTerritories] errore:', terrErr);
+      }
+      set({
+        territories:   terr  ?? [],
+        militaryUnits: units ?? [],
+        combatLog:     clog  ?? [],
+      });
+    } catch (e) {
+      console.warn('[loadTerritories] tabelle mappa non disponibili:', e);
+      set({ territories: [], militaryUnits: [], combatLog: [] });
+    }
   },
 
   // ── Schiera unità in un territorio ─────────────────────────────────────────
