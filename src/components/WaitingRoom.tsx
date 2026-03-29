@@ -207,9 +207,10 @@ export default function WaitingRoom({
         await supabase.from('game_players').upsert(botRows, { onConflict: 'game_id,faction', ignoreDuplicates: false });
       }
 
-      // Inizializza stato partita con units pool e tracciati militari
-      const { INITIAL_UNITS } = await import('@/lib/territoriesData');
-      const { error: stateErr } = await supabase.from('game_state').upsert({
+      // ── Inizializza game_state con SOLO le colonne garantite dal DB ──
+      // Le colonne units_*, special_uses, tracciati fazione sono opzionali
+      // (aggiunte da migration separata) — non bloccare l'avvio se mancano
+      const baseState = {
         game_id: gameId,
         nucleare: 1, sanzioni: 5, opinione: 0, defcon: 5,
         risorse_iran: 5, risorse_coalizione: 5, risorse_russia: 5,
@@ -217,17 +218,30 @@ export default function WaitingRoom({
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,
         stabilita_cina: 5, stabilita_europa: 5,
         forze_militari_iran: 5, forze_militari_coalizione: 5,
-        // Pool unità iniziali per fazione (asimmetriche)
-        units_iran:       INITIAL_UNITS.Iran,
-        units_coalizione: INITIAL_UNITS.Coalizione,
-        units_russia:     INITIAL_UNITS.Russia,
-        units_cina:       INITIAL_UNITS.Cina,
-        units_europa:     INITIAL_UNITS.Europa,
-        special_uses: { veto_russia: 3, hormuz_iran: false, superiorita_aerea: false },
-        active_alliances: [],
         active_faction: 'Iran',
-      }, { onConflict: 'game_id' });
+      };
+      const { error: stateErr } = await supabase.from('game_state').upsert(
+        baseState, { onConflict: 'game_id' }
+      );
       if (stateErr) throw stateErr;
+
+      // ── Prova ad aggiornare le colonne opzionali (se esistono nel DB) ──
+      // Non throw se fallisce: il gioco funziona anche senza di esse
+      try {
+        const { INITIAL_UNITS } = await import('@/lib/territoriesData');
+        await supabase.from('game_state').update({
+          forze_militari_russia: 5,
+          forze_militari_cina: 5,
+          forze_militari_europa: 5,
+          units_iran:       INITIAL_UNITS.Iran,
+          units_coalizione: INITIAL_UNITS.Coalizione,
+          units_russia:     INITIAL_UNITS.Russia,
+          units_cina:       INITIAL_UNITS.Cina,
+          units_europa:     INITIAL_UNITS.Europa,
+          special_uses: { veto_russia: 3, hormuz_iran: false, superiorita_aerea: false },
+          active_alliances: [],
+        }).eq('game_id', gameId);
+      } catch { /* colonne opzionali non ancora presenti nel DB — ignorato */ }
 
       // Inizializza mazzi carte
       const { getFullDeck } = await import('@/data/mazzi');
