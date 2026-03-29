@@ -10,7 +10,7 @@ import type {
 import {
   botSelectCard, applyCardEffects, checkWinCondition, nextFaction,
 } from '@/lib/botEngine';
-import { getFullDeck, shuffleDeck } from '@/data/mazzi';
+import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN } from '@/data/mazzi';
 import { TERRITORIES } from '@/lib/territoriesData';
 
 interface OnlineGameStore {
@@ -49,6 +49,16 @@ interface OnlineGameStore {
    * @param costoOpTotale  carte OP totali da spendere (calcolate dal client con calcolaCosto)
    */
   buyMilitaryResources: (quantita: number, costoOpTotale: number) => Promise<void>;
+
+  // ── Mazzo unificato ──
+  /** Inizializza il mazzo unificato (tutte le fazioni) e distribuisce le mani */
+  initUnifiedDeck: () => Promise<void>;
+  /** Gioca una carta in modalità unificata: event=gioca come evento, ops=gioca come OP */
+  playCardUnified: (cardDbId: string, mode: 'event' | 'ops') => Promise<void>;
+  /** Pesca UNIFIED_DRAW_PER_TURN carte per la fazione indicata dal mazzo residuo */
+  drawCards: (faction: Faction) => Promise<void>;
+  /** Carte in mano alla mia fazione (filtered from deckCards by held_by_faction) */
+  myHand: () => DeckCard[];
 
   // ── Operazioni militari ──
   /** Carica territori e unità per la partita corrente */
@@ -569,6 +579,251 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   setNotification: (msg) => set({ notification: msg }),
 
   // -----------------------------------------------
+  // ═══════════════════════════════════════════════════════════════════
+  // MAZZO UNIFICATO — implementazioni
+  // ═══════════════════════════════════════════════════════════════════
+
+  myHand: () => {
+    const { deckCards, myFaction } = get();
+    if (!myFaction) return [];
+    return deckCards.filter(dc => dc.held_by_faction === myFaction && dc.status === 'in_hand');
+  },
+
+  initUnifiedDeck: async () => {
+    const { game, players } = get();
+    if (!game) return;
+    set({ loading: true });
+
+    // 1. Costruisce il mazzo unificato mescolato
+    const unified = getUnifiedDeck();
+    let position = 1;
+    const factions = players.map(p => p.faction) as Faction[];
+
+    // 2. Distribuisce UNIFIED_HAND_SIZE carte a ciascuna fazione
+    //    Le prime N * |factions| carte vanno in mano, il resto è il mazzo
+    const handAssignments: Record<Faction, string[]> = {} as Record<Faction, string[]>;
+    factions.forEach(f => { handAssignments[f] = []; });
+
+    const deckRows: object[] = [];
+
+    // Prima assegna le carte alle mani (round-robin per equità)
+    let cardIdx = 0;
+    for (let i = 0; i < UNIFIED_HAND_SIZE; i++) {
+      for (const f of factions) {
+        if (cardIdx >= unified.length) break;
+        const card = unified[cardIdx++];
+        deckRows.push({
+          game_id:       game.id,
+          faction:       card.faction,           // owner originale
+          owner_faction: card.owner_faction,
+          card_id:       card.card_id,
+          card_name:     card.card_name,
+          card_type:     card.card_type,
+          op_points:     card.op_points,
+          deck_type:     card.deck_type,
+          status:        'in_hand',
+          held_by_faction: f,
+          position:      position++,
+        });
+      }
+    }
+
+    // Il resto va nel mazzo (available, nessuna fazione)
+    for (; cardIdx < unified.length; cardIdx++) {
+      const card = unified[cardIdx];
+      deckRows.push({
+        game_id:       game.id,
+        faction:       card.faction,
+        owner_faction: card.owner_faction,
+        card_id:       card.card_id,
+        card_name:     card.card_name,
+        card_type:     card.card_type,
+        op_points:     card.op_points,
+        deck_type:     card.deck_type,
+        status:        'available',
+        held_by_faction: null,
+        position:      position++,
+      });
+    }
+
+    await supabase.from('cards_deck').insert(deckRows);
+
+    // 3. Segna game_mode = 'unified' sulla partita
+    await supabase.from('games').update({ game_mode: 'unified' }).eq('id', game.id);
+
+    set(s => ({
+      game: { ...s.game!, game_mode: 'unified' },
+      loading: false,
+    }));
+  },
+
+  drawCards: async (faction: Faction) => {
+    const { game, deckCards } = get();
+    if (!game) return;
+
+    // Prende le prime N carte disponibili (non in mano, non giocate)
+    const available = deckCards
+      .filter(dc => dc.status === 'available' && !dc.held_by_faction)
+      .sort((a, b) => a.position - b.position)
+      .slice(0, UNIFIED_DRAW_PER_TURN);
+
+    if (available.length === 0) return; // mazzo esaurito
+
+    const ids = available.map(dc => dc.id);
+    await supabase.from('cards_deck')
+      .update({ status: 'in_hand', held_by_faction: faction })
+      .in('id', ids);
+
+    set(s => ({
+      deckCards: s.deckCards.map(dc =>
+        ids.includes(dc.id)
+          ? { ...dc, status: 'in_hand' as const, held_by_faction: faction }
+          : dc
+      ),
+    }));
+  },
+
+  playCardUnified: async (cardDbId: string, mode: 'event' | 'ops') => {
+    const { game, gameState, myFaction, players } = get();
+    if (!game || !gameState || !myFaction) return;
+    if (gameState.active_faction !== myFaction) {
+      set({ error: 'Non è il tuo turno!' }); return;
+    }
+
+    set({ loading: true, error: null });
+    try {
+      // 1. Trova la carta nel DB tramite id univoco
+      const { data: deckCard, error: deckErr } = await supabase
+        .from('cards_deck')
+        .select('*')
+        .eq('id', cardDbId)
+        .eq('game_id', game.id)
+        .single();
+
+      if (deckErr || !deckCard) throw new Error(`Carta non trovata: ${deckErr?.message}`);
+
+      const ownerFaction = (deckCard.owner_faction ?? deckCard.faction) as Faction;
+      const isMyCard = ownerFaction === myFaction;
+
+      // 2. Recupera definizione carta con effetti
+      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } = await import('@/data/mazzi');
+      const ownerDeck = [
+        ...(MAZZI_PER_FAZIONE[ownerFaction] ?? []),
+        ...(MAZZI_SPECIALI[ownerFaction] ?? []),
+      ];
+      const cardDef = ownerDeck.find(c => c.card_id === deckCard.card_id) ?? {
+        card_id: deckCard.card_id,
+        card_name: deckCard.card_name,
+        effects: {},
+      };
+
+      // 3. Calcola effetti in base alla modalità di gioco
+      //    - mode='event'  → applica gli effetti della carta (chi è proprietario)
+      //    - mode='ops'    → usa solo i punti OP (nessun effetto tracciato)
+      //    - carta altrui  → SEMPRE: prima OP, poi evento automatico al termine
+      let newState = { ...gameState };
+      let deltas = {};
+
+      if (mode === 'event' && isMyCard) {
+        // Gioca come evento: applica gli effetti meccanici
+        const result = applyCardEffects(
+          cardDef as Parameters<typeof applyCardEffects>[0],
+          gameState,
+          myFaction,
+        );
+        newState = { ...gameState, ...result.newState };
+        deltas = result.deltas;
+      } else if (!isMyCard) {
+        // Carta altrui: usa come OP (nessun effetto ora)
+        // Dopo questa funzione, il chiamante deve applicare l'evento della carta
+        // (lo fa UnifiedCardPlayModal mostrando EventoModal della carta)
+      }
+      // mode='ops' e isMyCard → nessun effetto tracciato, solo OP spesi
+
+      // 4. Passa il turno
+      const winCheck = checkWinCondition(newState as GameState, game.current_turn, game.max_turns);
+      const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(myFaction);
+      const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
+
+      // 5. Aggiorna DB in parallelo
+      const stateUpdate = {
+        ...(mode === 'event' ? newState : {}),
+        active_faction: nextFact,
+      };
+
+      const [stateRes, deckRes] = await Promise.all([
+        supabase.from('game_state').update(stateUpdate).eq('game_id', game.id),
+        supabase.from('cards_deck').update({
+          status: 'played',
+          played_at_turn: game.current_turn,
+          play_mode: mode,
+          held_by_faction: null,
+        }).eq('id', cardDbId),
+      ]);
+
+      if (stateRes.error) throw new Error(`Stato: ${stateRes.error.message}`);
+      if (deckRes.error)  throw new Error(`Carta: ${deckRes.error.message}`);
+
+      // 6. Avanza il turno nella tabella games
+      if (winCheck.isOver) {
+        await supabase.from('games').update({
+          status: 'finished',
+          winner_faction: winCheck.winner,
+          winner_condition: winCheck.condition,
+          finished_at: new Date().toISOString(),
+        }).eq('id', game.id);
+      } else {
+        await supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id);
+      }
+
+      // 7. Fa pescare 1 carta alla fazione che ha appena giocato
+      await get().drawCards(myFaction);
+
+      // 8. Stato locale
+      set(s => ({
+        gameState: { ...s.gameState!, ...stateUpdate },
+        game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
+        deckCards: s.deckCards.filter(dc => dc.id !== cardDbId),
+        loading: false,
+        notification: mode === 'event'
+          ? `🎴 ${myFaction}: "${deckCard.card_name}" giocata come EVENTO`
+          : `⚙️ ${myFaction}: "${deckCard.card_name}" usata come ${deckCard.op_points} OP`,
+        gameOverInfo: winCheck.isOver ? {
+          winner: winCheck.winner,
+          condition: winCheck.condition ?? '',
+          message: winCheck.message ?? '',
+        } : null,
+      }));
+
+      // 9. Log mossa
+      const { profile } = get();
+      supabase.from('moves_log').insert({
+        game_id: game.id,
+        turn_number: game.current_turn,
+        faction: myFaction,
+        player_id: profile?.id,
+        is_bot_move: false,
+        card_id: deckCard.card_id,
+        card_name: deckCard.card_name,
+        card_type: deckCard.card_type,
+        // deltas semplificati (dal risultato applyCardEffects se mode=event)
+        delta_nucleare: (deltas as Record<string, number>).nucleare ?? 0,
+        delta_sanzioni: (deltas as Record<string, number>).sanzioni ?? 0,
+        delta_opinione: (deltas as Record<string, number>).opinione ?? 0,
+        delta_defcon:   (deltas as Record<string, number>).defcon   ?? 0,
+        delta_risorse:  (deltas as Record<string, number>).risorse  ?? 0,
+        delta_stabilita:(deltas as Record<string, number>).stabilita?? 0,
+        stato_nucleare: newState.nucleare,
+        stato_sanzioni: newState.sanzioni,
+        stato_opinione: newState.opinione,
+        stato_defcon:   newState.defcon,
+      }).then(() => {});
+
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : 'Errore', loading: false });
+    }
+  },
+
   buyMilitaryResources: async (quantita: number, costoOpTotale: number) => {
     const { game, gameState, myFaction, players, profile } = get();
     if (!game || !gameState || !myFaction) return;

@@ -49,6 +49,8 @@ export default function WaitingRoom({
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  // Modalità mazzo: 'classic' (un mazzo per fazione) o 'unified' (mazzo unico)
+  const [gameMode, setGameMode] = useState<'classic' | 'unified'>('classic');
 
   // ── Carica giocatori correnti ─────────────────────────────────────
   const loadPlayers = useCallback(async () => {
@@ -307,11 +309,49 @@ export default function WaitingRoom({
       await supabase.from('territories').upsert(terrRows, { onConflict: 'game_id,territory' });
 
       // Cambia status → active (triggera real-time su tutti i client)
+      // Salva anche game_mode per distinguere mazzo classico da unificato
       const { error: gameErr } = await supabase
         .from('games')
-        .update({ status: 'active', started_at: new Date().toISOString() })
+        .update({ status: 'active', started_at: new Date().toISOString(), game_mode: gameMode })
         .eq('id', gameId);
       if (gameErr) throw gameErr;
+
+      // Se mazzo unificato: costruisci mazzo unico al posto dei mazzi separati
+      if (gameMode === 'unified') {
+        // Cancella i deck rows già inseriti sopra (mazzo classico) e crea il mazzo unificato
+        await supabase.from('cards_deck').delete().eq('game_id', gameId);
+        const { getUnifiedDeck, UNIFIED_HAND_SIZE } = await import('@/data/mazzi');
+        const allPlayers = [...players.filter(p => p.player_id || p.is_bot)];
+        const factions = allPlayers.map(p => p.faction) as Faction[];
+        const unified = getUnifiedDeck();
+        let pos = 1;
+        const unifiedRows: object[] = [];
+        let cardIdx = 0;
+        // Distribuisce le mani round-robin
+        for (let i = 0; i < UNIFIED_HAND_SIZE; i++) {
+          for (const f of factions) {
+            if (cardIdx >= unified.length) break;
+            const card = unified[cardIdx++];
+            unifiedRows.push({
+              game_id: gameId, faction: card.faction, owner_faction: card.owner_faction,
+              card_id: card.card_id, card_name: card.card_name, card_type: card.card_type,
+              op_points: card.op_points, deck_type: card.deck_type,
+              status: 'in_hand', held_by_faction: f, position: pos++,
+            });
+          }
+        }
+        // Resto: mazzo disponibile
+        for (; cardIdx < unified.length; cardIdx++) {
+          const card = unified[cardIdx];
+          unifiedRows.push({
+            game_id: gameId, faction: card.faction, owner_faction: card.owner_faction,
+            card_id: card.card_id, card_name: card.card_name, card_type: card.card_type,
+            op_points: card.op_points, deck_type: card.deck_type,
+            status: 'available', held_by_faction: null, position: pos++,
+          });
+        }
+        await supabase.from('cards_deck').insert(unifiedRows);
+      }
 
       // L'host viene notificato tramite real-time come tutti gli altri
     } catch (err: unknown) {
@@ -481,18 +521,61 @@ export default function WaitingRoom({
 
         {/* ── Avvia (solo host) ── */}
         {isHost && (
-          <button
-            onClick={startGame}
-            disabled={starting || !myFaction}
-            className="w-full py-4 rounded-xl font-black font-mono tracking-widest text-sm transition-all
-              disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: myFaction ? 'linear-gradient(135deg, #00ff88, #00cc66)' : '#1e3a5f',
-              color: myFaction ? '#0a0e1a' : '#334455',
-              boxShadow: myFaction ? '0 0 30px #00ff8840' : 'none',
-            }}>
-            {starting ? '⏳ AVVIO IN CORSO…' : myFaction ? '▶ AVVIA PARTITA' : 'SCEGLI LA TUA FAZIONE PER AVVIARE'}
-          </button>
+          <div className="space-y-3">
+            {/* Toggle modalità mazzo */}
+            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060d18]">
+              <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-2">
+                🎴 Modalità mazzo
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setGameMode('classic')}
+                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: gameMode === 'classic' ? '#22c55e20' : 'transparent',
+                    border: `1px solid ${gameMode === 'classic' ? '#22c55e' : '#1e3a5f'}`,
+                    color: gameMode === 'classic' ? '#22c55e' : '#556677',
+                  }}>
+                  🃏 Classico
+                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                    Mazzo per fazione
+                  </span>
+                </button>
+                <button
+                  onClick={() => setGameMode('unified')}
+                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: gameMode === 'unified' ? '#f9731620' : 'transparent',
+                    border: `1px solid ${gameMode === 'unified' ? '#f97316' : '#1e3a5f'}`,
+                    color: gameMode === 'unified' ? '#f97316' : '#556677',
+                  }}>
+                  🎴 Unificato
+                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                    Mazzo unico condiviso
+                  </span>
+                </button>
+              </div>
+              {gameMode === 'unified' && (
+                <p className="text-[10px] font-mono text-[#f97316] mt-2 leading-relaxed">
+                  ✦ Carte altrui: usa come OP → evento si attiva auto<br/>
+                  ✦ Carte tue: scegli evento <em>oppure</em> OP
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={startGame}
+              disabled={starting || !myFaction}
+              className="w-full py-4 rounded-xl font-black font-mono tracking-widest text-sm transition-all
+                disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: myFaction ? 'linear-gradient(135deg, #00ff88, #00cc66)' : '#1e3a5f',
+                color: myFaction ? '#0a0e1a' : '#334455',
+                boxShadow: myFaction ? '0 0 30px #00ff8840' : 'none',
+              }}>
+              {starting ? '⏳ AVVIO IN CORSO…' : myFaction ? '▶ AVVIA PARTITA' : 'SCEGLI LA TUA FAZIONE PER AVVIARE'}
+            </button>
+          </div>
         )}
 
         {!isHost && (

@@ -17,6 +17,7 @@ import type { TerritoryState } from '@/components/TerritoryMap';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
 import EventoModal from '@/components/EventoModal';
+import UnifiedCardPlayModal from '@/components/UnifiedCardPlayModal';
 import type { EventoCard } from '@/data/eventi';
 
 // ─── Colori fazione ───────────────────────────
@@ -348,7 +349,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     loading, isBotThinking, error, gameOverInfo, notification,
     playCard, startGame, clearError, setNotification, buyMilitaryResources,
     loadTerritories, deployUnit, attackTerritory, addInfluence,
-    runBotTurn,
+    runBotTurn, playCardUnified, drawCards, myHand,
     territories: terrRecords, militaryUnits: unitRecords,
   } = useOnlineGameStore();
 
@@ -360,6 +361,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [showMarket, setShowMarket] = useState(false);
   const [showCombat, setShowCombat] = useState(false);
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
+
+  // ── Mazzo unificato: carta selezionata per la scelta modale ─────────────────
+  // selectedUnifiedCard = DeckCard.id (UUID) della carta in mano selezionata
+  const [selectedUnifiedCard, setSelectedUnifiedCard] = useState<string | null>(null);
+  const isUnified = game?.game_mode === 'unified';
+  // Mano corrente nel mazzo unificato (DeckCard con status='in_hand' e held_by_faction=me)
+  const myHandCards = isUnified ? myHand() : [];
+  // Carta selezionata per il modale
+  const unifiedCardToPlay = myHandCards.find(dc => dc.id === selectedUnifiedCard) ?? null;
 
   // ── Sistema eventi ───────────────────────────────────────────────────────
   // Logica: all'inizio di OGNI turno (quando active_faction torna a 'Iran' con
@@ -859,8 +869,94 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                 </button>
               )}
 
-              {/* Mano carte del giocatore */}
-              {myFaction && game.status === 'active' && (
+              {/* Mano carte del giocatore (MAZZO UNIFICATO) */}
+              {isUnified && myFaction && game.status === 'active' && (
+                <div className="bg-[#111827] border border-[#f97316] border-opacity-40 rounded-xl">
+                  <button className="w-full flex items-center justify-between px-4 py-2.5 border-b border-[#1e3a5f]"
+                    onClick={() => setShowHand(!showHand)}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🎴</span>
+                      <span className="font-mono text-xs font-bold text-white">Mano — {myFaction}</span>
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded font-bold bg-[#f9731620] text-[#f97316]">
+                        MAZZO UNIFICATO
+                      </span>
+                      <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                        myHandCards.length === 0 ? 'text-[#ef4444] bg-[#ef444420]'
+                          : 'text-[#22c55e] bg-[#22c55e20]'}`}>
+                        {myHandCards.length} carte in mano
+                      </span>
+                    </div>
+                    <span className="text-[#8899aa] font-mono text-xs">{showHand ? '▲' : '▼'}</span>
+                  </button>
+
+                  {showHand && (
+                    <div className="p-3 space-y-2 max-h-72 overflow-y-auto">
+                      {myHandCards.length === 0 && (
+                        <p className="text-[#ef4444] font-mono text-xs text-center py-4">
+                          🎴 Nessuna carta in mano
+                        </p>
+                      )}
+                      {myHandCards.map(dc => {
+                        const ownerFaction = (dc.owner_faction ?? dc.faction) as string;
+                        const ownerColor = FACTION_COLORS[ownerFaction] ?? '#8899aa';
+                        const isMyOwn = ownerFaction === myFaction;
+                        const isSelected = selectedUnifiedCard === dc.id;
+                        return (
+                          <button key={dc.id}
+                            onClick={() => {
+                              if (!isMyTurn || isBotThinking) return;
+                              setSelectedUnifiedCard(isSelected ? null : dc.id);
+                            }}
+                            disabled={!isMyTurn || isBotThinking}
+                            className={`w-full text-left p-3 rounded-lg border transition-all ${
+                              isSelected
+                                ? 'ring-2 ring-[#f97316]'
+                                : 'hover:border-opacity-60'
+                            } ${(!isMyTurn || isBotThinking) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                            style={{
+                              borderColor: isSelected ? '#f97316' : `${ownerColor}40`,
+                              backgroundColor: isSelected ? '#f9731612' : `${ownerColor}08`,
+                            }}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="text-xs">{FACTION_FLAGS[ownerFaction] ?? '🎴'}</span>
+                                  <span className="text-[9px] font-mono font-bold"
+                                    style={{ color: ownerColor }}>
+                                    {ownerFaction}
+                                  </span>
+                                  {!isMyOwn && (
+                                    <span className="text-[8px] font-mono px-1 rounded bg-[#f9731620] text-[#f97316] border border-[#f9731640]">
+                                      altrui
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="font-mono font-bold text-xs text-white truncate">
+                                  {dc.card_name}
+                                </p>
+                                <p className="font-mono text-[10px] text-[#556677] mt-0.5">
+                                  {dc.card_type} · {dc.card_id}
+                                </p>
+                              </div>
+                              <div className="flex flex-col items-end gap-1 shrink-0">
+                                <span className="text-base font-black font-mono"
+                                  style={{ color: ownerColor }}>{dc.op_points}</span>
+                                <span className="text-[8px] font-mono text-[#556677]">OP</span>
+                                {isMyOwn
+                                  ? <span className="text-[8px] font-mono text-[#22c55e]">evt|ops</span>
+                                  : <span className="text-[8px] font-mono text-[#f97316]">ops+evt↗</span>}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Mano carte del giocatore (MAZZO CLASSICO) */}
+              {!isUnified && myFaction && game.status === 'active' && (
                 <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl">
                   <button
                     className="w-full flex items-center justify-between px-4 py-2.5
@@ -1078,6 +1174,20 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   onConfirm={chiudiEvento}
                   isMyTurn={isMyTurn}
                   currentFaction={gameState?.active_faction ?? 'Iran'}
+                />
+              )}
+
+              {/* ── Modale gioco carta unificata ── */}
+              {unifiedCardToPlay && myFaction && (
+                <UnifiedCardPlayModal
+                  card={unifiedCardToPlay}
+                  myFaction={myFaction}
+                  loading={loading}
+                  onCancel={() => setSelectedUnifiedCard(null)}
+                  onPlay={async (mode) => {
+                    await playCardUnified(unifiedCardToPlay.id, mode);
+                    setSelectedUnifiedCard(null);
+                  }}
                 />
               )}
 

@@ -316,3 +316,45 @@ export function getFullDeck(faction: Faction): GameCard[] {
   const special = MAZZI_SPECIALI[faction] ?? [];
   return shuffleDeck([...base, ...special]);
 }
+
+// =============================================
+// MAZZO UNIFICATO — tutte le fazioni in un unico mazzo mescolato
+// owner_faction = fazione proprietaria della carta
+// (se giochi una carta altrui → solo OP + evento automatico;
+//  se giochi la tua → scegli evento OR OP)
+// =============================================
+
+/** Versione della carta arricchita con owner_faction esplicito */
+export interface UnifiedCard extends GameCard {
+  /** Fazione che ha "scritto" questa carta (può differire da chi la gioca) */
+  owner_faction: Faction;
+}
+
+/**
+ * Costruisce il mazzo unificato (tutte le fazioni) e lo mescola.
+ * Ogni carta mantiene la sua faction originale come owner_faction.
+ */
+export function getUnifiedDeck(): UnifiedCard[] {
+  const all: UnifiedCard[] = [];
+  const factions: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
+  for (const f of factions) {
+    const base    = MAZZI_PER_FAZIONE[f] ?? [];
+    const special = MAZZI_SPECIALI[f] ?? [];
+    for (const card of [...base, ...special]) {
+      all.push({ ...card, owner_faction: f });
+    }
+  }
+  return shuffleDeck(all);
+}
+
+/**
+ * Dimensione mano iniziale per fazione nel mazzo unificato.
+ * Default: 4 carte a testa. Può essere configurata.
+ */
+export const UNIFIED_HAND_SIZE = 4;
+
+/**
+ * Numero di carte che ogni fazione pesca a fine turno (dopo aver giocato 1).
+ * Default: 1 (si mantiene sempre la mano a UNIFIED_HAND_SIZE).
+ */
+export const UNIFIED_DRAW_PER_TURN = 1;

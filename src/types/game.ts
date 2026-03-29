@@ -163,6 +163,9 @@ export interface Game {
   created_at: string;
   started_at?: string;
   finished_at?: string;
+  /** 'classic' = mazzo separato per fazione (default legacy)
+   *  'unified' = mazzo unico con tutte le carte, distribuzione mano */
+  game_mode?: 'classic' | 'unified';
 }
 
 // Giocatore in partita (umano o bot)
@@ -182,16 +185,18 @@ export interface GamePlayer {
 export interface DeckCard {
   id: string;
   game_id: string;
-  faction: Faction | 'Neutrale';
+  faction: Faction | 'Neutrale';        // fazione originale / proprietaria della carta
+  owner_faction: Faction | null;        // esplicito per mazzo unificato (= faction)
   card_id: string;
   card_name: string;
   card_type: CardType;
   op_points: number;
   deck_type: DeckType;
   status: CardStatus;
-  held_by_faction?: Faction;
+  held_by_faction?: Faction | null;     // chi ha in mano questa carta
   played_at_turn?: number;
-  position: number;
+  position: number;                     // posizione nel mazzo (per ordinare pesca)
+  play_mode?: 'event' | 'ops' | null;  // come è stata giocata (log)
 }
 
 // Mossa registrata nel log
