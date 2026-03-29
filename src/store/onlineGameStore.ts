@@ -790,18 +790,27 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         active_faction: nextFact,
       };
 
+      // Aggiorna carta — play_mode è opzionale (colonna potrebbe non esistere)
+      const cardUpdate: Record<string, unknown> = {
+        status: 'played',
+        played_at_turn: game.current_turn,
+        held_by_faction: null,
+      };
+
       const [stateRes, deckRes] = await Promise.all([
         supabase.from('game_state').update(stateUpdate).eq('game_id', game.id),
-        supabase.from('cards_deck').update({
-          status: 'played',
-          played_at_turn: game.current_turn,
-          play_mode: mode,
-          held_by_faction: null,
-        }).eq('id', cardDbId),
+        supabase.from('cards_deck').update(cardUpdate).eq('id', cardDbId),
       ]);
 
       if (stateRes.error) throw new Error(`Stato: ${stateRes.error.message}`);
       if (deckRes.error)  throw new Error(`Carta: ${deckRes.error.message}`);
+
+      // Salva play_mode separatamente — non bloccante se colonna mancante
+      supabase.from('cards_deck').update({ play_mode: mode }).eq('id', cardDbId).then(({ error }) => {
+        if (error && error.code !== 'PGRST204' && error.code !== '42703') {
+          console.warn('[playCardUnified] play_mode update warn:', error);
+        }
+      });
 
       // 6. Avanza il turno nella tabella games
       if (winCheck.isOver) {
