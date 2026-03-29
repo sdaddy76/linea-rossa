@@ -17,7 +17,7 @@ import type { TerritoryState } from '@/components/TerritoryMap';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
 import EventoModal from '@/components/EventoModal';
-import { pescaEvento, type EventoCard } from '@/data/eventi';
+import type { EventoCard } from '@/data/eventi';
 
 // ─── Colori fazione ───────────────────────────
 const FACTION_FLAGS: Record<string, string> = {
@@ -362,9 +362,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
 
   // ── Sistema eventi ───────────────────────────────────────────────────────
+  // Logica: all'inizio di OGNI turno (quando active_faction torna a 'Iran' con
+  // un nuovo current_turn) viene pescato UN evento, gli effetti sono applicati
+  // automaticamente nel DB da chi è host (o dalla prima istanza che li vede),
+  // e il modale viene mostrato a TUTTI i giocatori in sola lettura.
+  // L'evento pescato è salvato in game_state.last_event_id / last_event_turn
+  // così è sincronizzato via real-time per tutti.
+
   const [eventoCorrente, setEventoCorrente] = useState<EventoCard | null>(null);
-  const eventiUsatiRef = useRef<string[]>([]); // tiene traccia degli eventi già pescati
-  const lastEventTurnRef = useRef<string>(''); // chiave turno+fazione per evitare doppia pesca
+  const applicandoEventoRef = useRef(false); // lock anti-race tra tab multipli
 
   // Carica territori e unità a inizio partita
   useEffect(() => {
@@ -402,54 +408,82 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     return (gameState[key] as Record<string, number>) ?? {};
   }, [gameState, myFaction]);
 
-  // ── Pesca evento all'inizio del turno Iran ─────────────────────────────────
+  // ── Pesca + applica evento all'inizio di ogni nuovo turno ────────────────────
+  // Trigger: ogni volta che active_faction diventa 'Iran' (= inizio nuovo turno).
+  // Solo l'host applica i delta nel DB; tutti ricevono l'evento via real-time
+  // leggendo game_state.last_event_id.
   useEffect(() => {
     if (!game || !gameState || game.status !== 'active') return;
+    // L'evento si pesca SOLO quando è il turno 1 di Iran (inizio turno globale)
     if (gameState.active_faction !== 'Iran') return;
-    // Chiave univoca per questo turno: evita pescare due volte lo stesso turno
-    const turnKey = `${game.current_turn}-Iran`;
-    if (lastEventTurnRef.current === turnKey) return;
-    // Non mostrare evento se il bot sta giocando (non è turno umano Iran)
-    // ma mostrarlo sempre a tutti i giocatori quando è turno Iran
-    lastEventTurnRef.current = turnKey;
-    const evento = pescaEvento(eventiUsatiRef.current);
-    eventiUsatiRef.current = [...eventiUsatiRef.current, evento.event_id];
-    // Piccolo delay per non sovrapporre alla transizione di turno
-    const t = setTimeout(() => setEventoCorrente(evento), 800);
-    return () => clearTimeout(t);
-  }, [gameState?.active_faction, game?.current_turn, game?.status]);
 
-  // ── Applica effetti meccanici dell'evento ─────────────────────────────────
-  const applicaEvento = async () => {
-    if (!eventoCorrente) return;
-    const ef = eventoCorrente.effects;
-    const { supabase } = await import('@/integrations/supabase/client');
-    const { game: g, gameState: gs } = useOnlineGameStore.getState();
-    if (!g || !gs) { setEventoCorrente(null); return; }
+    const turnNum = game.current_turn;
 
-    // Costruisce l'oggetto di aggiornamento con i delta non-zero
-    const updates: Record<string, number> = {};
+    // Se il DB ha già registrato un evento per questo turno → mostra il modale
+    // (aggiornamento real-time ricevuto da un altro giocatore che ha già applicato)
+    if (
+      gameState.last_event_turn === turnNum &&
+      gameState.last_event_id
+    ) {
+      const { getEventoById } = require('@/data/eventi');
+      const ev = getEventoById(gameState.last_event_id) as EventoCard | undefined;
+      if (ev && eventoCorrente?.event_id !== ev.event_id) {
+        const t = setTimeout(() => setEventoCorrente(ev), 400);
+        return () => clearTimeout(t);
+      }
+      return;
+    }
+
+    // Nessun evento per questo turno ancora → solo l'host pesca e applica
+    if (!isHost) return;
+    if (applicandoEventoRef.current) return;
+    applicandoEventoRef.current = true;
+
+    // Raccoglie gli id già usati dalle partite precedenti (stored in localStorage)
+    const storageKey = `eventi_usati_${game.id}`;
+    let usati: string[] = [];
+    try { usati = JSON.parse(localStorage.getItem(storageKey) ?? '[]'); } catch { usati = []; }
+
+    const { pescaEvento: pesca, getEventoById: getEv } = require('@/data/eventi');
+    const evento = pesca(usati) as EventoCard;
+    usati = [...usati, evento.event_id];
+    try { localStorage.setItem(storageKey, JSON.stringify(usati)); } catch { /* ignore */ }
+
+    // Calcola i delta e aggiorna il DB (host only)
+    const ef = evento.effects;
     const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-
+    const gs = gameState;
+    const updates: Record<string, number | string> = {
+      last_event_turn: turnNum,
+      last_event_id:   evento.event_id,
+    };
     if (ef.delta_nucleare)    updates.nucleare  = clamp((gs.nucleare  ?? 1) + ef.delta_nucleare,  1, 15);
     if (ef.delta_sanzioni)    updates.sanzioni  = clamp((gs.sanzioni  ?? 5) + ef.delta_sanzioni,  1, 10);
     if (ef.delta_opinione)    updates.opinione  = clamp((gs.opinione  ?? 0) + ef.delta_opinione,  -10, 10);
     if (ef.delta_defcon)      updates.defcon    = clamp((gs.defcon    ?? 5) + ef.delta_defcon,    1, 5);
-    if (ef.delta_risorse_iran)         updates.risorse_iran         = clamp((gs.risorse_iran         ?? 5) + ef.delta_risorse_iran,         1, 15);
-    if (ef.delta_risorse_coalizione)   updates.risorse_coalizione   = clamp((gs.risorse_coalizione   ?? 5) + ef.delta_risorse_coalizione,   1, 15);
-    if (ef.delta_risorse_russia)       updates.risorse_russia       = clamp((gs.risorse_russia       ?? 5) + ef.delta_risorse_russia,       1, 15);
-    if (ef.delta_risorse_cina)         updates.risorse_cina         = clamp((gs.risorse_cina         ?? 5) + ef.delta_risorse_cina,         1, 15);
-    if (ef.delta_risorse_europa)       updates.risorse_europa       = clamp((gs.risorse_europa       ?? 5) + ef.delta_risorse_europa,       1, 15);
-    if (ef.delta_stabilita_iran)       updates.stabilita_iran       = clamp((gs.stabilita_iran       ?? 5) + ef.delta_stabilita_iran,       1, 10);
+    if (ef.delta_risorse_iran)       updates.risorse_iran       = clamp((gs.risorse_iran       ?? 5) + ef.delta_risorse_iran,       1, 15);
+    if (ef.delta_risorse_coalizione) updates.risorse_coalizione = clamp((gs.risorse_coalizione ?? 5) + ef.delta_risorse_coalizione, 1, 15);
+    if (ef.delta_risorse_russia)     updates.risorse_russia     = clamp((gs.risorse_russia     ?? 5) + ef.delta_risorse_russia,     1, 15);
+    if (ef.delta_risorse_cina)       updates.risorse_cina       = clamp((gs.risorse_cina       ?? 5) + ef.delta_risorse_cina,       1, 15);
+    if (ef.delta_risorse_europa)     updates.risorse_europa     = clamp((gs.risorse_europa     ?? 5) + ef.delta_risorse_europa,     1, 15);
+    if (ef.delta_stabilita_iran)     updates.stabilita_iran     = clamp((gs.stabilita_iran     ?? 5) + ef.delta_stabilita_iran,     1, 10);
 
-    if (Object.keys(updates).length > 0) {
-      await supabase.from('game_state').update(updates).eq('game_id', g.id);
-      useOnlineGameStore.setState(s => ({
-        gameState: { ...s.gameState!, ...updates },
-      }));
-    }
-    setEventoCorrente(null);
-  };
+    import('@/integrations/supabase/client').then(({ supabase }) => {
+      supabase.from('game_state').update(updates).eq('game_id', game.id).then(() => {
+        useOnlineGameStore.setState(s => ({
+          gameState: { ...s.gameState!, ...updates },
+        }));
+        applicandoEventoRef.current = false;
+        // Mostra il modale sull'host dopo un piccolo delay
+        const t2 = setTimeout(() => setEventoCorrente(evento), 400);
+        return () => clearTimeout(t2);
+      });
+    });
+  }, [gameState?.active_faction, game?.current_turn, game?.status,
+      gameState?.last_event_turn, gameState?.last_event_id]);
+
+  // Chiude il modale (solo UI, gli effetti sono già applicati nel DB)
+  const chiudiEvento = () => setEventoCorrente(null);
 
   // Traccia lo stato precedente per mostrare i delta
   useEffect(() => {
@@ -1041,7 +1075,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
               {eventoCorrente && (
                 <EventoModal
                   evento={eventoCorrente}
-                  onConfirm={applicaEvento}
+                  onConfirm={chiudiEvento}
                   isMyTurn={isMyTurn}
                   currentFaction={gameState?.active_faction ?? 'Iran'}
                 />

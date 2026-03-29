@@ -156,19 +156,24 @@ export default function EventoModal({ evento, onConfirm, isMyTurn, currentFactio
           </div>
 
           {/* ── Footer ── */}
-          <div className="px-5 pb-5">
+          <div className="px-5 pb-5 space-y-2">
+            {/* Banner effetti già applicati */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#22c55e10] border border-[#22c55e30]">
+              <span className="text-xs">✅</span>
+              <p className="font-mono text-[10px] text-[#22c55e]">
+                Effetti applicati automaticamente — il turno può iniziare
+              </p>
+            </div>
             <button
               onClick={onConfirm}
               className="w-full py-3 rounded-xl font-black font-mono text-sm tracking-wider
                 transition-all hover:scale-[1.02] active:scale-[0.98]"
               style={{
-                background: isMyTurn
-                  ? `linear-gradient(135deg, ${catColor}, ${catColor}aa)`
-                  : 'linear-gradient(135deg, #334455, #1e2a3a)',
-                color: isMyTurn ? '#0a0e1a' : '#8899aa',
-                boxShadow: isMyTurn ? `0 0 20px ${catColor}40` : 'none',
+                background: `linear-gradient(135deg, ${catColor}, ${catColor}aa)`,
+                color: '#0a0e1a',
+                boxShadow: `0 0 20px ${catColor}40`,
               }}>
-              {isMyTurn ? '▶ APPLICA EVENTO E CONTINUA' : '⏳ In attesa che il turno proceda...'}
+              ▶ HO CAPITO — INIZIA IL TURNO
             </button>
           </div>
         </div>

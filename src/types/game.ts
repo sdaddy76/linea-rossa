@@ -90,6 +90,9 @@ export interface GameState {
   };
   active_alliances: string[]; // es. ['Iran-Russia']
   active_faction: Faction;
+  // ─── Sistema eventi ─────────────────────────────────────────────
+  last_event_turn: number | null;   // turno in cui è stato pescato l'ultimo evento
+  last_event_id:   string | null;   // codice evento pescato (es. 'E07')
   updated_at: string;
 }
 
