@@ -131,17 +131,18 @@ export default function WaitingRoom({
 
     setLoading(true); setError('');
     try {
-      // Rimuove eventuale scelta precedente
+      // Prima rimuove l'eventuale scelta precedente con player_id diverso dalla nuova fazione
       await supabase
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
-        .eq('player_id', profile.id);
+        .eq('player_id', profile.id)
+        .neq('faction', faction);
 
-      // Inserisce nuova scelta
+      // Upsert sulla nuova fazione (evita gap del double-record)
       const { error: insErr } = await supabase
         .from('game_players')
-        .insert({
+        .upsert({
           game_id: gameId,
           faction,
           player_id: profile.id,
@@ -149,7 +150,7 @@ export default function WaitingRoom({
           bot_difficulty: 'normal',
           turn_order: TURN_ORDER.indexOf(faction) + 1,
           is_ready: true,
-        });
+        }, { onConflict: 'game_id,faction' });
 
       if (insErr) {
         // Conflict: fazione già presa (race condition)
@@ -172,8 +173,10 @@ export default function WaitingRoom({
   const startGame = async () => {
     if (!myFaction) { setError('Scegli prima la tua fazione'); return; }
 
+    // Umani = chi ha player_id (includo me anche se il real-time non ha ancora aggiornato)
     const humanPlayers = players.filter(p => p.player_id && !p.is_bot);
-    if (humanPlayers.length === 0) { setError('Almeno un giocatore umano è necessario'); return; }
+    const humanCount = myFaction ? Math.max(humanPlayers.length, 1) : humanPlayers.length;
+    if (humanCount === 0) { setError('Scegli prima la tua fazione'); return; }
 
     setStarting(true); setError('');
     try {
@@ -281,7 +284,7 @@ export default function WaitingRoom({
                 {isHost ? 'Sei l\'host — avvia quando tutti sono pronti' : 'In attesa che l\'host avvii la partita…'}
               </p>
             </div>
-            <button onClick={onLeave}
+            <button onClick={leaveGame}
               className="text-xs font-mono text-[#445566] hover:text-[#ef4444] transition-colors px-2 py-1">
               ✕ esci
             </button>
