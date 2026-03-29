@@ -203,7 +203,8 @@ export default function WaitingRoom({
           turn_order: TURN_ORDER.indexOf(f) + 1,
           is_ready: true,
         }));
-        await supabase.from('game_players').insert(botRows);
+        // upsert: evita conflict se un bot era già stato inserito
+        await supabase.from('game_players').upsert(botRows, { onConflict: 'game_id,faction', ignoreDuplicates: false });
       }
 
       // Inizializza stato partita con units pool e tracciati militari
@@ -251,7 +252,10 @@ export default function WaitingRoom({
           position: i,
         }));
       }
-      await supabase.from('cards_deck').insert(deckRows);
+      // upsert: evita "duplicate key" se startGame viene chiamata più volte
+      if (deckRows.length > 0) {
+        await supabase.from('cards_deck').upsert(deckRows, { onConflict: 'game_id,card_id', ignoreDuplicates: true });
+      }
 
       // Inizializza territori (stesso schema usato da onlineGameStore: territories + territory + inf_*)
       const { TERRITORIES } = await import('@/lib/territoriesData');
@@ -275,7 +279,12 @@ export default function WaitingRoom({
 
       // L'host viene notificato tramite real-time come tutti gli altri
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Errore nell\'avvio';
+      let msg = err instanceof Error ? err.message : 'Errore nell\'avvio';
+      if (typeof err === 'object' && err !== null) {
+        const pe = err as Record<string, string>;
+        if (pe.details) msg += ' — ' + pe.details;
+        if (pe.hint)    msg += ' [' + pe.hint + ']';
+      }
       console.error('[WaitingRoom startGame] errore:', msg, err);
       setError(msg);
       setStarting(false);

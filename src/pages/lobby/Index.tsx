@@ -50,22 +50,38 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
     if (!profile?.id) { setError('Sessione non valida — effettua di nuovo il login'); return; }
     setLoading(true); setError('');
     try {
-      // Genera codice: prova RPC, fallback locale se non disponibile
-      let code = `GULF-${Math.floor(Math.random() * 90 + 10)}`;
+      // Genera codice univoco: prova RPC, poi fallback locale con retry
+      const PREFIXES = ['GULF','IRAN','ATOM','NUKE','HAWK','DOVE','SAND','SILK','BRIC','NATO'];
+      const makeCode = () => {
+        const p = PREFIXES[Math.floor(Math.random() * PREFIXES.length)];
+        return `${p}-${Math.floor(Math.random() * 900 + 10)}`;
+      };
+      let code = makeCode();
       try {
         const { data: codeData, error: rpcErr } = await supabase.rpc('generate_game_code');
         if (!rpcErr && codeData) code = codeData as string;
       } catch { /* RPC non deployata → usa fallback */ }
 
-      const { data: game, error: gameError } = await supabase
-        .from('games')
-        .insert({ name: gameName.trim(), code, created_by: profile.id, max_turns: maxTurns })
-        .select()
-        .single();
+      // Retry: se il codice è già usato, genera un altro (max 5 tentativi)
+      let game = null;
+      let gameError = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const res = await supabase
+          .from('games')
+          .insert({ name: gameName.trim(), code, created_by: profile.id, max_turns: maxTurns })
+          .select()
+          .single();
+        game = res.data;
+        gameError = res.error;
+        if (!gameError) break;
+        // codice duplicato → riprova con nuovo codice
+        if (gameError.code === '23505') { code = makeCode(); continue; }
+        // altro errore → esci dal loop
+        break;
+      }
 
       if (gameError) {
         console.error('[createGame] Supabase error:', gameError);
-        // Mostra il messaggio reale da Supabase (es. "duplicate key", "violates RLS", ecc.)
         throw new Error(gameError.message ?? gameError.details ?? 'Errore nella creazione partita');
       }
       if (!game) throw new Error('Partita non creata — risposta DB vuota');
@@ -92,9 +108,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
         .eq('code', joinCode.trim().toUpperCase())
         .single();
       if (gameError || !game) throw new Error('Partita non trovata con questo codice');
-      if (game.status === 'finished') throw new Error('Questa partita è già terminata');
-      if (game.status === 'active') {
-        // Partita già avviata → entra direttamente
+      // Partita finita: permetti comunque di entrare (per rivedere risultato o ricreare)
+      if (game.status === 'finished' || game.status === 'active') {
+        // Entra direttamente nella schermata di gioco
         onJoinGame(game.id);
         return;
       }
