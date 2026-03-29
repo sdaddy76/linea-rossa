@@ -421,23 +421,22 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   // leggendo game_state.last_event_id.
   useEffect(() => {
     if (!game || !gameState || game.status !== 'active') return;
-    // L'evento si pesca SOLO quando è il turno 1 di Iran (inizio turno globale)
     if (gameState.active_faction !== 'Iran') return;
 
     const turnNum = game.current_turn;
 
     // Se il DB ha già registrato un evento per questo turno → mostra il modale
-    // (aggiornamento real-time ricevuto da un altro giocatore che ha già applicato)
     if (
       gameState.last_event_turn === turnNum &&
       gameState.last_event_id
     ) {
-      const { getEventoById } = require('@/data/eventi');
-      const ev = getEventoById(gameState.last_event_id) as EventoCard | undefined;
-      if (ev && eventoCorrente?.event_id !== ev.event_id) {
-        const t = setTimeout(() => setEventoCorrente(ev), 400);
-        return () => clearTimeout(t);
-      }
+      import('@/data/eventi').then(({ getEventoById }) => {
+        const ev = getEventoById(gameState.last_event_id!) as EventoCard | undefined;
+        if (ev && eventoCorrente?.event_id !== ev.event_id) {
+          const t = setTimeout(() => setEventoCorrente(ev), 400);
+          return () => clearTimeout(t);
+        }
+      });
       return;
     }
 
@@ -446,45 +445,44 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     if (applicandoEventoRef.current) return;
     applicandoEventoRef.current = true;
 
-    // Raccoglie gli id già usati dalle partite precedenti (stored in localStorage)
     const storageKey = `eventi_usati_${game.id}`;
     let usati: string[] = [];
     try { usati = JSON.parse(localStorage.getItem(storageKey) ?? '[]'); } catch { usati = []; }
 
-    const { pescaEvento: pesca, getEventoById: getEv } = require('@/data/eventi');
-    const evento = pesca(usati) as EventoCard;
-    usati = [...usati, evento.event_id];
-    try { localStorage.setItem(storageKey, JSON.stringify(usati)); } catch { /* ignore */ }
+    import('@/data/eventi').then(({ pescaEvento: pesca, getEventoById: getEv }) => {
+      const evento = (pesca as (u: string[]) => EventoCard)(usati);
+      usati = [...usati, evento.event_id];
+      try { localStorage.setItem(storageKey, JSON.stringify(usati)); } catch { /* ignore */ }
 
-    // Calcola i delta e aggiorna il DB (host only)
-    const ef = evento.effects;
-    const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
-    const gs = gameState;
-    const updates: Record<string, number | string> = {
-      last_event_turn: turnNum,
-      last_event_id:   evento.event_id,
-    };
-    if (ef.delta_nucleare)    updates.nucleare  = clamp((gs.nucleare  ?? 1) + ef.delta_nucleare,  1, 15);
-    if (ef.delta_sanzioni)    updates.sanzioni  = clamp((gs.sanzioni  ?? 5) + ef.delta_sanzioni,  1, 10);
-    if (ef.delta_opinione)    updates.opinione  = clamp((gs.opinione  ?? 0) + ef.delta_opinione,  -10, 10);
-    if (ef.delta_defcon)      updates.defcon    = clamp((gs.defcon    ?? 5) + ef.delta_defcon,    1, 5);
-    if (ef.delta_risorse_iran)       updates.risorse_iran       = clamp((gs.risorse_iran       ?? 5) + ef.delta_risorse_iran,       1, 15);
-    if (ef.delta_risorse_coalizione) updates.risorse_coalizione = clamp((gs.risorse_coalizione ?? 5) + ef.delta_risorse_coalizione, 1, 15);
-    if (ef.delta_risorse_russia)     updates.risorse_russia     = clamp((gs.risorse_russia     ?? 5) + ef.delta_risorse_russia,     1, 15);
-    if (ef.delta_risorse_cina)       updates.risorse_cina       = clamp((gs.risorse_cina       ?? 5) + ef.delta_risorse_cina,       1, 15);
-    if (ef.delta_risorse_europa)     updates.risorse_europa     = clamp((gs.risorse_europa     ?? 5) + ef.delta_risorse_europa,     1, 15);
-    if (ef.delta_stabilita_iran)     updates.stabilita_iran     = clamp((gs.stabilita_iran     ?? 5) + ef.delta_stabilita_iran,     1, 10);
+      const ef = evento.effects;
+      const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+      const gs = gameState;
+      const updates: Record<string, number | string> = {
+        last_event_turn: turnNum,
+        last_event_id:   evento.event_id,
+      };
+      if (ef.delta_nucleare)           updates.nucleare           = clamp((gs.nucleare           ?? 1) + ef.delta_nucleare,           1, 15);
+      if (ef.delta_sanzioni)           updates.sanzioni           = clamp((gs.sanzioni           ?? 5) + ef.delta_sanzioni,           1, 10);
+      if (ef.delta_opinione)           updates.opinione           = clamp((gs.opinione           ?? 0) + ef.delta_opinione,          -10, 10);
+      if (ef.delta_defcon)             updates.defcon             = clamp((gs.defcon             ?? 5) + ef.delta_defcon,             1,  5);
+      if (ef.delta_risorse_iran)       updates.risorse_iran       = clamp((gs.risorse_iran       ?? 5) + ef.delta_risorse_iran,       1, 15);
+      if (ef.delta_risorse_coalizione) updates.risorse_coalizione = clamp((gs.risorse_coalizione ?? 5) + ef.delta_risorse_coalizione, 1, 15);
+      if (ef.delta_risorse_russia)     updates.risorse_russia     = clamp((gs.risorse_russia     ?? 5) + ef.delta_risorse_russia,     1, 15);
+      if (ef.delta_risorse_cina)       updates.risorse_cina       = clamp((gs.risorse_cina       ?? 5) + ef.delta_risorse_cina,       1, 15);
+      if (ef.delta_risorse_europa)     updates.risorse_europa     = clamp((gs.risorse_europa     ?? 5) + ef.delta_risorse_europa,     1, 15);
+      if (ef.delta_stabilita_iran)     updates.stabilita_iran     = clamp((gs.stabilita_iran     ?? 5) + ef.delta_stabilita_iran,     1, 10);
 
-    import('@/integrations/supabase/client').then(({ supabase }) => {
-      supabase.from('game_state').update(updates).eq('game_id', game.id).then(() => {
-        useOnlineGameStore.setState(s => ({
-          gameState: { ...s.gameState!, ...updates },
-        }));
-        applicandoEventoRef.current = false;
-        // Mostra il modale sull'host dopo un piccolo delay
-        const t2 = setTimeout(() => setEventoCorrente(evento), 400);
-        return () => clearTimeout(t2);
+      import('@/integrations/supabase/client').then(({ supabase }) => {
+        supabase.from('game_state').update(updates).eq('game_id', game.id).then(() => {
+          useOnlineGameStore.setState(s => ({
+            gameState: { ...s.gameState!, ...updates },
+          }));
+          applicandoEventoRef.current = false;
+          setTimeout(() => setEventoCorrente(evento), 400);
+        });
       });
+
+      void getEv; // usato solo per type-check
     });
   }, [gameState?.active_faction, game?.current_turn, game?.status,
       gameState?.last_event_turn, gameState?.last_event_id]);
