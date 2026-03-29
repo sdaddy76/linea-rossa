@@ -150,7 +150,7 @@ export default function WaitingRoom({
     if (taken) { setError(`${faction} è già presa da un altro giocatore`); return; }
 
     setLoading(true); setError('');
-    isSwitchingFaction.current = true; // blocca reset da real-time durante il cambio
+    isSwitchingFaction.current = true;
     try {
       // 1. Rimuove l'eventuale scelta precedente del giocatore (qualsiasi fazione)
       await supabase
@@ -159,15 +159,19 @@ export default function WaitingRoom({
         .eq('game_id', gameId)
         .eq('player_id', profile.id);
 
-      // 2. Rimuove la riga bot/vuota per quella fazione, se esiste (libera il slot)
+      // 2. Rimuove QUALSIASI riga per quella fazione che non appartenga
+      //    ad un altro umano reale: copre bot (player_id null), placeholder
+      //    e righe stale di chi ha appena lasciato.
+      //    La condizione .or rimuove: player_id IS NULL  oppure  player_id = me
+      //    (me è già stato rimosso al passo 1, ma il secondo branch è innocuo)
       await supabase
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('faction', faction)
-        .is('player_id', null); // rimuove solo le righe senza player_id (bot non assegnati)
+        .or(`player_id.is.null,player_id.eq.${profile.id}`);
 
-      // 3. Insert diretto (non upsert) sulla nuova fazione — ora il slot è libero
+      // 3. Insert diretto — il slot è ora garantito libero
       const { error: insErr } = await supabase
         .from('game_players')
         .insert({
@@ -181,9 +185,10 @@ export default function WaitingRoom({
         });
 
       if (insErr) {
-        // Se c'è ancora conflitto (un umano ha preso la fazione nel frattempo)
         if (insErr.code === '23505') {
+          // C'è ancora una riga con un altro player_id reale → qualcuno l'ha presa nel frattempo
           setError(`${faction} è stata appena presa da un altro giocatore`);
+          await loadPlayers(); // aggiorna la lista
         } else {
           throw insErr;
         }
@@ -194,7 +199,7 @@ export default function WaitingRoom({
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore nella scelta');
     } finally {
-      isSwitchingFaction.current = false; // riabilita reset da real-time
+      isSwitchingFaction.current = false;
       setLoading(false);
     }
   };
