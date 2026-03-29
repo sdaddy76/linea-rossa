@@ -53,6 +53,8 @@ interface OnlineGameStore {
   // ── Operazioni militari ──
   /** Carica territori e unità per la partita corrente */
   loadTerritories: () => Promise<void>;
+  /** Aggiunge influenza in un territorio (esito dado positivo) */
+  addInfluence: (territory: string, delta: number) => Promise<void>;
   /** Schiera unità in un territorio (costa PO) */
   deployUnit: (territory: string, unitType: string, qty: number) => Promise<void>;
   /** Attacca un territorio: applica l'esito del combattimento */
@@ -633,6 +635,48 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   },
 
   // ── Schiera unità in un territorio ─────────────────────────────────────────
+  addInfluence: async (territory: string, delta: number) => {
+    const { game, gameState, myFaction, territories: terrRecords } = get();
+    if (!game || !gameState || !myFaction) return;
+    set({ loading: true });
+    try {
+      const infKey = `inf_${myFaction.toLowerCase()}` as string;
+      const terrRec = terrRecords.find(t => t.game_id === game.id && t.territory === territory);
+      const cur = terrRec ? ((terrRec as unknown) as Record<string, number>)[infKey] ?? 0 : 0;
+      const next = Math.min(5, Math.max(0, cur + delta));
+
+      await supabase.from('territories').upsert({
+        game_id: game.id,
+        territory,
+        ...(terrRec ?? {}),
+        [infKey]: next,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'game_id,territory' });
+
+      // Aggiorna locale
+      const updTerr = terrRec
+        ? terrRecords.map(t =>
+            t.game_id === game.id && t.territory === territory
+              ? { ...t, [infKey]: next }
+              : t
+          )
+        : [...terrRecords, {
+            id: crypto.randomUUID(), game_id: game.id, territory,
+            inf_iran: 0, inf_coalizione: 0, inf_russia: 0, inf_cina: 0, inf_europa: 0,
+            [infKey]: next,
+            updated_at: new Date().toISOString(),
+          } as import('@/types/game').TerritoryRecord];
+
+      set({
+        territories: updTerr,
+        loading: false,
+        notification: `🌐 ${myFaction}: +${delta} influenza su ${territory} (ora: ${next})`,
+      });
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : 'Errore influenza', loading: false });
+    }
+  },
+
   deployUnit: async (territory, unitType, qty) => {
     const { game, gameState, myFaction } = get();
     if (!game || !gameState || !myFaction) return;

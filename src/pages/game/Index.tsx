@@ -345,7 +345,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     game, gameState, players, myFaction, moves, deckCards,
     loading, isBotThinking, error, gameOverInfo, notification,
     playCard, startGame, clearError, setNotification, buyMilitaryResources,
-    loadTerritories, deployUnit, attackTerritory,
+    loadTerritories, deployUnit, attackTerritory, addInfluence,
     territories: terrRecords, militaryUnits: unitRecords,
   } = useOnlineGameStore();
 
@@ -874,18 +874,37 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                             selectedTerritory={selectedTerritory}
                             territories={territoryState}
                             onCancel={() => { setShowActionPanel(false); setSelectedCard(null); }}
-                            onAction={(actionType: PlayerActionType, payload: PlayerActionPayload) => {
-                              // Per tutti i tipi di azione, giochiamo la carta
-                              // L'azione specifica (influenza, acquisto, ecc.) viene loggata nel log di gioco
+                            onAction={async (actionType: PlayerActionType, payload: PlayerActionPayload) => {
+                              // 1. INFLUENZA: applica cubi se dado positivo, poi gioca carta
                               if (actionType === 'influenza') {
-                                if (payload.diceSuccess && payload.targetTerritory) {
-                                  // successo influenza → aggiorna influenza locale tramite store
-                                  setNotification?.(`🌐 Influenza su ${payload.targetTerritory}: dado ${payload.diceResult} — SUCCESSO!`);
-                                } else if (payload.targetTerritory) {
-                                  setNotification?.(`🎲 Influenza su ${payload.targetTerritory}: dado ${payload.diceResult} — Fallito (soglia: ${payload.finalThreshold})`);
+                                if (payload.diceSuccess && payload.targetTerritory && (payload.influenceDelta ?? 0) > 0) {
+                                  await addInfluence(payload.targetTerritory, payload.influenceDelta!);
                                 }
+                                // la carta viene comunque giocata (PO spesi)
+                                await playCard(selectedCard!);
+
+                              // 2. TRACCIATO: applica delta al tracciato, poi gioca carta
+                              } else if (actionType === 'tracciato' && payload.trackKey && payload.trackDelta) {
+                                // Aggiorna direttamente il tracciato su Supabase tramite gameState update
+                                const { supabase } = await import('@/integrations/supabase/client');
+                                const { game: g, gameState: gs } = useOnlineGameStore.getState();
+                                if (g && gs) {
+                                  const cur = (gs as Record<string, number>)[payload.trackKey] ?? 0;
+                                  const next = Math.min(15, Math.max(0, cur + (payload.trackDelta ?? 0)));
+                                  await supabase.from('game_state')
+                                    .update({ [payload.trackKey]: next })
+                                    .eq('game_id', g.id);
+                                  useOnlineGameStore.setState(s => ({
+                                    gameState: { ...s.gameState!, [payload.trackKey!]: next },
+                                  }));
+                                }
+                                await playCard(selectedCard!);
+
+                              // 3. EVENTO / ACQUISTO: gioca direttamente la carta
+                              } else {
+                                await playCard(selectedCard!);
                               }
-                              playCard(selectedCard);
+
                               setSelectedCard(null);
                               setShowActionPanel(false);
                             }}

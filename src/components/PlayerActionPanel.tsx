@@ -1,18 +1,29 @@
 // =============================================
-// LINEA ROSSA — Pannello Azioni Giocatore
-// 4 azioni disponibili quando si gioca una carta:
-//   1) Esegui Evento
-//   2) Compra Unità Militari
-//   3) Incrementa Tracciato (spende OP)
-//   4) Tentativo di Influenza su nazione nemica
+// LINEA ROSSA — Pannello Azioni Giocatore v2
+//
+// Quando il giocatore seleziona una carta ha 4 modi di usarla:
+//
+//  1) EVENTO     → applica l'effetto narrativo della carta
+//                  (modifica tracciati: nucleare, sanzioni, DEFCON, ecc.)
+//
+//  2) INFLUENZA  → usa i PO della carta per guadagnare influenza
+//                  in un territorio; ogni PO = 1 cubo aggiuntivo
+//                  (costo base 1 PO per cubo in proprio, 2 PO per cubo
+//                  in territorio avversario con cubo nemico presente)
+//
+//  3) TRACCIATO  → usa i PO per aumentare un tracciato fazione
+//                  (ogni PO = +1 sul tracciato scelto)
+//
+//  4) COMPRA     → usa i PO per acquistare risorse militari
+//                  (apre il mercato)
 // =============================================
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { GameCard, GameState, Faction } from '@/types/game';
 import type { TerritoryId } from '@/lib/territoriesData';
-import { TERRITORIES } from '@/lib/territoriesData';
+import { TERRITORIES, TERRITORY_MAP } from '@/lib/territoriesData';
 
 interface Props {
-  card: GameCard;
+  card: GameCard & { name?: string };
   myFaction: Faction;
   state: GameState;
   selectedTerritory: TerritoryId | null;
@@ -26,256 +37,412 @@ export type PlayerActionType = 'evento' | 'acquisto' | 'tracciato' | 'influenza'
 export interface PlayerActionPayload {
   type: PlayerActionType;
   card: GameCard;
+  // influenza
   targetTerritory?: TerritoryId;
+  influenceDelta?: number;    // +1 per successo
   diceResult?: number;
   diceSuccess?: boolean;
-  trackBonus?: number;
   finalThreshold?: number;
+  costPO?: number;            // PO spesi
+  // tracciato
+  trackKey?: string;
+  trackDelta?: number;
 }
 
-// ─── Modificatori dado per influenza ─────────────────────────────────────
-// Il successo base è ottenere 6 (o più con bonus) su un d6
-// Modificatori POSITIVI (riducono la soglia richiesta):
-//   +1 per ogni punto di Stabilità propria > 5
-//   +1 se Opinione > 2
-// Modificatori NEGATIVI (aumentano la soglia richiesta):
-//   +1 per ogni punto di Stabilità della nazione target > 4
-//   +1 se DEFCON > 3 (instabilità globale penalizza diplomazia)
-function computeInfluenceModifiers(
-  state: GameState,
-  myFaction: Faction,
-  targetTerritoryId: TerritoryId
-): { bonus: number; malus: number; finalThreshold: number; description: string[] } {
-  const desc: string[] = [];
-  let bonus = 0;
-  let malus = 0;
+// ─── Costanti influenza ───────────────────────────────────────────────────────
+const BASE_COST_OWN   = 1; // PO per cubo in territorio libero o già tuo
+const BASE_COST_ENEMY = 2; // PO per cubo in territorio con presenza nemica
 
-  // Stabilità propria (sopra 5 = vantaggio)
-  const myStab = (state as Record<string, number>)[`stabilita_${myFaction.toLowerCase()}`] ?? 5;
-  if (myStab > 5) {
-    bonus += myStab - 5;
-    desc.push(`+${myStab - 5} Stabilità ${myFaction} (${myStab})`);
-  }
-
-  // Opinione globale favorevole
-  if (state.opinione > 2) {
-    bonus += 1;
-    desc.push(`+1 Opinione favorevole (${state.opinione})`);
-  }
-
-  // Influenza propria già presente nel territorio
-  const terrInfl = 0; // placeholder (influenza propria pre-esistente non modifica dado)
-
-  // DEFCON instabile penalizza
-  if (state.defcon > 3) {
-    malus += 1;
-    desc.push(`-1 DEFCON elevato (${state.defcon})`);
-  }
-
-  // Stabilità del territorio target (>4 = più difficile da influenzare)
-  // Usiamo il numero di influenze nemiche come proxy di stabilità locale
-  const finalThreshold = Math.max(2, 6 - bonus + malus);
-
-  return { bonus, malus, finalThreshold, description: desc };
-}
-
-// ─── Lancia d6 ────────────────────────────────────────────────────────────
-function rollD6(): number {
-  return Math.floor(Math.random() * 6) + 1;
-}
-
-const FACTION_COLOR: Record<Faction, string> = {
-  Iran: '#dc2626', Coalizione: '#2563eb', Russia: '#7c3aed', Cina: '#d97706', Europa: '#059669',
+// ─── Palette colori fazione ───────────────────────────────────────────────────
+const FC: Record<Faction, string> = {
+  Iran: '#dc2626', Coalizione: '#2563eb',
+  Russia: '#7c3aed', Cina: '#d97706', Europa: '#059669',
 };
 
-export default function PlayerActionPanel({ card, myFaction, state, selectedTerritory, territories, onAction, onCancel }: Props) {
-  const [diceResult, setDiceResult]   = useState<number | null>(null);
-  const [diceRolled, setDiceRolled]   = useState(false);
-  const [activeAction, setActiveAction] = useState<PlayerActionType | null>(null);
+// ─── Tracciati incrementabili per fazione ────────────────────────────────────
+const TRACK_OPTIONS: Record<Faction, { key: string; label: string; icon: string }[]> = {
+  Iran: [
+    { key: 'nucleare',             label: 'Nucleare',          icon: '☢️' },
+    { key: 'risorse_iran',         label: 'Risorse',           icon: '💰' },
+    { key: 'stabilita_iran',       label: 'Stabilità Interna', icon: '🏛️' },
+    { key: 'forze_militari_iran',  label: 'Forze Militari',    icon: '⚔️' },
+    { key: 'tecnologia_nucleare_iran', label: 'Tecnologia Nuc.', icon: '🔬' },
+  ],
+  Coalizione: [
+    { key: 'risorse_coalizione',              label: 'Risorse Militari',       icon: '💰' },
+    { key: 'forze_militari_coalizione',       label: 'Forze Militari',         icon: '⚔️' },
+    { key: 'supporto_pubblico_coalizione',    label: 'Supporto Pubblico',      icon: '📣' },
+    { key: 'influenza_diplomatica_coalizione',label: 'Influenza Diplomatica',  icon: '🤝' },
+    { key: 'tecnologia_avanzata_coalizione',  label: 'Tecnologia Avanzata',    icon: '🛰️' },
+  ],
+  Russia: [
+    { key: 'risorse_russia',              label: 'Energia/Risorse',       icon: '⚡' },
+    { key: 'influenza_militare_russia',   label: 'Influenza Militare',    icon: '🪖' },
+    { key: 'forze_militari_russia',       label: 'Forze Militari',        icon: '⚔️' },
+    { key: 'stabilita_russia',            label: 'Stabilità Economica',   icon: '🏛️' },
+  ],
+  Cina: [
+    { key: 'risorse_cina',              label: 'Potenza Economica',      icon: '💹' },
+    { key: 'influenza_commerciale_cina',label: 'Influenza Commerciale',  icon: '🛒' },
+    { key: 'forze_militari_cina',       label: 'Forze Militari',         icon: '⚔️' },
+    { key: 'cyber_warfare_cina',        label: 'Cyber Warfare',          icon: '🖥️' },
+  ],
+  Europa: [
+    { key: 'risorse_europa',              label: 'Stabilità Energetica',  icon: '🔋' },
+    { key: 'influenza_diplomatica_europa',label: 'Influenza Diplomatica', icon: '🤝' },
+    { key: 'aiuti_umanitari_europa',      label: 'Aiuti Umanitari',       icon: '❤️' },
+    { key: 'coesione_ue_europa',          label: 'Coesione UE',           icon: '🇪🇺' },
+  ],
+};
 
-  const fColor = FACTION_COLOR[myFaction] ?? '#888';
-  const opPoints = card.op_points ?? 1;
+// ─── Componente ──────────────────────────────────────────────────────────────
+export default function PlayerActionPanel({
+  card, myFaction, state, selectedTerritory, territories, onAction, onCancel,
+}: Props) {
+  const [view, setView] = useState<PlayerActionType | null>(null);
 
-  // ── Modifiers influenza ──────────────────────────────────────────────
-  const selectedTerr = selectedTerritory ? TERRITORIES.find(t => t.id === selectedTerritory) : null;
-  const modifiers = selectedTerritory
-    ? computeInfluenceModifiers(state, myFaction, selectedTerritory)
-    : null;
+  // ── Stato influenza ──────────────────────────────────────────────────────
+  const [inflTerritory, setInflTerritory] = useState<TerritoryId | null>(selectedTerritory);
+  const [inflCubes, setInflCubes]         = useState(1);
+  const [diceResult, setDiceResult]       = useState<number | null>(null);
+  const [diceRolled, setDiceRolled]       = useState(false);
 
-  // Controlla se il territorio selezionato è nemico (ha influenza di altri)
-  const terrData = selectedTerritory ? territories[selectedTerritory] : null;
-  const terrInfluences = terrData?.influences ?? {};
-  const myInfluence   = (terrInfluences as Record<string, number>)[myFaction] ?? 0;
-  const totalInfluence = Object.values(terrInfluences as Record<string, number>).reduce((a, b) => a + b, 0);
-  const hasEnemyInfluence = totalInfluence > myInfluence;
+  // ── Stato tracciato ──────────────────────────────────────────────────────
+  const [trackKey, setTrackKey] = useState<string | null>(null);
 
-  // ── Azione: Tiro dado influenza ──────────────────────────────────────
-  const handleDiceRoll = () => {
-    if (!selectedTerritory || !modifiers) return;
-    const result = rollD6();
-    setDiceResult(result);
+  const fColor  = FC[myFaction] ?? '#888';
+  const opTotal = card.op_points ?? 1;
+  const cardLabel = card.name ?? card.card_name ?? '—';
+
+  // ── Dati territorio scelto per influenza ─────────────────────────────────
+  const inflTerr   = inflTerritory ? TERRITORIES.find(t => t.id === inflTerritory) : null;
+  const terrData   = inflTerritory ? territories[inflTerritory] : null;
+  const terrInfs   = (terrData?.influences ?? {}) as Record<Faction, number>;
+  const myInf      = terrInfs[myFaction] ?? 0;
+  const enemyInf   = Object.entries(terrInfs)
+    .filter(([f]) => f !== myFaction)
+    .reduce((s, [, v]) => s + (v as number), 0);
+  const costPerCube = enemyInf > myInf ? BASE_COST_ENEMY : BASE_COST_OWN;
+  const maxCubes   = Math.floor(opTotal / costPerCube);
+  const costTot    = inflCubes * costPerCube;
+  const canAfford  = costTot <= opTotal;
+
+  // Modifica: soglia dado = 6 di base, ridotta da stabilità e bonus PO
+  const { threshold, modDesc } = useMemo(() => {
+    let thr = 6;
+    const mods: string[] = [];
+    // Stabilità propria alta aiuta
+    const myStab = (state as Record<string, number>)[`stabilita_${myFaction.toLowerCase()}`] ?? 5;
+    if (myStab >= 7) { thr -= 1; mods.push(`🏛️ Stabilità ${myFaction} ≥ 7: -1 soglia`); }
+    // Opinione favorevole
+    if (state.opinione > 2) { thr -= 1; mods.push(`📣 Opinione +${state.opinione}: -1 soglia`); }
+    // DEFCON basso complica la diplomazia
+    if (state.defcon <= 2) { thr += 1; mods.push(`⚠️ DEFCON ${state.defcon}: +1 soglia`); }
+    // Più PO = più pressione = soglia più bassa
+    if (opTotal >= 4) { thr -= 1; mods.push(`💪 Carta ${opTotal}PO (potente): -1 soglia`); }
+    // Presenza nemica alta = territorio resistente
+    if (enemyInf >= 3) { thr += 1; mods.push(`🛡️ Presenza nemica ≥3: +1 soglia`); }
+    return { threshold: Math.max(2, Math.min(6, thr)), modDesc: mods };
+  }, [state, myFaction, opTotal, enemyInf]);
+
+  // ── Track scelto ─────────────────────────────────────────────────────────
+  const trackOpts  = TRACK_OPTIONS[myFaction] ?? [];
+  const selTrack   = trackOpts.find(t => t.key === trackKey);
+  const trackVal   = trackKey ? ((state as Record<string, number>)[trackKey] ?? 0) : 0;
+  const trackDelta = opTotal; // 1 PO = +1 tracciato
+
+  // ── Handlers ─────────────────────────────────────────────────────────────
+  const doInfluenza = () => {
+    if (!inflTerritory || !canAfford) return;
+    const roll = Math.floor(Math.random() * 6) + 1;
+    const success = roll >= threshold;
+    setDiceResult(roll);
     setDiceRolled(true);
-    const success = result >= modifiers.finalThreshold;
     onAction('influenza', {
       type: 'influenza',
       card,
-      targetTerritory: selectedTerritory,
-      diceResult: result,
+      targetTerritory: inflTerritory,
+      influenceDelta: success ? inflCubes : 0,
+      diceResult: roll,
       diceSuccess: success,
-      finalThreshold: modifiers.finalThreshold,
+      finalThreshold: threshold,
+      costPO: costTot,
     });
   };
 
-  // ── Azione diretta (senza dado) ──────────────────────────────────────
-  const handleDirectAction = (type: PlayerActionType) => {
-    setActiveAction(type);
-    onAction(type, { type, card });
+  const doTracciato = () => {
+    if (!trackKey || !selTrack) return;
+    onAction('tracciato', {
+      type: 'tracciato',
+      card,
+      trackKey,
+      trackDelta,
+    });
   };
 
+  const doEvento = () => onAction('evento', { type: 'evento', card });
+  const doAcquisto = () => onAction('acquisto', { type: 'acquisto', card });
+
+  const resetView = () => {
+    setView(null);
+    setDiceRolled(false);
+    setDiceResult(null);
+    setInflCubes(1);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="bg-[#0d1b2a] border border-[#1e3a5f] rounded-xl p-4 space-y-4">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-3">
+    <div className="bg-[#0d1b2a] border border-[#1e3a5f] rounded-xl p-4 space-y-3">
+
+      {/* Header carta */}
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-xs text-gray-400 uppercase tracking-wide font-mono">Carta selezionata</p>
-          <p className="text-white font-bold text-sm mt-0.5">{card.name}</p>
-          <p className="text-xs mt-1" style={{ color: fColor }}>
-            ⚡ {opPoints} PO — {myFaction}
+          <p className="text-[10px] text-[#8899aa] font-mono uppercase tracking-wide">Carta selezionata</p>
+          <p className="text-white font-bold text-sm mt-0.5">{cardLabel}</p>
+          <p className="text-xs mt-0.5 font-mono" style={{ color: fColor }}>
+            ⚡ {opTotal} PO — {card.card_type ?? 'Carta'}
           </p>
         </div>
-        <button onClick={onCancel} className="text-gray-500 hover:text-white text-lg leading-none mt-1">✕</button>
+        <button onClick={onCancel} className="text-[#8899aa] hover:text-white text-lg leading-none mt-1">✕</button>
       </div>
 
-      <p className="text-xs text-gray-400 border-t border-[#1e3a5f] pt-3 font-mono">
-        Scegli come giocare questa carta:
+      <p className="text-[10px] text-[#8899aa] font-mono border-t border-[#1e3a5f] pt-2">
+        Come vuoi usare questa carta?
       </p>
 
-      {/* ── Griglia 4 azioni ────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* ════════════════════════════════════════════════════════════════
+          VISTA: scelta azione
+      ════════════════════════════════════════════════════════════════ */}
+      {!view && (
+        <div className="grid grid-cols-2 gap-2">
 
-        {/* 1. Esegui Evento */}
-        <button
-          onClick={() => handleDirectAction('evento')}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f] hover:border-[#00ff88] hover:bg-[#00ff8808] transition-all text-left group"
-        >
-          <span className="text-xl">🎭</span>
-          <span className="text-xs font-bold text-white group-hover:text-[#00ff88]">Esegui Evento</span>
-          <span className="text-xs text-gray-500">Applica l'effetto della carta</span>
-        </button>
+          {/* 1. EVENTO */}
+          <button onClick={() => { setView('evento'); doEvento(); }}
+            className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
+              hover:border-[#00ff88] hover:bg-[#00ff8808] transition-all text-left group">
+            <span className="text-xl">🎭</span>
+            <span className="text-xs font-bold text-white group-hover:text-[#00ff88] font-mono">Esegui Evento</span>
+            <span className="text-[10px] text-[#8899aa]">Applica gli effetti della carta sui tracciati</span>
+          </button>
 
-        {/* 2. Compra Unità */}
-        <button
-          onClick={() => handleDirectAction('acquisto')}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f] hover:border-[#f59e0b] hover:bg-[#f59e0b08] transition-all text-left group"
-        >
-          <span className="text-xl">⚔️</span>
-          <span className="text-xs font-bold text-white group-hover:text-[#f59e0b]">Compra Unità</span>
-          <span className="text-xs text-gray-500">Usa {opPoints} OP per unità militari</span>
-        </button>
-
-        {/* 3. Incrementa Tracciato */}
-        <button
-          onClick={() => handleDirectAction('tracciato')}
-          className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f] hover:border-[#3b82f6] hover:bg-[#3b82f608] transition-all text-left group"
-        >
-          <span className="text-xl">📈</span>
-          <span className="text-xs font-bold text-white group-hover:text-[#3b82f6]">Incrementa Tracciato</span>
-          <span className="text-xs text-gray-500">
-            +{opPoints} OP al tuo tracciato
-            <br />
-            <span className="text-yellow-500 text-[10px]">⚠ La carta decurta {opPoints} OP al turno</span>
-          </span>
-        </button>
-
-        {/* 4. Tentativo Influenza */}
-        <button
-          onClick={() => setActiveAction('influenza')}
-          disabled={!selectedTerritory}
-          className={`flex flex-col items-start gap-1 p-3 rounded-lg border transition-all text-left group
-            ${selectedTerritory
-              ? 'border-[#1e3a5f] hover:border-[#ec4899] hover:bg-[#ec489908] cursor-pointer'
-              : 'border-[#1e2a3a] opacity-40 cursor-not-allowed'
-            }`}
-        >
-          <span className="text-xl">🌐</span>
-          <span className={`text-xs font-bold text-white ${selectedTerritory ? 'group-hover:text-[#ec4899]' : ''}`}>
-            Tentativo Influenza
-          </span>
-          <span className="text-xs text-gray-500">
-            {selectedTerritory ? `▶ ${selectedTerr?.label}` : 'Seleziona nazione sulla mappa'}
-          </span>
-        </button>
-      </div>
-
-      {/* ── Pannello espanso: Influenza ────────────────────────────── */}
-      {activeAction === 'influenza' && selectedTerritory && modifiers && (
-        <div className="border border-[#ec489940] rounded-lg p-3 space-y-3 bg-[#1a0a15]">
-          <p className="text-xs font-bold text-[#ec4899] uppercase tracking-wide">
-            🎲 Tentativo di Influenza — {selectedTerr?.label}
-          </p>
-
-          {/* Stato corrente territorio */}
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-black/20 rounded p-2">
-              <p className="text-gray-400 mb-1">Influenza attuale</p>
-              {Object.entries(terrInfluences as Record<string, number>).filter(([, v]) => v > 0).map(([f, v]) => (
-                <div key={f} className="flex justify-between">
-                  <span style={{ color: FACTION_COLOR[f as Faction] ?? '#aaa' }}>{f}</span>
-                  <span className="text-white font-mono">{v} ■</span>
-                </div>
-              ))}
-              {totalInfluence === 0 && <span className="text-gray-500">Nessuna</span>}
-            </div>
-            <div className="bg-black/20 rounded p-2 space-y-1">
-              <p className="text-gray-400 mb-1">Modificatori dado</p>
-              {modifiers.description.map((d, i) => (
-                <p key={i} className="text-green-400 text-[10px]">✓ {d}</p>
-              ))}
-              {modifiers.description.length === 0 && <p className="text-gray-500 text-[10px]">Nessun modificatore</p>}
-            </div>
-          </div>
-
-          {/* Soglia richiesta */}
-          <div className="flex items-center justify-between bg-black/30 rounded px-3 py-2">
-            <span className="text-xs text-gray-400">Soglia successo (d6 ≥)</span>
-            <span className="text-xl font-bold font-mono" style={{ color: fColor }}>
-              {modifiers.finalThreshold}
+          {/* 2. INFLUENZA */}
+          <button onClick={() => setView('influenza')}
+            className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
+              hover:border-[#ec4899] hover:bg-[#ec489908] transition-all text-left group">
+            <span className="text-xl">🌐</span>
+            <span className="text-xs font-bold text-white group-hover:text-[#ec4899] font-mono">Guadagna Influenza</span>
+            <span className="text-[10px] text-[#8899aa]">
+              Piazza cubi influenza in un territorio<br />
+              <span className="text-[#ec4899]">1 PO = 1 cubo (2 PO se territorio nemico)</span>
             </span>
+          </button>
+
+          {/* 3. TRACCIATO */}
+          <button onClick={() => setView('tracciato')}
+            className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
+              hover:border-[#3b82f6] hover:bg-[#3b82f608] transition-all text-left group">
+            <span className="text-xl">📈</span>
+            <span className="text-xs font-bold text-white group-hover:text-[#3b82f6] font-mono">Incrementa Tracciato</span>
+            <span className="text-[10px] text-[#8899aa]">
+              +{opTotal} su un tracciato fazione
+            </span>
+          </button>
+
+          {/* 4. ACQUISTO (apre mercato) */}
+          <button onClick={() => { setView('acquisto'); doAcquisto(); }}
+            className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
+              hover:border-[#f59e0b] hover:bg-[#f59e0b08] transition-all text-left group">
+            <span className="text-xl">⚔️</span>
+            <span className="text-xs font-bold text-white group-hover:text-[#f59e0b] font-mono">Compra Risorse Mil.</span>
+            <span className="text-[10px] text-[#8899aa]">Apre il Mercato Militare</span>
+          </button>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          VISTA: INFLUENZA
+      ════════════════════════════════════════════════════════════════ */}
+      {view === 'influenza' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <button onClick={resetView} className="text-[#8899aa] hover:text-white text-sm">←</button>
+            <p className="text-[#ec4899] font-bold text-xs font-mono uppercase">🌐 Guadagna Influenza</p>
           </div>
 
-          {/* Tiro dado */}
-          {!diceRolled ? (
-            <button
-              onClick={handleDiceRoll}
-              className="w-full py-2.5 bg-[#ec4899] hover:bg-[#db2777] text-white font-bold rounded-lg text-sm transition-colors"
-            >
-              🎲 Lancia il Dado
-            </button>
-          ) : (
-            <div className={`rounded-lg p-3 text-center border-2 ${
-              diceResult! >= modifiers.finalThreshold
-                ? 'border-green-400 bg-green-900/20'
-                : 'border-red-400 bg-red-900/20'
-            }`}>
-              <div className="text-4xl font-bold font-mono mb-1">
-                {diceResult}
+          {/* Selezione territorio */}
+          {!diceRolled && (
+            <>
+              <div>
+                <label className="text-[10px] text-[#8899aa] font-mono block mb-1">📍 Territorio bersaglio</label>
+                <select
+                  value={inflTerritory ?? ''}
+                  onChange={e => { setInflTerritory(e.target.value as TerritoryId || null); setInflCubes(1); }}
+                  className="w-full bg-[#0a0e1a] border border-[#1e3a5f] text-white font-mono text-xs rounded-lg px-2 py-1.5">
+                  <option value="">— seleziona —</option>
+                  {TERRITORIES.map(t => {
+                    const td = territories[t.id];
+                    const infs = td?.influences ?? {};
+                    const myI = (infs as Record<string, number>)[myFaction] ?? 0;
+                    const enI = Object.entries(infs as Record<string, number>)
+                      .filter(([f]) => f !== myFaction).reduce((s, [, v]) => s + v, 0);
+                    const status = enI > myI ? '⚔️ nemico' : myI > 0 ? '✅ tuo' : '○ libero';
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {t.label} — {status}
+                      </option>
+                    );
+                  })}
+                </select>
               </div>
-              <p className={`text-sm font-bold ${
-                diceResult! >= modifiers.finalThreshold ? 'text-green-400' : 'text-red-400'
-              }`}>
-                {diceResult! >= modifiers.finalThreshold
-                  ? `✅ SUCCESSO! +1 segnalino a ${selectedTerr?.label}`
-                  : `❌ Fallito (necessario ≥ ${modifiers.finalThreshold})`
-                }
-              </p>
-            </div>
+
+              {inflTerritory && (
+                <>
+                  {/* Stato influenze attuali */}
+                  <div className="bg-[#050810] rounded-lg p-2.5 border border-[#1e3a5f]">
+                    <p className="text-[9px] text-[#8899aa] font-mono mb-1.5">INFLUENZE ATTUALI — {inflTerr?.label}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.entries(terrInfs).filter(([, v]) => (v as number) > 0).map(([f, v]) => (
+                        <div key={f} className="flex items-center gap-1">
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded font-mono"
+                            style={{ color: FC[f as Faction] ?? '#aaa', background: `${FC[f as Faction] ?? '#888'}20` }}>
+                            {f}: {v}
+                          </span>
+                        </div>
+                      ))}
+                      {Object.values(terrInfs).every(v => !v || (v as number) === 0) && (
+                        <span className="text-[9px] text-[#4b5563] font-mono">Territorio neutro</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Costo */}
+                  <div className="bg-[#050810] rounded-lg p-2.5 border border-[#1e3a5f] space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-[#8899aa]">Costo per cubo</span>
+                      <span className="font-bold" style={{ color: costPerCube === 2 ? '#ef4444' : '#22c55e' }}>
+                        {costPerCube} PO {costPerCube === 2 ? '(territorio nemico)' : '(territorio libero/tuo)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-[#8899aa]">PO disponibili</span>
+                      <span className="text-white font-bold">{opTotal}</span>
+                    </div>
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-[#8899aa]">Max cubi acquistabili</span>
+                      <span className="text-[#f59e0b] font-bold">{maxCubes}</span>
+                    </div>
+                  </div>
+
+                  {/* Selettore cubi */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono text-[#8899aa]">Cubi da piazzare:</span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setInflCubes(c => Math.max(1, c - 1))}
+                        className="w-7 h-7 rounded bg-[#1e3a5f] text-white font-mono text-sm hover:bg-[#2a4a7f]">−</button>
+                      <span className="font-mono font-bold text-white w-5 text-center">{inflCubes}</span>
+                      <button onClick={() => setInflCubes(c => Math.min(maxCubes, c + 1))}
+                        className="w-7 h-7 rounded bg-[#1e3a5f] text-white font-mono text-sm hover:bg-[#2a4a7f]">+</button>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold" style={{ color: canAfford ? '#22c55e' : '#ef4444' }}>
+                      = {costTot} PO {canAfford ? '✓' : '✗ insufficienti'}
+                    </span>
+                  </div>
+
+                  {/* Modificatori dado */}
+                  <div className="bg-[#050810] rounded-lg p-2.5 border border-[#1e3a5f]">
+                    <p className="text-[9px] text-[#8899aa] font-mono mb-1">TIRO DADO — soglia successo: d6 ≥ {threshold}</p>
+                    {modDesc.map((m, i) => <p key={i} className="text-[9px] text-[#6b7280] font-mono">{m}</p>)}
+                    {modDesc.length === 0 && <p className="text-[9px] text-[#4b5563] font-mono">Nessun modificatore</p>}
+                    <div className="flex gap-1 mt-1.5">
+                      {[1,2,3,4,5,6].map(n => (
+                        <div key={n} className={`flex-1 h-5 rounded text-center text-[9px] font-mono font-bold flex items-center justify-center
+                          ${n >= threshold ? 'bg-[#22c55e30] text-[#22c55e] border border-[#22c55e40]' : 'bg-[#1e293b] text-[#4b5563]'}`}>
+                          {n}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Bottone lancia dado */}
+                  <button
+                    disabled={!canAfford || maxCubes === 0}
+                    onClick={doInfluenza}
+                    className="w-full py-2.5 rounded-lg font-mono font-bold text-sm text-white transition-all
+                      disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{ background: canAfford ? '#9d174d' : '#1e3a5f', boxShadow: canAfford ? '0 0 16px #ec489930' : 'none' }}>
+                    🎲 Lancia dado — {inflCubes} cubo{inflCubes > 1 ? 'i' : ''} ({costTot} PO)
+                  </button>
+                </>
+              )}
+            </>
           )}
 
+          {/* Risultato dado */}
+          {diceRolled && diceResult !== null && (
+            <div className={`rounded-xl p-4 text-center border-2 space-y-2
+              ${diceResult >= threshold ? 'border-[#22c55e] bg-[#22c55e0a]' : 'border-[#ef4444] bg-[#ef44440a]'}`}>
+              <p className="text-[10px] text-[#8899aa] font-mono">{inflTerr?.label}</p>
+              <div className="text-5xl font-bold font-mono text-white">{diceResult}</div>
+              <p className="text-[10px] text-[#8899aa] font-mono">soglia: d6 ≥ {threshold}</p>
+              {diceResult >= threshold ? (
+                <div className="space-y-1">
+                  <p className="text-[#22c55e] font-bold font-mono">✅ SUCCESSO</p>
+                  <p className="text-[10px] text-[#22c55e] font-mono">
+                    +{inflCubes} cubo{inflCubes > 1 ? 'i' : ''} influenza {myFaction} su {inflTerr?.label}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <p className="text-[#ef4444] font-bold font-mono">❌ FALLITO</p>
+                  <p className="text-[10px] text-[#ef4444] font-mono">
+                    Nessun cubo aggiunto. La carta è stata comunque spesa.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          VISTA: TRACCIATO
+      ════════════════════════════════════════════════════════════════ */}
+      {view === 'tracciato' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <button onClick={resetView} className="text-[#8899aa] hover:text-white text-sm">←</button>
+            <p className="text-[#3b82f6] font-bold text-xs font-mono uppercase">📈 Incrementa Tracciato</p>
+          </div>
+          <p className="text-[10px] text-[#8899aa] font-mono">
+            Spendi tutti i {opTotal} PO per aumentare di +{trackDelta} il tracciato scelto.
+          </p>
+
+          <div className="flex flex-col gap-1.5">
+            {trackOpts.map(opt => {
+              const cur = (state as Record<string, number>)[opt.key] ?? 0;
+              const isSelected = trackKey === opt.key;
+              return (
+                <button key={opt.key}
+                  onClick={() => setTrackKey(isSelected ? null : opt.key)}
+                  className={`flex items-center justify-between px-3 py-2 rounded-lg border transition-all font-mono text-xs
+                    ${isSelected ? 'border-[#3b82f6] bg-[#3b82f610] text-white' : 'border-[#1e3a5f] text-[#8899aa] hover:border-[#2a4a7f]'}`}>
+                  <span>{opt.icon} {opt.label}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#8899aa]">ora: {cur}</span>
+                    {isSelected && <span className="text-[#22c55e] font-bold">→ {cur + trackDelta}</span>}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
           <button
-            onClick={() => { setActiveAction(null); setDiceRolled(false); setDiceResult(null); }}
-            className="text-xs text-gray-500 hover:text-gray-300 w-full text-center"
-          >
-            ← Torna alle azioni
+            disabled={!trackKey}
+            onClick={doTracciato}
+            className="w-full py-2.5 rounded-lg font-mono font-bold text-sm text-white transition-all
+              disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: trackKey ? '#1d4ed8' : '#1e3a5f', boxShadow: trackKey ? '0 0 16px #3b82f630' : 'none' }}>
+            📈 Applica +{trackDelta} a {selTrack?.label ?? '—'}
           </button>
         </div>
       )}
