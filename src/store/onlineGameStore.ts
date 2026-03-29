@@ -10,7 +10,7 @@ import type {
 import {
   botSelectCard, applyCardEffects, checkWinCondition, nextFaction,
 } from '@/lib/botEngine';
-import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN } from '@/data/mazzi';
+import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN, CLASSIC_HAND_SIZE, CLASSIC_DRAW_PER_TURN } from '@/data/mazzi';
 import { TERRITORIES } from '@/lib/territoriesData';
 
 interface OnlineGameStore {
@@ -154,8 +154,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         supabase.from('game_players').select('*, profile:profiles(*)').eq('game_id', gameId),
         supabase.from('game_state').select('*').eq('game_id', gameId).single(),
         supabase.from('moves_log').select('*').eq('game_id', gameId).order('created_at', { ascending: false }).limit(20),
-        // Carica SOLO le carte disponibili della partita (tutte le fazioni)
-        supabase.from('cards_deck').select('*').eq('game_id', gameId).eq('status', 'available').order('position'),
+        // Carica le carte del giocatore: quelle in mano (in_hand) + quelle ancora
+        // disponibili nel mazzo (available). Le carte 'played' non servono all'UI.
+        supabase.from('cards_deck').select('*').eq('game_id', gameId)
+          .in('status', ['available', 'in_hand']).order('position'),
       ]);
 
       const { profile } = get();
@@ -202,26 +204,31 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     await supabase.from('games').update({ status: 'active', started_at: new Date().toISOString() }).eq('id', game.id);
 
     // 2. Inizializza mazzi: crea cards_deck per ogni fazione
+    //    Le prime CLASSIC_HAND_SIZE carte di ogni fazione vanno subito in mano (in_hand),
+    //    il resto rimane disponibile nel mazzo (available).
     const deckRows: {
       game_id: string; faction: string; card_id: string;
       card_name: string; card_type: string; op_points: number;
       deck_type: string; status: string; position: number;
+      held_by_faction: string | null;
     }[] = [];
 
     const factions = players.map(p => p.faction) as Faction[];
     for (const faction of factions) {
-      const deck = getFullDeck(faction);
+      const deck = getFullDeck(faction);   // già mescolato
       deck.forEach((card, idx) => {
+        const inHand = idx < CLASSIC_HAND_SIZE;
         deckRows.push({
-          game_id: game.id,
+          game_id:         game.id,
           faction,
-          card_id: card.card_id,
-          card_name: card.card_name,
-          card_type: card.card_type,
-          op_points: card.op_points,
-          deck_type: card.deck_type,
-          status: 'available',
-          position: idx + 1,
+          card_id:         card.card_id,
+          card_name:       card.card_name,
+          card_type:       card.card_type,
+          op_points:       card.op_points,
+          deck_type:       card.deck_type,
+          status:          inHand ? 'in_hand' : 'available',
+          held_by_faction: inHand ? faction   : null,
+          position:        idx + 1,
         });
       });
     }
@@ -268,11 +275,19 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .select('*')
         .eq('game_id', game.id)
         .eq('card_id', cardId)
-        .eq('faction', myFaction)   // ← filtra per fazione per evitare duplicati cross-faction
-        .eq('status', 'available')
+        .eq('faction', myFaction)          // filtra per fazione
+        .eq('held_by_faction', myFaction)  // deve essere in mano a me
+        .eq('status', 'in_hand')
         .single();
 
-      if (deckErr || !deckCard) throw new Error(`Carta non trovata nel mazzo: ${deckErr?.message ?? 'nessun record'}`);
+      // Fallback: se non trovata in_hand, cerca available (compatibilità partite precedenti)
+      const { data: deckCardFallback } = deckCard ? { data: null } : await supabase
+        .from('cards_deck').select('*').eq('game_id', game.id)
+        .eq('card_id', cardId).eq('faction', myFaction).eq('status', 'available').single();
+      const resolvedCard = deckCard ?? deckCardFallback;
+      if (!resolvedCard) throw new Error(`Carta non trovata nel mazzo: ${deckErr?.message ?? 'nessun record'}`);
+
+      // (errore già gestito sopra con fallback)
 
       // ── 2. Recupera definizione carta (effetti) ──────────────────────
       const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } = await import('@/data/mazzi');
@@ -306,7 +321,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         supabase.from('cards_deck').update({
           status: 'played',
           played_at_turn: game.current_turn,
-        }).eq('id', deckCard.id),
+          held_by_faction: null,
+        }).eq('id', resolvedCard.id),
       ]);
 
       if (stateRes.error) throw new Error(`Errore aggiornamento stato: ${stateRes.error.message} [${stateRes.error.code}]`);
@@ -328,7 +344,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       set(s => ({
         gameState: { ...s.gameState!, ...newState, active_faction: nextFact },
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
-        deckCards: s.deckCards.filter(dc => dc.card_id !== cardId || dc.faction !== myFaction),
+        deckCards: s.deckCards.filter(dc => dc.id !== resolvedCard.id),
         loading: false,
         notification: `✅ ${myFaction}: "${deckCard.card_name}" giocata — turno di ${nextFact}`,
         gameOverInfo: winCheck.isOver ? {
@@ -347,8 +363,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         player_id: profile?.id,
         is_bot_move: false,
         card_id: cardId,
-        card_name: deckCard.card_name,
-        card_type: deckCard.card_type,
+        card_name: resolvedCard.card_name,
+        card_type: resolvedCard.card_type,
         delta_nucleare: deltas.nucleare,
         delta_sanzioni: deltas.sanzioni,
         delta_opinione: deltas.opinione,
@@ -364,7 +380,12 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         if (error) console.warn('moves_log non salvato (non bloccante):', error.message);
       });
 
-      // ── 7. Se il prossimo è un bot, eseguilo ────────────────────────
+      // ── 7. Pesca 1 carta per rimpiazzare quella giocata ──────────────
+      if (!winCheck.isOver) {
+        await get().drawCards(myFaction);
+      }
+
+      // ── 8. Se il prossimo è un bot, eseguilo ────────────────────────
       if (!winCheck.isOver) {
         const nextPlayer = players.find(p => p.faction === nextFact);
         if (nextPlayer?.is_bot) {
@@ -557,12 +578,22 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }, payload => {
         const updatedCard = payload.new as DeckCard;
         if (updatedCard.status === 'played') {
-          // Rimuove la carta giocata dalla lista locale
+          // Rimuove la carta giocata dalla lista locale (filtra per id univoco)
           set(s => ({
-            deckCards: s.deckCards.filter(
-              dc => !(dc.card_id === updatedCard.card_id && dc.faction === updatedCard.faction)
-            ),
+            deckCards: s.deckCards.filter(dc => dc.id !== updatedCard.id),
           }));
+        } else if (updatedCard.status === 'in_hand') {
+          // Una carta è stata pescata: aggiorna o aggiunge alla lista locale
+          set(s => {
+            const exists = s.deckCards.some(dc => dc.id === updatedCard.id);
+            if (exists) {
+              // Aggiorna lo status e held_by_faction
+              return { deckCards: s.deckCards.map(dc => dc.id === updatedCard.id ? updatedCard : dc) };
+            } else {
+              // Carta non ancora in lista (es. primo load) → aggiunge
+              return { deckCards: [...s.deckCards, updatedCard] };
+            }
+          });
         }
       })
       .subscribe();
@@ -661,11 +692,19 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     const { game, deckCards } = get();
     if (!game) return;
 
-    // Prende le prime N carte disponibili (non in mano, non giocate)
+    const isUnified = game.game_mode === 'unified';
+    const drawN = isUnified ? UNIFIED_DRAW_PER_TURN : CLASSIC_DRAW_PER_TURN;
+
+    // In modalità classica: pesca solo dal mazzo della propria fazione (faction === dc.faction)
+    // In modalità unificata: pesca dal mazzo comune (qualsiasi fazione)
     const available = deckCards
-      .filter(dc => dc.status === 'available' && !dc.held_by_faction)
+      .filter(dc =>
+        dc.status === 'available' &&
+        !dc.held_by_faction &&
+        (isUnified || dc.faction === faction)   // ← classico: solo carte proprie
+      )
       .sort((a, b) => a.position - b.position)
-      .slice(0, UNIFIED_DRAW_PER_TURN);
+      .slice(0, drawN);
 
     if (available.length === 0) return; // mazzo esaurito
 

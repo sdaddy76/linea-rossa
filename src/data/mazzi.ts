@@ -352,9 +352,10 @@ export function getUnifiedDeck(): UnifiedCard[] {
  * Default: 4 carte a testa. Può essere configurata.
  */
 export const UNIFIED_HAND_SIZE = 4;
-
-/**
- * Numero di carte che ogni fazione pesca a fine turno (dopo aver giocato 1).
- * Default: 1 (si mantiene sempre la mano a UNIFIED_HAND_SIZE).
- */
+/** Quante carte si pesca per turno in modalità unificata. */
 export const UNIFIED_DRAW_PER_TURN = 1;
+
+/** Dimensione della mano iniziale in modalità classica (per fazione). */
+export const CLASSIC_HAND_SIZE = 3;
+/** Quante carte si pescano a fine turno in modalità classica. */
+export const CLASSIC_DRAW_PER_TURN = 1;

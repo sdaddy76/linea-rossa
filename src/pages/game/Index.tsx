@@ -544,20 +544,23 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     if (!myFaction) return [];
 
     if (game.status === 'active') {
-      // Partita avviata: usa le carte reali del mazzo (filtrate per fazione)
-      const availableIds = new Set(
+      // Partita avviata: mostra solo le carte in mano al giocatore (in_hand + held_by_faction=me)
+      const handIds = new Set(
         deckCards
-          .filter(dc => dc.faction === myFaction)
+          .filter(dc =>
+            dc.status === 'in_hand' &&
+            dc.held_by_faction === myFaction
+          )
           .map(dc => dc.card_id)
       );
-      if (availableIds.size === 0) return []; // mazzo esaurito
+      if (handIds.size === 0) return [];
 
       // Recupera le definizioni complete (effetti) dall'array statico
       const allDefs = [
         ...(MAZZI_PER_FAZIONE[myFaction] ?? []),
         ...(MAZZI_SPECIALI[myFaction] ?? []),
       ];
-      return allDefs.filter(c => availableIds.has(c.card_id));
+      return allDefs.filter(c => handIds.has(c.card_id));
     } else {
       // Partita non ancora avviata: mostra anteprima prime 6 carte
       return [
@@ -975,8 +978,8 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           : 'text-[#22c55e] bg-[#22c55e20]'
                       }`}>
                         {game.status === 'active'
-                          ? `${myCards.length} rimaste`
-                          : `${myCards.length} in mazzo`}
+                          ? `${myCards.length} in mano`
+                          : `${myCards.length} anteprima`}
                       </span>
                     </div>
                     <span className="text-[#8899aa] font-mono text-xs">

@@ -268,27 +268,35 @@ export default function WaitingRoom({
       } catch { /* colonne opzionali non ancora presenti nel DB — ignorato */ }
 
       // Inizializza mazzi carte
-      const { getFullDeck } = await import('@/data/mazzi');
+      const { getFullDeck, CLASSIC_HAND_SIZE: HAND_SIZE } = await import('@/data/mazzi');
       const allPlayers = await supabase
         .from('game_players')
         .select('faction')
         .eq('game_id', gameId);
       const allFactions = (allPlayers.data ?? []).map(p => p.faction) as Faction[];
 
-      const deckRows: { game_id: string; faction: Faction; card_id: string; card_name: string; card_type: string; op_points: number; deck_type: string; status: string; position: number }[] = [];
+      const deckRows: {
+        game_id: string; faction: Faction; card_id: string; card_name: string;
+        card_type: string; op_points: number; deck_type: string;
+        status: string; position: number; held_by_faction: Faction | null;
+      }[] = [];
       for (const f of allFactions) {
         const deck = getFullDeck(f);
-        deck.forEach((card, i) => deckRows.push({
-          game_id: gameId,
-          faction: f,
-          card_id: card.card_id,
-          card_name: card.card_name,
-          card_type: card.card_type,
-          op_points: card.op_points ?? 0,
-          deck_type: card.deck_type ?? 'base',
-          status: 'available',
-          position: i,
-        }));
+        deck.forEach((card, i) => {
+          const inHand = i < HAND_SIZE;
+          deckRows.push({
+            game_id: gameId,
+            faction: f,
+            card_id: card.card_id,
+            card_name: card.card_name,
+            card_type: card.card_type,
+            op_points: card.op_points ?? 0,
+            deck_type: card.deck_type ?? 'base',
+            status:          inHand ? 'in_hand'  : 'available',
+            held_by_faction: inHand ? f          : null,
+            position: i,
+          });
+        });
       }
       // upsert: evita "duplicate key" se startGame viene chiamata più volte
       if (deckRows.length > 0) {
