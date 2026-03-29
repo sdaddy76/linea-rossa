@@ -49,6 +49,7 @@ interface TerrDef {
   label: string;
   pts: [number, number][];
   cubeAnchor: [number, number];
+  cubeOffsetY?: number;   // offset Y dei cubi rispetto all'anchor (default 0)
   maxSlots: number;   // slot totali visibili (capacità massima influenza)
   pvPerRound: number;
   type: 'casa' | 'strategico' | 'normale';
@@ -65,37 +66,37 @@ const TERR_DEF: TerrDef[] = [
           [529,300],[553,267],[610,268],[687,263],[752,254],[812,251],[834,254],
           [826,185],[837,168],[807,154],[795,119],[738,108],[651,125],[557,116],
           [533,107],[496,93],[423,88]],
-    cubeAnchor: [518, 194], maxSlots: 4, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [518, 194], cubeOffsetY: 40, maxSlots: 4, pvPerRound: 1, type: 'normale' },
 
   { id: 'Siria', label: 'SIRIA',
     pts: [[531,308],[545,347],[556,376],[527,396],[558,428],[608,408],[712,354],
           [725,292],[761,263],[704,265],[618,270],[554,272]],
-    cubeAnchor: [625, 332], maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [625, 332], cubeOffsetY: 28, maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Libano', label: 'LIBANO',
     pts: [[523,325],[528,353],[546,354],[547,366],[529,386],[508,404],
           [495,404],[436,382],[437,364]],
-    cubeAnchor: [494, 369], maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [494, 369], cubeOffsetY: -18, maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Israele', label: 'ISRAELE',
     pts: [[492,406],[512,406],[509,470],[488,530],[464,468]],
-    cubeAnchor: [491, 461], maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione' },
+    cubeAnchor: [491, 461], cubeOffsetY: 32, maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione' },
 
   { id: 'Giordania', label: 'GIORDANIA',
     pts: [[497,529],[522,468],[520,423],[554,436],[627,401],[641,441],[573,463],
           [597,497],[587,513],[557,519],[530,543]],
-    cubeAnchor: [561, 471], maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [561, 471], cubeOffsetY: 28, maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Egitto', label: 'EGITTO',
     pts: [[136,454],[282,484],[357,456],[394,472],[459,474],[481,529],[471,589],
           [407,514],[396,527],[512,720],[132,721]],
-    cubeAnchor: [300, 598], maxSlots: 4, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [300, 598], cubeOffsetY: 40, maxSlots: 4, pvPerRound: 1, type: 'normale' },
 
   { id: 'Iraq', label: 'IRAQ',
     pts: [[637,398],[646,440],[679,447],[835,543],[904,543],[932,511],[970,512],
           [945,477],[951,453],[932,429],[896,412],[874,370],[893,339],[896,310],
           [845,266],[778,256],[730,290],[725,356]],
-    cubeAnchor: [809, 409], maxSlots: 3, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [809, 409], cubeOffsetY: 35, maxSlots: 3, pvPerRound: 1, type: 'normale' },
 
   { id: 'Iran', label: 'IRAN',
     pts: [[837,174],[829,179],[894,298],[892,363],[933,421],[961,474],[984,512],
@@ -105,56 +106,57 @@ const TERR_DEF: TerrDef[] = [
           [1406,364],[1428,316],[1422,285],[1366,264],[1335,245],[1288,232],
           [1263,220],[1182,257],[1165,274],[1103,286],[1031,257],[997,246],
           [993,220],[966,208],[968,182],[957,171],[910,199],[872,199]],
-    cubeAnchor: [1191, 422], maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Iran', isNaval: true },
+    cubeAnchor: [1191, 422], cubeOffsetY: 50, maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Iran', isNaval: true },
 
   { id: 'Kuwait', label: 'KUWAIT',
     pts: [[967,519],[935,517],[914,543],[935,546],[945,562],[973,563]],
-    cubeAnchor: [949, 539], maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [949, 539], cubeOffsetY: -20, maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Bahrain', label: 'BAHRAIN',
     pts: [[1086,576],[1075,595],[1090,612],[1106,610],[1108,590]],
-    cubeAnchor: [1093, 596], maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+    cubeAnchor: [1093, 596], cubeOffsetY: -22, maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'Qatar', label: 'QATAR',
     pts: [[1115,598],[1108,618],[1108,650],[1124,672],[1138,652],[1140,618],[1128,599]],
-    cubeAnchor: [1124, 633], maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+    cubeAnchor: [1124, 633], cubeOffsetY: 24, maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'ArabiaSaudita', label: 'ARABIA S.',
     pts: [[971,571],[1060,701],[1118,762],[1225,779],[1224,856],[1107,899],
           [1002,920],[945,966],[849,950],[794,947],[782,981],[642,802],[642,760],
           [593,713],[574,682],[504,586],[478,583],[493,541],[536,539],[553,526],
           [604,520],[611,498],[596,480],[641,464],[682,465],[755,508],[813,544]],
-    cubeAnchor: [840, 728], maxSlots: 4, pvPerRound: 1, type: 'normale', isNaval: true },
+    cubeAnchor: [840, 728], cubeOffsetY: 45, maxSlots: 4, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'EmiratiArabi', label: 'UAE',
     pts: [[1097,714],[1134,753],[1215,765],[1239,718],[1246,689],[1262,687],
           [1262,645],[1230,672],[1208,698],[1186,712],[1165,719],[1130,716],[1110,717]],
-    cubeAnchor: [1194, 721], maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+    cubeAnchor: [1194, 721], cubeOffsetY: -22, maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'Oman', label: 'OMAN',
     pts: [[1271,696],[1253,728],[1244,762],[1253,788],[1234,863],[1136,903],
           [1130,920],[1163,969],[1216,970],[1268,942],[1329,902],[1351,852],
           [1394,778],[1348,736]],
-    cubeAnchor: [1272, 846], maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+    cubeAnchor: [1272, 846], cubeOffsetY: 30, maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 
   { id: 'StrettoHormuz', label: 'HORMUZ',
     pts: [[1195,629],[1218,664],[1262,631],[1272,688],[1337,709],[1353,673],
           [1291,648],[1275,606],[1228,628]],
-    cubeAnchor: [1281, 659], maxSlots: 1, pvPerRound: 2, type: 'strategico', isNaval: true },
+    cubeAnchor: [1281, 659], cubeOffsetY: -22, maxSlots: 1, pvPerRound: 2, type: 'strategico', isNaval: true },
 
   { id: 'Yemen', label: 'YEMEN',
     pts: [[1105,913],[1139,977],[1086,1022],[790,1026],[787,990],[802,955],
           [903,970],[950,978],[993,929]],
-    cubeAnchor: [976, 982], maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+    cubeAnchor: [976, 982], cubeOffsetY: -22, maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
 // CUBI INFLUENZA — slot fissi visibili, colorati per fazione
 // ─────────────────────────────────────────────────────────────────────────
-function InfluenceCubes({ influences, anchor, maxSlots }: {
+function InfluenceCubes({ influences, anchor, maxSlots, offsetY = 0 }: {
   influences: Partial<Record<Faction, number>>;
   anchor: [number, number];
   maxSlots: number;
+  offsetY?: number;
 }) {
   if (maxSlots === 0) return null;
 
@@ -171,7 +173,7 @@ function InfluenceCubes({ influences, anchor, maxSlots }: {
   const GAP = 4;   // spazio tra slot
   const totalW = maxSlots * SW + (maxSlots - 1) * GAP;
   const ox = anchor[0] - totalW / 2;
-  const oy = anchor[1] - SH / 2;
+  const oy = anchor[1] - SH / 2 + offsetY;
 
   return (
     <g style={{ pointerEvents: 'none' }}>
@@ -414,7 +416,7 @@ export default function TerritoryMap({
             )}
 
             {/* Cubi influenza (grandi e visibili) */}
-            <InfluenceCubes influences={infl} anchor={t.cubeAnchor} maxSlots={t.maxSlots} />
+            <InfluenceCubes influences={infl} anchor={t.cubeAnchor} maxSlots={t.maxSlots} offsetY={t.cubeOffsetY ?? 0} />
 
             {/* Icone unità militari */}
             <UnitBadges units={units} anchor={t.cubeAnchor} />
