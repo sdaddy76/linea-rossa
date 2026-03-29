@@ -418,41 +418,43 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     return (gameState[key] as Record<string, number>) ?? {};
   }, [gameState, myFaction]);
 
-  // ── Pesca + applica evento all'inizio di ogni nuovo turno ────────────────────
-  // Trigger: ogni volta che active_faction diventa 'Iran' (= inizio nuovo turno).
-  // Solo l'host applica i delta nel DB; tutti ricevono l'evento via real-time
-  // leggendo game_state.last_event_id.
+  // ── Pesca + applica evento all'inizio di ogni nuovo turno (entrambe le modalità) ──
+  // Trigger: active_faction === 'Iran' (= inizio nuovo turno numerato).
+  // Funziona sia in modalità classica che unificata.
+  // Solo l'host pesca e applica i delta; tutti ricevono l'aggiornamento via real-time.
   useEffect(() => {
     if (!game || !gameState || game.status !== 'active') return;
     if (gameState.active_faction !== 'Iran') return;
 
     const turnNum = game.current_turn;
 
-    // Se il DB ha già registrato un evento per questo turno → mostra il modale
-    if (
-      gameState.last_event_turn === turnNum &&
-      gameState.last_event_id
-    ) {
+    // Evento già registrato per questo turno → mostra il modale a tutti
+    if (gameState.last_event_turn === turnNum && gameState.last_event_id) {
       import('@/data/eventi').then(({ getEventoById }) => {
         const ev = getEventoById(gameState.last_event_id!) as EventoCard | undefined;
         if (ev && eventoCorrente?.event_id !== ev.event_id) {
-          const t = setTimeout(() => setEventoCorrente(ev), 400);
-          return () => clearTimeout(t);
+          setTimeout(() => setEventoCorrente(ev), 400);
         }
       });
       return;
     }
 
-    // Nessun evento per questo turno ancora → solo l'host pesca e applica
+    // Nessun evento ancora per questo turno → solo l'host lo applica
     if (!isHost) return;
-    if (applicandoEventoRef.current) return;
+
+    // Reset del lock se rimasto da un turno precedente (guard anti-stale)
+    // Forziamo il reset se il turnNum è cambiato rispetto all'ultima esecuzione
+    const lockKey = `evento_lock_turn_${game.id}`;
+    const lastLockedTurn = Number(sessionStorage.getItem(lockKey) ?? -1);
+    if (lastLockedTurn === turnNum) return;          // già in esecuzione per questo turno
+    sessionStorage.setItem(lockKey, String(turnNum)); // marca il turno corrente come "in lavorazione"
     applicandoEventoRef.current = true;
 
     const storageKey = `eventi_usati_${game.id}`;
     let usati: string[] = [];
     try { usati = JSON.parse(localStorage.getItem(storageKey) ?? '[]'); } catch { usati = []; }
 
-    import('@/data/eventi').then(({ pescaEvento: pesca, getEventoById: getEv }) => {
+    import('@/data/eventi').then(({ pescaEvento: pesca }) => {
       const evento = (pesca as (u: string[]) => EventoCard)(usati);
       usati = [...usati, evento.event_id];
       try { localStorage.setItem(storageKey, JSON.stringify(usati)); } catch { /* ignore */ }
@@ -476,18 +478,23 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
       if (ef.delta_stabilita_iran)     updates.stabilita_iran     = clamp((gs.stabilita_iran     ?? 5) + ef.delta_stabilita_iran,     1, 10);
 
       import('@/integrations/supabase/client').then(({ supabase }) => {
-        supabase.from('game_state').update(updates).eq('game_id', game.id).then(() => {
-          useOnlineGameStore.setState(s => ({
-            gameState: { ...s.gameState!, ...updates },
-          }));
+        supabase.from('game_state').update(updates).eq('game_id', game.id).then(({ error }) => {
+          if (error) {
+            // Se le colonne last_event_* non esistono, mostriamo solo il modale localmente
+            console.warn('[evento] update fallito (colonne mancanti?):', error.message);
+            setTimeout(() => setEventoCorrente(evento), 400);
+          } else {
+            useOnlineGameStore.setState(s => ({
+              gameState: { ...s.gameState!, ...updates },
+            }));
+            setTimeout(() => setEventoCorrente(evento), 400);
+          }
           applicandoEventoRef.current = false;
-          setTimeout(() => setEventoCorrente(evento), 400);
         });
       });
-
-      void getEv; // usato solo per type-check
     });
   }, [gameState?.active_faction, game?.current_turn, game?.status,
+      // Dipendenze last_event_* per sincronizzare i non-host con il DB
       gameState?.last_event_turn, gameState?.last_event_id]);
 
   // Chiude il modale (solo UI, gli effetti sono già applicati nel DB)
