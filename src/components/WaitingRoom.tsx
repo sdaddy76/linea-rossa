@@ -3,7 +3,7 @@
 // Real-time: ogni giocatore vede chi è entrato
 // e che fazione ha scelto. Una fazione per giocatore.
 // =============================================
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Profile } from '@/types/game';
 
@@ -43,6 +43,7 @@ export default function WaitingRoom({
 }: WaitingRoomProps) {
   const [players, setPlayers] = useState<LobbyPlayer[]>([]);
   const [myFaction, setMyFaction] = useState<Faction | null>(null);
+  const isSwitchingFaction = useRef(false); // guard: evita reset durante cambio fazione
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
@@ -61,8 +62,8 @@ export default function WaitingRoom({
       const me = data.find((p: LobbyPlayer) => p.player_id === profile.id);
       if (me?.faction) {
         setMyFaction(me.faction as Faction);
-      } else if (!me) {
-        // Non sono più nella lista → deseleziono
+      } else if (!me && !isSwitchingFaction.current) {
+        // Non sono più nella lista E non stiamo cambiando fazione → deseleziono
         setMyFaction(null);
       }
       // Se me esiste ma faction è null → utente ha deselezionato
@@ -136,6 +137,7 @@ export default function WaitingRoom({
     if (taken) { setError(`${faction} è già presa da un altro giocatore`); return; }
 
     setLoading(true); setError('');
+    isSwitchingFaction.current = true; // blocca reset da real-time durante il cambio
     try {
       // Prima rimuove l'eventuale scelta precedente con player_id diverso dalla nuova fazione
       await supabase
@@ -145,7 +147,7 @@ export default function WaitingRoom({
         .eq('player_id', profile.id)
         .neq('faction', faction);
 
-      // Upsert sulla nuova fazione (evita gap del double-record)
+      // Upsert sulla nuova fazione
       const { error: insErr } = await supabase
         .from('game_players')
         .upsert({
@@ -159,7 +161,6 @@ export default function WaitingRoom({
         }, { onConflict: 'game_id,faction' });
 
       if (insErr) {
-        // Conflict: fazione già presa (race condition)
         if (insErr.code === '23505') {
           setError(`${faction} è stata appena presa da un altro giocatore`);
         } else {
@@ -171,6 +172,7 @@ export default function WaitingRoom({
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore nella scelta');
     } finally {
+      isSwitchingFaction.current = false; // riabilita reset da real-time
       setLoading(false);
     }
   };
