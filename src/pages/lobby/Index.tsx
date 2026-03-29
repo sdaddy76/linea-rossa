@@ -47,22 +47,35 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
   // ── CREA PARTITA ─────────────────────────────────────────────────
   const createGame = async () => {
     if (!gameName.trim()) { setError('Inserisci un nome per la partita'); return; }
+    if (!profile?.id) { setError('Sessione non valida — effettua di nuovo il login'); return; }
     setLoading(true); setError('');
     try {
-      const { data: codeData } = await supabase.rpc('generate_game_code');
-      const code = (codeData as string) || `GULF-${Math.floor(Math.random() * 90 + 10)}`;
+      // Genera codice: prova RPC, fallback locale se non disponibile
+      let code = `GULF-${Math.floor(Math.random() * 90 + 10)}`;
+      try {
+        const { data: codeData, error: rpcErr } = await supabase.rpc('generate_game_code');
+        if (!rpcErr && codeData) code = codeData as string;
+      } catch { /* RPC non deployata → usa fallback */ }
 
       const { data: game, error: gameError } = await supabase
         .from('games')
         .insert({ name: gameName.trim(), code, created_by: profile.id, max_turns: maxTurns })
         .select()
         .single();
-      if (gameError || !game) throw gameError ?? new Error('Errore creazione');
+
+      if (gameError) {
+        console.error('[createGame] Supabase error:', gameError);
+        // Mostra il messaggio reale da Supabase (es. "duplicate key", "violates RLS", ecc.)
+        throw new Error(gameError.message ?? gameError.details ?? 'Errore nella creazione partita');
+      }
+      if (!game) throw new Error('Partita non creata — risposta DB vuota');
 
       // Entra in sala d'attesa come host
       setWaitingGame({ id: game.id, code: game.code, name: game.name, isHost: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Errore nella creazione');
+      const msg = err instanceof Error ? err.message : 'Errore nella creazione';
+      console.error('[createGame] errore:', msg);
+      setError(msg);
     } finally {
       setLoading(false);
     }

@@ -216,7 +216,6 @@ export default function WaitingRoom({
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,
         stabilita_cina: 5, stabilita_europa: 5,
         forze_militari_iran: 5, forze_militari_coalizione: 5,
-        forze_militari_russia: 5, forze_militari_cina: 5, forze_militari_europa: 5,
         // Pool unità iniziali per fazione (asimmetriche)
         units_iran:       INITIAL_UNITS.Iran,
         units_coalizione: INITIAL_UNITS.Coalizione,
@@ -276,7 +275,9 @@ export default function WaitingRoom({
 
       // L'host viene notificato tramite real-time come tutti gli altri
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Errore nell\'avvio');
+      const msg = err instanceof Error ? err.message : 'Errore nell\'avvio';
+      console.error('[WaitingRoom startGame] errore:', msg, err);
+      setError(msg);
       setStarting(false);
     }
   };
