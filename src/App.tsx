@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import CoverPage from "./pages/home/CoverPage";
 import AuthPage from "./pages/auth/Index";
 import LobbyPage from "./pages/lobby/Index";
+import AdminMigration from '@/pages/admin/Migration';
 import GamePage from "./pages/game/Index";
 import NotFound from "./pages/not-found/Index";
 
@@ -21,7 +22,7 @@ const queryClient = new QueryClient();
 // ------------------------------------------------
 function AppRouter() {
   const { profile, session, game, initAuth, loadGame, subscribeToGame, logout } = useOnlineGameStore();
-  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game'>('cover');
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin'>('cover');
 
   useEffect(() => {
     initAuth();
@@ -96,11 +97,14 @@ function AppRouter() {
 
   // Render basato su view
   if (view === 'auth') return <AuthPage />;
+  if (view === 'admin') return <AdminMigration />;
+
   if (view === 'lobby' && profile) return (
     <LobbyPage
       profile={profile}
       onJoinGame={handleJoinGame}
       onLogout={handleLogout}
+      onAdmin={() => setView('admin')}
     />
   );
   if (view === 'game') return (

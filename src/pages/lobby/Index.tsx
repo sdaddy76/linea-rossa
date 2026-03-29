@@ -14,9 +14,10 @@ interface LobbyPageProps {
   profile: Profile;
   onJoinGame: (gameId: string, chosenFaction?: string) => void;
   onLogout: () => void;
+  onAdmin?: () => void;
 }
 
-export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPageProps) {
+export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin}: LobbyPageProps) {
   const [tab, setTab] = useState<'create' | 'join'>('create');
   const [gameName, setGameName] = useState('');
   const [maxTurns, setMaxTurns] = useState(20);
@@ -179,7 +180,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
                 text-[#8899aa] hover:text-[#c8a55a] rounded-lg font-mono text-xs transition-colors">
               🤖 BOT
             </button>
-            <button onClick={onLogout}
+            <button onClick={onAdmin}
+  className="text-[#8899aa] hover:text-[#00ff88] font-mono text-xs border border-[#334455] rounded px-2 py-1">
+  ⚙️ DB
+</button>
+<button onClick={onLogout}
               className="px-3 py-1.5 border border-[#334455] text-[#8899aa] hover:text-white
                 rounded-lg font-mono text-xs transition-colors">
               ESCI
