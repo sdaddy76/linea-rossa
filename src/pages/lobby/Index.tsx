@@ -42,9 +42,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
   const [showLibrary, setShowLibrary] = useState(false);
   const [showBotLibrary, setShowBotLibrary] = useState(false);
 
-  // Assegnazione fazioni per creazione partita
+  // Assegnazione fazioni — di default TUTTE bot, l'utente sceglie la sua
   const [factionSetup, setFactionSetup] = useState<Record<Faction, FactionAssignment>>({
-    Iran:       { playerType: 'human', playerId: profile.id, botDifficulty: 'normal' },
+    Iran:       { playerType: 'bot', botDifficulty: 'normal' },
     Coalizione: { playerType: 'bot', botDifficulty: 'normal' },
     Russia:     { playerType: 'bot', botDifficulty: 'normal' },
     Cina:       { playerType: 'bot', botDifficulty: 'normal' },
@@ -66,14 +66,22 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
   };
 
   const toggleFaction = (faction: Faction) => {
-    setFactionSetup(prev => ({
-      ...prev,
-      [faction]: {
-        ...prev[faction],
-        playerType: prev[faction].playerType === 'human' ? 'bot' : 'human',
-        playerId: prev[faction].playerType === 'bot' ? profile.id : undefined,
+    setFactionSetup(prev => {
+      const wasHuman = prev[faction].playerType === 'human';
+      // Reset tutte a bot, poi imposta solo quella selezionata come umana
+      const next = Object.fromEntries(
+        (Object.keys(prev) as Faction[]).map(f => [
+          f,
+          { ...prev[f], playerType: 'bot' as const, playerId: undefined },
+        ])
+      ) as Record<Faction, FactionAssignment>;
+      if (!wasHuman) {
+        // Attiva questa come umana
+        next[faction] = { ...next[faction], playerType: 'human', playerId: profile.id };
       }
-    }));
+      // Se wasHuman → deseleziona (torna tutti bot)
+      return next;
+    });
   };
 
   const setBotDiff = (faction: Faction, diff: BotDiff) => {
@@ -82,6 +90,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
 
   const createGame = async () => {
     if (!gameName.trim()) { setError('Inserisci un nome per la partita'); return; }
+    const myFactionEntry = Object.entries(factionSetup).find(([, s]) => s.playerType === 'human');
+    if (!myFactionEntry) { setError('Scegli la tua fazione (clicca su una fazione per giocarla tu)'); return; }
     setLoading(true); setError('');
     try {
       // 1. Genera codice partita
@@ -219,12 +229,15 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
 
             {/* Fazione setup */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-mono text-[#8899aa] font-bold">ASSEGNA FAZIONI</h3>
+              <div className="flex items-center justify-between mb-1">
+                <h3 className="text-sm font-mono text-[#8899aa] font-bold">SCEGLI LA TUA FAZIONE</h3>
                 <span className="text-xs font-mono text-[#00ff88]">
-                  {humanCount} umano{humanCount !== 1 ? 'i' : ''} · {5 - humanCount} bot
+                  {humanCount === 0 ? '⚠️ nessuna selezionata' : `👤 ${Object.entries(factionSetup).find(([,s]) => s.playerType === 'human')?.[0] ?? ''}`}
                 </span>
               </div>
+              <p className="text-xs font-mono text-[#445566] mb-3">
+                Clicca su una fazione per giocarla tu — le altre saranno controllate dal bot
+              </p>
               <div className="space-y-2">
                 {(Object.keys(FACTION_INFO) as Faction[]).map(faction => {
                   const info = FACTION_INFO[faction];
