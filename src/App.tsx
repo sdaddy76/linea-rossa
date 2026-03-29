@@ -21,7 +21,7 @@ const queryClient = new QueryClient();
 // Router principale con autenticazione + navigazione
 // ------------------------------------------------
 function AppRouter() {
-  const { profile, session, game, initAuth, loadGame, subscribeToGame, logout } = useOnlineGameStore();
+  const { profile, session, game, initAuth, loadGame, resetGame, subscribeToGame, logout } = useOnlineGameStore();
   const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin'>('cover');
 
   useEffect(() => {
@@ -108,7 +108,7 @@ function AppRouter() {
     />
   );
   if (view === 'game') return (
-    <GamePage onBack={() => setView('lobby')} />
+    <GamePage onBack={() => { resetGame(); setView('lobby'); }} />
   );
 
   // Cover page (default / home)

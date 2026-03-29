@@ -36,6 +36,8 @@ interface OnlineGameStore {
   // Actions
   initAuth: () => Promise<void>;
   logout: () => Promise<void>;
+  /** Resetta tutto lo stato di gioco (usa quando si torna alla lobby) */
+  resetGame: () => void;
   loadGame: (gameId: string, forceFaction?: string | null) => Promise<void>;
   startGame: () => Promise<void>;
   playCard: (cardId: string) => Promise<void>;
@@ -165,9 +167,35 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     set({ profile: null, session: null, game: null, gameState: null });
   },
 
+  // Resetta tutto lo stato di gioco — chiamato quando si torna alla lobby
+  resetGame: () => {
+    set({
+      game: null,
+      gameState: null,
+      players: [],
+      myFaction: null,
+      moves: [],
+      deckCards: [],
+      territories: [],
+      militaryUnits: [],
+      combatLog: [],
+      gameOverInfo: null,
+      error: null,
+      loading: false,
+      isBotThinking: false,
+      notification: null,
+    });
+  },
+
   // -----------------------------------------------
   loadGame: async (gameId: string, forceFaction?: string | null) => {
-    set({ loading: true, error: null });
+    // Resetta lo stato della partita precedente prima di caricare la nuova
+    set({
+      game: null, gameState: null, players: [], myFaction: null,
+      moves: [], deckCards: [], territories: [], militaryUnits: [],
+      combatLog: [], gameOverInfo: null, isBotThinking: false,
+      notification: null, error: null, loading: true,
+    });
     try {
       const [gameRes, playersRes, stateRes, movesRes, deckRes] = await Promise.all([
         supabase.from('games').select('*').eq('id', gameId).single(),
