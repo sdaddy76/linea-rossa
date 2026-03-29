@@ -18,6 +18,7 @@ import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
 import EventoModal from '@/components/EventoModal';
 import UnifiedCardPlayModal from '@/components/UnifiedCardPlayModal';
+import OpsActionModal from '@/components/OpsActionModal';
 import { ClassicHandCard, UnifiedHandCard } from '@/components/HandCard';
 import { FACTION_FLAGS, FACTION_COLORS, CARD_TYPE_COLORS } from '@/lib/factionColors';
 import type { EventoCard } from '@/data/eventi';
@@ -342,7 +343,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     loading, isBotThinking, error, gameOverInfo, notification,
     playCard, startGame, clearError, setNotification, buyMilitaryResources,
     loadTerritories, deployUnit, attackTerritory, addInfluence,
-    runBotTurn, playCardUnified, drawCards, myHand,
+    runBotTurn, playCardUnified, playCardOps, drawCards, myHand,
     territories: terrRecords, militaryUnits: unitRecords,
     profile, session,
   } = useOnlineGameStore();
@@ -362,6 +363,8 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   // ── Mazzo unificato: carta selezionata per la scelta modale ─────────────────
   // selectedUnifiedCard = DeckCard.id (UUID) della carta in mano selezionata
   const [selectedUnifiedCard, setSelectedUnifiedCard] = useState<string | null>(null);
+  // Quando il giocatore sceglie "USA PUNTI OP" → mostra OpsActionModal
+  const [showOpsModal, setShowOpsModal] = useState(false);
   const isUnified = game?.game_mode === 'unified';
   // Mano corrente nel mazzo unificato (DeckCard con status='in_hand' e held_by_faction=me)
   const myHandCards = isUnified ? myHand() : [];
@@ -1086,11 +1089,55 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   loading={loading}
                   onCancel={() => setSelectedUnifiedCard(null)}
                   onPlay={async (mode) => {
-                    await playCardUnified(unifiedCardToPlay.id, mode);
-                    setSelectedUnifiedCard(null);
+                    if (mode === 'ops') {
+                      // Apri OpsActionModal per scegliere l'azione
+                      setShowOpsModal(true);
+                    } else {
+                      await playCardUnified(unifiedCardToPlay.id, mode);
+                      setSelectedUnifiedCard(null);
+                    }
                   }}
                 />
               )}
+
+              {/* ── Modale azioni OP ── */}
+              {showOpsModal && unifiedCardToPlay && myFaction && gameState && (
+                <OpsActionModal
+                  card={unifiedCardToPlay}
+                  myFaction={myFaction}
+                  gameState={gameState}
+                  territories={terrRecords}
+                  militaryUnits={unitRecords}
+                  loading={loading}
+                  onCancel={() => { setShowOpsModal(false); setSelectedUnifiedCard(null); }}
+                  onBuyUnits={async (unitType, qty, _opSpent) => {
+                    await playCardOps(unifiedCardToPlay.id, 'buy', { unitType, qty });
+                    setShowOpsModal(false); setSelectedUnifiedCard(null);
+                  }}
+                  onInfluence={async (territory, opSpent) => {
+                    await playCardOps(unifiedCardToPlay.id, 'influence', { territory, opSpent });
+                    setShowOpsModal(false); setSelectedUnifiedCard(null);
+                  }}
+                  onAttack={async (params) => {
+                    await playCardOps(unifiedCardToPlay.id, 'attack', {
+                      territory: params.territory,
+                      unitTypes: params.unitTypes,
+                      attackForce: params.attackForce,
+                      defenseForce: params.defenseForce,
+                      result: params.result,
+                      infChangeAtk: params.infChangeAtk,
+                      infChangeDef: params.infChangeDef,
+                      defconChange: params.defconChange,
+                      description: params.description,
+                      attackerUnitsLost: params.attackerUnitsLost,
+                      stabilityChange: params.stabilityChange,
+                    });
+                    setShowOpsModal(false); setSelectedUnifiedCard(null);
+                  }}
+                />
+              )}
+
+
 
               {showMarket && myFaction && gameState && (
                 <MilitaryMarket

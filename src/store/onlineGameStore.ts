@@ -83,6 +83,26 @@ interface OnlineGameStore {
     description: string;
   }) => Promise<void>;
 
+  /**
+   * Gioca una carta in modalità OP eseguendo UNA delle 3 azioni:
+   *  - 'buy'       → acquista unità (unitType + qty)
+   *  - 'influence' → aggiungi influenza in un territorio (delta = opSpent)
+   *  - 'attack'    → attacco con esito già calcolato
+   * Dopo l'azione chiama playCardUnified(cardId, 'ops') per marcare la carta come giocata.
+   */
+  playCardOps: (
+    cardId: string,
+    action: 'buy' | 'influence' | 'attack',
+    params: {
+      unitType?: string; qty?: number; opSpent?: number;
+      territory?: string;
+      unitTypes?: string[]; attackForce?: number; defenseForce?: number;
+      result?: string; infChangeAtk?: number; infChangeDef?: number;
+      defconChange?: number; description?: string;
+      attackerUnitsLost?: number; stabilityChange?: number;
+    }
+  ) => Promise<void>;
+
   territories: import('@/types/game').TerritoryRecord[];
   militaryUnits: import('@/types/game').MilitaryUnitRecord[];
   combatLog: import('@/types/game').CombatLogRecord[];
@@ -1194,6 +1214,69 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Errore combattimento', loading: false });
+    }
+  },
+
+  // ── Gioca carta in modalità OP con una delle 3 azioni ────────────────────────
+  playCardOps: async (cardId, action, params) => {
+    const { game, gameState, myFaction, deployUnit, addInfluence, attackTerritory, playCardUnified } = get();
+    if (!game || !gameState || !myFaction) return;
+    set({ loading: true, error: null });
+    try {
+      if (action === 'buy') {
+        // Acquista unità: schiera nel pool (territory = '__pool__' come placeholder)
+        const { unitType = 'Convenzionale', qty = 1 } = params;
+        await deployUnit('__pool__', unitType, qty);
+
+      } else if (action === 'influence') {
+        const { territory = '', opSpent = 1 } = params;
+        // Aggiungi influenza: opSpent punti
+        await addInfluence(territory, opSpent);
+
+      } else if (action === 'attack') {
+        const {
+          territory = '', unitTypes = [], attackForce = 1, defenseForce = 1,
+          result = 'stallo', infChangeAtk = 0, infChangeDef = 0,
+          defconChange = 0, description = '', attackerUnitsLost = 0, stabilityChange = 0,
+        } = params;
+
+        // Trova il difensore principale nel territorio
+        const { militaryUnits, territories: terrRecs } = get();
+        const defUnits = militaryUnits.filter(u => u.territory === territory && u.faction !== myFaction);
+        const terrRec  = terrRecs.find(t => t.territory === territory);
+        let defender: import('@/types/game').Faction = 'Iran';
+        if (defUnits.length > 0) {
+          defender = defUnits[0].faction as import('@/types/game').Faction;
+        } else if (terrRec) {
+          // Trova la fazione con più influenza come difensore
+          const factions: import('@/types/game').Faction[] = ['Iran','Coalizione','Russia','Cina','Europa'];
+          const best = factions.reduce((max, f) => {
+            const key = `inf_${f.toLowerCase()}` as keyof typeof terrRec;
+            const val = (terrRec[key] as number) ?? 0;
+            const maxKey = `inf_${max.toLowerCase()}` as keyof typeof terrRec;
+            const maxVal = (terrRec[maxKey] as number) ?? 0;
+            return val > maxVal ? f : max;
+          }, factions.find(f => f !== myFaction) ?? 'Iran' as import('@/types/game').Faction);
+          defender = best;
+        }
+
+        await attackTerritory({
+          territory, defender, unitsUsed: unitTypes,
+          attackForce, defenseForce,
+          result: result as Parameters<typeof attackTerritory>[0]['result'],
+          infChangeAtk, infChangeDef, defconChange, description,
+          attackerUnitsLost, stabilityChange,
+        });
+        // attackTerritory gestisce già il passaggio di turno → esci senza chiamare playCardUnified
+        set({ loading: false });
+        return;
+      }
+
+      // Per buy e influence: marca la carta come giocata e passa il turno
+      await playCardUnified(cardId, 'ops');
+      set({ loading: false });
+    } catch (err: unknown) {
+      set({ error: err instanceof Error ? err.message : 'Errore azione OP', loading: false });
     }
   },
 }));
