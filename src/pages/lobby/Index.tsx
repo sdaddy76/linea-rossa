@@ -1,34 +1,19 @@
 // =============================================
-// LINEA ROSSA — Pagina Lobby
-// Crea nuova partita o entra con codice
+// LINEA ROSSA — Lobby
+// Crea partita (ottieni codice) oppure unisciti
+// con codice → WaitingRoom real-time
 // =============================================
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Game, Profile } from '@/types/game';
 import CardLibraryManager from '@/components/CardLibraryManager';
 import BotCardLibraryManager from '@/components/BotCardLibraryManager';
+import WaitingRoom from '@/components/WaitingRoom';
 
 interface LobbyPageProps {
   profile: Profile;
   onJoinGame: (gameId: string) => void;
   onLogout: () => void;
-}
-
-const FACTION_INFO = {
-  Iran:       { flag: '🇮🇷', color: '#22c55e', desc: '24 carte + mazzo speciale', side: 'Strategia offensiva' },
-  Coalizione: { flag: '🇺🇸', color: '#3b82f6', desc: '24 carte + mazzo speciale', side: 'Pressione e sanzioni' },
-  Russia:     { flag: '🇷🇺', color: '#ef4444', desc: '18 carte', side: 'Supporto a Iran' },
-  Cina:       { flag: '🇨🇳', color: '#f59e0b', desc: '18 carte', side: 'Mediazione economica' },
-  Europa:     { flag: '🇪🇺', color: '#8b5cf6', desc: '18 carte', side: 'Diplomazia neutrale' },
-};
-
-type Faction = keyof typeof FACTION_INFO;
-type BotDiff = 'easy' | 'normal' | 'hard';
-
-interface FactionAssignment {
-  playerType: 'human' | 'bot';
-  playerId?: string;
-  botDifficulty: BotDiff;
 }
 
 export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPageProps) {
@@ -42,18 +27,12 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
   const [showLibrary, setShowLibrary] = useState(false);
   const [showBotLibrary, setShowBotLibrary] = useState(false);
 
-  // Assegnazione fazioni — di default TUTTE bot, l'utente sceglie la sua
-  const [factionSetup, setFactionSetup] = useState<Record<Faction, FactionAssignment>>({
-    Iran:       { playerType: 'bot', botDifficulty: 'normal' },
-    Coalizione: { playerType: 'bot', botDifficulty: 'normal' },
-    Russia:     { playerType: 'bot', botDifficulty: 'normal' },
-    Cina:       { playerType: 'bot', botDifficulty: 'normal' },
-    Europa:     { playerType: 'bot', botDifficulty: 'normal' },
-  });
+  // Sala d'attesa
+  const [waitingGame, setWaitingGame] = useState<{
+    id: string; code: string; name: string; isHost: boolean;
+  } | null>(null);
 
-  useEffect(() => {
-    loadMyGames();
-  }, []);
+  useEffect(() => { loadMyGames(); }, []);
 
   const loadMyGames = async () => {
     const { data } = await supabase
@@ -61,79 +40,27 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
       .select('*')
       .in('status', ['lobby', 'active'])
       .order('created_at', { ascending: false })
-      .limit(5);
+      .limit(8);
     if (data) setMyGames(data as Game[]);
   };
 
-  const toggleFaction = (faction: Faction) => {
-    setFactionSetup(prev => {
-      const wasHuman = prev[faction].playerType === 'human';
-      // Reset tutte a bot, poi imposta solo quella selezionata come umana
-      const next = Object.fromEntries(
-        (Object.keys(prev) as Faction[]).map(f => [
-          f,
-          { ...prev[f], playerType: 'bot' as const, playerId: undefined },
-        ])
-      ) as Record<Faction, FactionAssignment>;
-      if (!wasHuman) {
-        // Attiva questa come umana
-        next[faction] = { ...next[faction], playerType: 'human', playerId: profile.id };
-      }
-      // Se wasHuman → deseleziona (torna tutti bot)
-      return next;
-    });
-  };
-
-  const setBotDiff = (faction: Faction, diff: BotDiff) => {
-    setFactionSetup(prev => ({ ...prev, [faction]: { ...prev[faction], botDifficulty: diff } }));
-  };
-
+  // ── CREA PARTITA ─────────────────────────────────────────────────
   const createGame = async () => {
     if (!gameName.trim()) { setError('Inserisci un nome per la partita'); return; }
-    const myFactionEntry = Object.entries(factionSetup).find(([, s]) => s.playerType === 'human');
-    if (!myFactionEntry) { setError('Scegli la tua fazione (clicca su una fazione per giocarla tu)'); return; }
     setLoading(true); setError('');
     try {
-      // 1. Genera codice partita
       const { data: codeData } = await supabase.rpc('generate_game_code');
-      const code = codeData || `GULF-${Math.floor(Math.random()*90+10)}`;
+      const code = (codeData as string) || `GULF-${Math.floor(Math.random() * 90 + 10)}`;
 
-      // 2. Crea la partita
       const { data: game, error: gameError } = await supabase
         .from('games')
         .insert({ name: gameName.trim(), code, created_by: profile.id, max_turns: maxTurns })
         .select()
         .single();
-      if (gameError) throw gameError;
+      if (gameError || !game) throw gameError ?? new Error('Errore creazione');
 
-      // 3. Crea i game_players per ogni fazione
-      const factions = Object.keys(factionSetup) as Faction[];
-      const players = factions.map((faction, idx) => {
-        const setup = factionSetup[faction];
-        return {
-          game_id: game.id,
-          faction,
-          player_id: setup.playerType === 'human' ? setup.playerId : null,
-          is_bot: setup.playerType === 'bot',
-          bot_difficulty: setup.botDifficulty,
-          turn_order: idx + 1,
-          is_ready: setup.playerType === 'bot', // bot sempre pronto
-        };
-      });
-      const { error: playersError } = await supabase.from('game_players').insert(players);
-      if (playersError) throw playersError;
-
-      // 4. Crea stato iniziale
-      const { error: stateError } = await supabase.from('game_state').insert({
-        game_id: game.id,
-        nucleare: 1, sanzioni: 5, opinione: 0, defcon: 5,
-        risorse_iran: 5, risorse_coalizione: 5, risorse_russia: 5, risorse_cina: 5, risorse_europa: 5,
-        stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5, stabilita_cina: 5, stabilita_europa: 5,
-        active_faction: 'Iran',
-      });
-      if (stateError) throw stateError;
-
-      onJoinGame(game.id);
+      // Entra in sala d'attesa come host
+      setWaitingGame({ id: game.id, code: game.code, name: game.name, isHost: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore nella creazione');
     } finally {
@@ -141,6 +68,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
     }
   };
 
+  // ── UNISCITI CON CODICE ──────────────────────────────────────────
   const joinGame = async () => {
     if (!joinCode.trim()) { setError('Inserisci il codice partita'); return; }
     setLoading(true); setError('');
@@ -150,9 +78,20 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
         .select('*')
         .eq('code', joinCode.trim().toUpperCase())
         .single();
-      if (gameError || !game) throw new Error('Partita non trovata');
-      if (game.status === 'finished') throw new Error('Partita già terminata');
-      onJoinGame(game.id);
+      if (gameError || !game) throw new Error('Partita non trovata con questo codice');
+      if (game.status === 'finished') throw new Error('Questa partita è già terminata');
+      if (game.status === 'active') {
+        // Partita già avviata → entra direttamente
+        onJoinGame(game.id);
+        return;
+      }
+      // status === 'lobby' → sala d'attesa
+      setWaitingGame({
+        id: game.id,
+        code: game.code,
+        name: game.name,
+        isHost: game.created_by === profile.id,
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Codice non valido');
     } finally {
@@ -160,31 +99,56 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
     }
   };
 
-  const humanCount = Object.values(factionSetup).filter(f => f.playerType === 'human').length;
+  // ── Riconnetti a partita recente ────────────────────────────────
+  const rejoinGame = async (game: Game) => {
+    if (game.status === 'active') {
+      onJoinGame(game.id);
+    } else {
+      setWaitingGame({
+        id: game.id, code: game.code, name: game.name,
+        isHost: game.created_by === profile.id,
+      });
+    }
+  };
 
+  // ── WaitingRoom attiva ───────────────────────────────────────────
+  if (waitingGame) {
+    return (
+      <WaitingRoom
+        gameId={waitingGame.id}
+        gameCode={waitingGame.code}
+        gameName={waitingGame.name}
+        profile={profile}
+        isHost={waitingGame.isHost}
+        onGameStart={() => onJoinGame(waitingGame.id)}
+        onLeave={() => { setWaitingGame(null); loadMyGames(); }}
+      />
+    );
+  }
+
+  // ── Schermata principale Lobby ───────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0a0e1a] p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-lg mx-auto">
+
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-[#00ff88] font-mono tracking-widest">☢️ LINEA ROSSA</h1>
-            <p className="text-[#8899aa] text-xs font-mono">Benvenuto, <span className="text-white">{profile.username}</span></p>
+            <h1 className="text-xl font-black text-[#00ff88] font-mono tracking-widest">☢️ LINEA ROSSA</h1>
+            <p className="text-[#8899aa] text-xs font-mono mt-0.5">
+              Benvenuto, <span className="text-white font-bold">{profile.username}</span>
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowLibrary(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#1e3a5f]
-                hover:border-[#00ff88] text-[#8899aa] hover:text-[#00ff88]
-                rounded-lg font-mono text-xs transition-colors">
-              🃏 Libreria Carte
+            <button onClick={() => setShowLibrary(true)}
+              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#00ff88]
+                text-[#8899aa] hover:text-[#00ff88] rounded-lg font-mono text-xs transition-colors">
+              🃏 Carte
             </button>
-            <button
-              onClick={() => setShowBotLibrary(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#1e3a5f]
-                hover:border-[#c8a55a] text-[#8899aa] hover:text-[#c8a55a]
-                rounded-lg font-mono text-xs transition-colors">
-              🤖 Carte BOT
+            <button onClick={() => setShowBotLibrary(true)}
+              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#c8a55a]
+                text-[#8899aa] hover:text-[#c8a55a] rounded-lg font-mono text-xs transition-colors">
+              🤖 BOT
             </button>
             <button onClick={onLogout}
               className="px-3 py-1.5 border border-[#334455] text-[#8899aa] hover:text-white
@@ -195,160 +159,154 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {(['create','join'] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`px-5 py-2.5 rounded-lg font-mono text-sm font-bold transition-all ${
-                tab === t ? 'bg-[#00ff88] text-[#0a0e1a]' : 'border border-[#1e3a5f] text-[#8899aa] hover:text-white'
-              }`}>
-              {t === 'create' ? '🎮 NUOVA PARTITA' : '🔗 ENTRA CON CODICE'}
+        <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-[#060d18] rounded-xl border border-[#1e3a5f]">
+          {(['create', 'join'] as const).map(t => (
+            <button key={t} onClick={() => { setTab(t); setError(''); }}
+              className="py-2.5 rounded-lg font-mono text-sm font-bold transition-all"
+              style={{
+                background: tab === t ? '#00ff88' : 'transparent',
+                color: tab === t ? '#0a0e1a' : '#8899aa',
+              }}>
+              {t === 'create' ? '🎮 Nuova partita' : '🔗 Entra con codice'}
             </button>
           ))}
         </div>
 
-        {/* CREATE */}
+        {/* ── TAB: CREA ── */}
         {tab === 'create' && (
-          <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="rounded-xl border border-[#1e3a5f] bg-[#0d1424] p-5 space-y-4">
               <div>
-                <label className="block text-xs font-mono text-[#8899aa] mb-1">NOME PARTITA</label>
-                <input value={gameName} onChange={e => setGameName(e.target.value)}
+                <label className="block text-[10px] font-mono text-[#8899aa] uppercase tracking-widest mb-1.5">
+                  Nome partita
+                </label>
+                <input
+                  value={gameName}
+                  onChange={e => setGameName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && createGame()}
                   placeholder="es. Crisi del Golfo 2026"
-                  className="w-full bg-[#111827] border border-[#1e3a5f] rounded-lg px-4 py-2.5
-                    text-white font-mono text-sm focus:outline-none focus:border-[#00ff88] placeholder-[#334455]" />
+                  className="w-full bg-[#060d18] border border-[#1e3a5f] rounded-lg px-4 py-2.5
+                    text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]
+                    placeholder-[#334455] transition-colors"
+                />
               </div>
               <div>
-                <label className="block text-xs font-mono text-[#8899aa] mb-1">TURNI MAX</label>
-                <select value={maxTurns} onChange={e => setMaxTurns(Number(e.target.value))}
-                  className="w-full bg-[#111827] border border-[#1e3a5f] rounded-lg px-4 py-2.5
+                <label className="block text-[10px] font-mono text-[#8899aa] uppercase tracking-widest mb-1.5">
+                  Turni massimi
+                </label>
+                <select
+                  value={maxTurns}
+                  onChange={e => setMaxTurns(Number(e.target.value))}
+                  className="w-full bg-[#060d18] border border-[#1e3a5f] rounded-lg px-4 py-2.5
                     text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]">
-                  {[10,15,20,25,30].map(n => <option key={n} value={n}>{n} turni</option>)}
+                  {[10, 15, 20, 25, 30].map(n => (
+                    <option key={n} value={n}>{n} turni</option>
+                  ))}
                 </select>
               </div>
-            </div>
 
-            {/* Fazione setup */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <h3 className="text-sm font-mono text-[#8899aa] font-bold">SCEGLI LA TUA FAZIONE</h3>
-                <span className="text-xs font-mono text-[#00ff88]">
-                  {humanCount === 0 ? '⚠️ nessuna selezionata' : `👤 ${Object.entries(factionSetup).find(([,s]) => s.playerType === 'human')?.[0] ?? ''}`}
-                </span>
-              </div>
-              <p className="text-xs font-mono text-[#445566] mb-3">
-                Clicca su una fazione per giocarla tu — le altre saranno controllate dal bot
-              </p>
-              <div className="space-y-2">
-                {(Object.keys(FACTION_INFO) as Faction[]).map(faction => {
-                  const info = FACTION_INFO[faction];
-                  const setup = factionSetup[faction];
-                  const isHuman = setup.playerType === 'human';
-                  return (
-                    <div key={faction}
-                      className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                        isHuman
-                          ? 'border-[#00ff88] bg-[#00ff8810]'
-                          : 'border-[#1e3a5f] bg-[#111827]'
-                      }`}>
-                      <span className="text-2xl">{info.flag}</span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-sm" style={{ color: info.color }}>
-                            {faction}
-                          </span>
-                          <span className="text-[#334455] text-xs font-mono">{info.desc}</span>
-                        </div>
-                        <p className="text-[#8899aa] text-xs font-mono">{info.side}</p>
-                      </div>
-                      {/* Difficoltà bot */}
-                      {!isHuman && (
-                        <select
-                          value={setup.botDifficulty}
-                          onChange={e => setBotDiff(faction, e.target.value as BotDiff)}
-                          onClick={e => e.stopPropagation()}
-                          className="bg-[#0a0e1a] border border-[#1e3a5f] rounded px-2 py-1
-                            text-[#8899aa] font-mono text-xs focus:outline-none">
-                          <option value="easy">🟢 Facile</option>
-                          <option value="normal">🟡 Normale</option>
-                          <option value="hard">🔴 Difficile</option>
-                        </select>
-                      )}
-                      {/* Toggle umano/bot */}
-                      <button onClick={() => toggleFaction(faction)}
-                        className={`px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all ${
-                          isHuman
-                            ? 'bg-[#00ff88] text-[#0a0e1a]'
-                            : 'border border-[#334455] text-[#8899aa] hover:border-[#00ff88] hover:text-[#00ff88]'
-                        }`}>
-                        {isHuman ? '👤 TU' : '🤖 BOT'}
-                      </button>
-                    </div>
-                  );
-                })}
+              {/* Info flusso */}
+              <div className="flex gap-2 items-start p-3 rounded-lg bg-[#060d18] border border-[#1e2a3a]">
+                <span className="text-base mt-0.5">💡</span>
+                <p className="text-xs font-mono text-[#556677] leading-relaxed">
+                  Dopo aver creato la partita riceverai un <strong className="text-[#8899aa]">codice</strong> da
+                  condividere con gli altri giocatori. Ognuno sceglierà la propria fazione in sala d'attesa.
+                  Le fazioni non assegnate saranno controllate dal bot.
+                </p>
               </div>
             </div>
 
             {error && (
-              <div className="bg-[#ff000015] border border-[#ff4444] rounded-lg p-3 text-[#ff6666] text-xs font-mono">
+              <div className="px-4 py-3 rounded-lg border border-[#ff4444] bg-[#ff000010]
+                text-[#ff6666] text-xs font-mono">
                 ⚠️ {error}
               </div>
             )}
 
-            <button onClick={createGame} disabled={loading}
-              className="w-full py-3 bg-[#00ff88] hover:bg-[#00dd77] disabled:opacity-50
-                text-[#0a0e1a] font-bold font-mono rounded-lg transition-all
-                shadow-lg shadow-[#00ff8840] tracking-widest">
-              {loading ? '⏳ CREAZIONE...' : '🚀 CREA PARTITA'}
+            <button
+              onClick={createGame}
+              disabled={loading || !gameName.trim()}
+              className="w-full py-3.5 rounded-xl font-black font-mono tracking-widest text-sm
+                transition-all disabled:opacity-40"
+              style={{
+                background: 'linear-gradient(135deg, #00ff88, #00cc66)',
+                color: '#0a0e1a',
+                boxShadow: '0 0 30px #00ff8840',
+              }}>
+              {loading ? '⏳ CREAZIONE…' : '🚀 CREA PARTITA'}
             </button>
           </div>
         )}
 
-        {/* JOIN */}
+        {/* ── TAB: UNISCITI ── */}
         {tab === 'join' && (
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-mono text-[#8899aa] mb-1">CODICE PARTITA</label>
-              <input value={joinCode} onChange={e => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="es. GULF-42"
-                maxLength={10}
-                className="w-full bg-[#111827] border border-[#1e3a5f] rounded-lg px-4 py-3
-                  text-white font-mono text-lg tracking-widest focus:outline-none focus:border-[#00ff88]
-                  placeholder-[#334455]" />
+            <div className="rounded-xl border border-[#1e3a5f] bg-[#0d1424] p-5 space-y-4">
+              <div>
+                <label className="block text-[10px] font-mono text-[#8899aa] uppercase tracking-widest mb-1.5">
+                  Codice partita
+                </label>
+                <input
+                  value={joinCode}
+                  onChange={e => setJoinCode(e.target.value.toUpperCase())}
+                  onKeyDown={e => e.key === 'Enter' && joinGame()}
+                  placeholder="es. GULF-42"
+                  maxLength={12}
+                  className="w-full bg-[#060d18] border border-[#1e3a5f] rounded-lg px-4 py-3
+                    text-white font-mono text-xl tracking-[0.25em] text-center
+                    focus:outline-none focus:border-[#00ff88] placeholder-[#334455]
+                    placeholder:text-base placeholder:tracking-normal transition-colors"
+                />
+              </div>
             </div>
 
             {error && (
-              <div className="bg-[#ff000015] border border-[#ff4444] rounded-lg p-3 text-[#ff6666] text-xs font-mono">
+              <div className="px-4 py-3 rounded-lg border border-[#ff4444] bg-[#ff000010]
+                text-[#ff6666] text-xs font-mono">
                 ⚠️ {error}
               </div>
             )}
 
-            <button onClick={joinGame} disabled={loading}
-              className="w-full py-3 bg-[#3b82f6] hover:bg-[#2563eb] disabled:opacity-50
-                text-white font-bold font-mono rounded-lg transition-all tracking-widest">
-              {loading ? '⏳ RICERCA...' : '🔗 ENTRA NELLA PARTITA'}
+            <button
+              onClick={joinGame}
+              disabled={loading || !joinCode.trim()}
+              className="w-full py-3.5 rounded-xl font-black font-mono tracking-widest text-sm
+                transition-all disabled:opacity-40"
+              style={{
+                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                color: '#fff',
+                boxShadow: '0 0 30px #3b82f640',
+              }}>
+              {loading ? '⏳ RICERCA…' : '🔗 ENTRA NELLA PARTITA'}
             </button>
 
             {/* Partite recenti */}
             {myGames.length > 0 && (
               <div>
-                <h3 className="text-xs font-mono text-[#8899aa] mb-2">PARTITE RECENTI</h3>
+                <h3 className="text-[10px] font-mono text-[#445566] uppercase tracking-widest mb-2 mt-2">
+                  Partite recenti
+                </h3>
                 <div className="space-y-2">
                   {myGames.map(game => (
-                    <button key={game.id} onClick={() => onJoinGame(game.id)}
-                      className="w-full flex items-center justify-between p-3 bg-[#111827]
-                        border border-[#1e3a5f] hover:border-[#00ff88] rounded-lg transition-all">
-                      <div className="text-left">
+                    <button
+                      key={game.id}
+                      onClick={() => rejoinGame(game)}
+                      className="w-full flex items-center justify-between p-3 bg-[#0d1424]
+                        border border-[#1e3a5f] hover:border-[#00ff88] rounded-xl transition-all text-left">
+                      <div>
                         <p className="font-mono font-bold text-white text-sm">{game.name}</p>
-                        <p className="font-mono text-[#8899aa] text-xs">Turno {game.current_turn}/{game.max_turns}</p>
+                        <p className="font-mono text-[#556677] text-xs mt-0.5">
+                          Codice: <span className="text-[#00ff88]">{game.code}</span>
+                          {' · '}Turno {game.current_turn}/{game.max_turns}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[#00ff88] text-xs font-bold">{game.code}</span>
-                        <span className={`px-2 py-0.5 rounded text-xs font-mono font-bold ${
-                          game.status === 'lobby' ? 'bg-[#f59e0b30] text-[#f59e0b]' : 'bg-[#00ff8830] text-[#00ff88]'
-                        }`}>
-                          {game.status.toUpperCase()}
-                        </span>
-                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ml-2 shrink-0 ${
+                        game.status === 'lobby'
+                          ? 'bg-[#f59e0b30] text-[#f59e0b]'
+                          : 'bg-[#00ff8830] text-[#00ff88]'
+                      }`}>
+                        {game.status === 'lobby' ? 'IN ATTESA' : 'ATTIVA'}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -358,22 +316,16 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
         )}
       </div>
 
-      {/* Gestore libreria carte */}
-      {showLibrary && (
-        <CardLibraryManager onClose={() => setShowLibrary(false)} />
-      )}
-
-      {/* Gestore libreria carte BOT */}
+      {/* Modali librerie */}
+      {showLibrary && <CardLibraryManager onClose={() => setShowLibrary(false)} />}
       {showBotLibrary && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-5 py-3
+              flex items-center justify-between z-10">
               <span className="font-bold text-gray-800">🤖 Gestione Carte BOT</span>
-              <button
-                onClick={() => setShowBotLibrary(false)}
-                className="text-gray-400 hover:text-gray-700 text-xl font-bold leading-none">
-                ×
-              </button>
+              <button onClick={() => setShowBotLibrary(false)}
+                className="text-gray-400 hover:text-gray-700 text-xl font-bold">×</button>
             </div>
             <BotCardLibraryManager />
           </div>
