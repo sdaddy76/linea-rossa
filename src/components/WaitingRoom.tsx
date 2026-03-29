@@ -43,6 +43,7 @@ export default function WaitingRoom({
 }: WaitingRoomProps) {
   const [players, setPlayers] = useState<LobbyPlayer[]>([]);
   const [myFaction, setMyFaction] = useState<Faction | null>(null);
+  const myFactionRef = useRef<Faction | null>(null); // ref sempre aggiornato — evita stale closure
   const isSwitchingFaction = useRef(false); // guard: evita reset durante cambio fazione
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
@@ -61,12 +62,15 @@ export default function WaitingRoom({
       // Recupera la fazione che ho già scelto (sync con DB)
       const me = data.find((p: LobbyPlayer) => p.player_id === profile.id);
       if (me?.faction) {
+        // Il giocatore ha una fazione nel DB → aggiorna stato
         setMyFaction(me.faction as Faction);
-      } else if (!me && !isSwitchingFaction.current) {
-        // Non sono più nella lista E non stiamo cambiando fazione → deseleziono
+        myFactionRef.current = me.faction as Faction;
+      } else if (!isSwitchingFaction.current) {
+        // Nessuna fazione nel DB (me assente o faction=null) → deseleziono
+        // Copre sia il caso in cui non sono nella lista, sia il caso faction=null
         setMyFaction(null);
+        myFactionRef.current = null;
       }
-      // Se me esiste ma faction è null → utente ha deselezionato
     }
   }, [gameId, profile.id]);
 
@@ -99,13 +103,15 @@ export default function WaitingRoom({
       .subscribe();
 
     // Ascolta avvio partita (games.status → active)
+    // NOTA: usa myFactionRef.current (non myFaction) per evitare la stale closure:
+    // la subscription viene creata una sola volta ma myFaction può cambiare dopo
     const gameCh = supabase
       .channel(`lobby-game-${gameId}`)
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'games',
         filter: `id=eq.${gameId}`,
       }, (payload) => {
-        if (payload.new?.status === 'active') onGameStart(myFaction);
+        if (payload.new?.status === 'active') onGameStart(myFactionRef.current);
       })
       .subscribe();
 
@@ -127,6 +133,7 @@ export default function WaitingRoom({
           .eq('game_id', gameId)
           .eq('player_id', profile.id);
         setMyFaction(null);
+        myFactionRef.current = null;
       } catch { setError('Errore nella deselezione'); }
       finally { setLoading(false); }
       return;
@@ -168,6 +175,7 @@ export default function WaitingRoom({
         }
       } else {
         setMyFaction(faction);
+        myFactionRef.current = faction;
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore nella scelta');
