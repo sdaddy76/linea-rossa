@@ -215,26 +215,24 @@ export default function WaitingRoom({
 
     setStarting(true); setError('');
     try {
+      console.log('[startGame] step 1 — inserimento bot');
       // Fazioni non prese da umani → assegna bot
-      // Includo myFaction come taken anche se il RT non ha ancora aggiornato players
       const takenFactions = new Set(players.filter(p => p.player_id).map(p => p.faction));
       if (myFaction) takenFactions.add(myFaction);
       const botFactions = TURN_ORDER.filter(f => !takenFactions.has(f));
 
-      // Inserisci bot per le fazioni libere
       if (botFactions.length > 0) {
         const botRows = botFactions.map(f => ({
-          game_id: gameId,
-          faction: f,
-          player_id: null,
-          is_bot: true,
-          bot_difficulty: 'normal',
-          turn_order: TURN_ORDER.indexOf(f) + 1,
-          is_ready: true,
+          game_id: gameId, faction: f, player_id: null,
+          is_bot: true, bot_difficulty: 'normal',
+          turn_order: TURN_ORDER.indexOf(f) + 1, is_ready: true,
         }));
-        // upsert: evita conflict se un bot era già stato inserito
-        await supabase.from('game_players').upsert(botRows, { onConflict: 'game_id,faction', ignoreDuplicates: false });
+        const { error: botErr } = await supabase
+          .from('game_players')
+          .upsert(botRows, { onConflict: 'game_id,faction', ignoreDuplicates: false });
+        if (botErr) { console.error('[startGame] bot insert err:', botErr); throw botErr; }
       }
+      console.log('[startGame] step 2 — game_state');
 
       // ── Inizializza game_state con SOLO le colonne garantite dal DB ──
       // Le colonne units_*, special_uses, tracciati fazione sono opzionali
@@ -272,7 +270,7 @@ export default function WaitingRoom({
         }).eq('game_id', gameId);
       } catch { /* colonne opzionali non ancora presenti nel DB — ignorato */ }
 
-      // Inizializza mazzi carte
+      console.log('[startGame] step 3 — mazzi carte');
       const { getFullDeck, CLASSIC_HAND_SIZE: HAND_SIZE } = await import('@/data/mazzi');
       const allPlayers = await supabase
         .from('game_players')
@@ -303,11 +301,15 @@ export default function WaitingRoom({
           });
         });
       }
-      // upsert: evita "duplicate key" se startGame viene chiamata più volte
+      console.log('[startGame] deckRows da inserire:', deckRows.length);
       if (deckRows.length > 0) {
-        await supabase.from('cards_deck').upsert(deckRows, { onConflict: 'game_id,card_id', ignoreDuplicates: true });
+        const { error: deckErr } = await supabase
+          .from('cards_deck')
+          .upsert(deckRows, { onConflict: 'game_id,card_id', ignoreDuplicates: true });
+        if (deckErr) { console.error('[startGame] deck upsert err:', deckErr); throw deckErr; }
       }
 
+      console.log('[startGame] step 4 — territori');
       // Inizializza territori (stesso schema usato da onlineGameStore: territories + territory + inf_*)
       const { TERRITORIES } = await import('@/lib/territoriesData');
       const terrRows = TERRITORIES.map(t => ({
@@ -319,15 +321,24 @@ export default function WaitingRoom({
         inf_cina:       0,
         inf_europa:     0,
       }));
-      await supabase.from('territories').upsert(terrRows, { onConflict: 'game_id,territory' });
+      const { error: terrErr } = await supabase
+        .from('territories')
+        .upsert(terrRows, { onConflict: 'game_id,territory' });
+      if (terrErr) { console.error('[startGame] territori err:', terrErr); throw terrErr; }
+      console.log('[startGame] step 5 — aggiorna games.status');
 
       // Cambia status → active (triggera real-time su tutti i client)
-      // Salva anche game_mode per distinguere mazzo classico da unificato
       const { error: gameErr } = await supabase
         .from('games')
-        .update({ status: 'active', started_at: new Date().toISOString(), game_mode: gameMode })
+        .update({ status: 'active', started_at: new Date().toISOString() })
         .eq('id', gameId);
       if (gameErr) throw gameErr;
+
+      // Prova a salvare game_mode (richiede migration add_unified_deck_columns.sql)
+      // Non blocca l'avvio se la colonna non esiste ancora
+      try {
+        await supabase.from('games').update({ game_mode: gameMode }).eq('id', gameId);
+      } catch { /* colonna game_mode non presente — la migration non è stata eseguita */ }
 
       // Se mazzo unificato: costruisci mazzo unico al posto dei mazzi separati
       if (gameMode === 'unified') {
@@ -368,14 +379,16 @@ export default function WaitingRoom({
 
       // L'host viene notificato tramite real-time come tutti gli altri
     } catch (err: unknown) {
-      let msg = err instanceof Error ? err.message : 'Errore nell\'avvio';
-      if (typeof err === 'object' && err !== null) {
-        const pe = err as Record<string, string>;
-        if (pe.details) msg += ' — ' + pe.details;
-        if (pe.hint)    msg += ' [' + pe.hint + ']';
-      }
-      console.error('[WaitingRoom startGame] errore:', msg, err);
-      setError(msg);
+      const pe = (typeof err === 'object' && err !== null) ? err as Record<string, string> : {};
+      const msg = pe.message ?? (err instanceof Error ? err.message : 'Errore nell\'avvio');
+      const detail = [
+        pe.code    ? `code=${pe.code}`       : '',
+        pe.details ? `details: ${pe.details}` : '',
+        pe.hint    ? `hint: ${pe.hint}`       : '',
+      ].filter(Boolean).join(' | ');
+      const full = detail ? `${msg} — ${detail}` : msg;
+      console.error('[WaitingRoom startGame] errore:', full, err);
+      setError(full);
       setStarting(false);
     }
   };
