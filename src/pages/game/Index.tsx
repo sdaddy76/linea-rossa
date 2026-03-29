@@ -18,19 +18,12 @@ import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
 import EventoModal from '@/components/EventoModal';
 import UnifiedCardPlayModal from '@/components/UnifiedCardPlayModal';
+import { ClassicHandCard, UnifiedHandCard } from '@/components/HandCard';
+import { FACTION_FLAGS, FACTION_COLORS, CARD_TYPE_COLORS } from '@/lib/factionColors';
 import type { EventoCard } from '@/data/eventi';
 
 // ─── Colori fazione ───────────────────────────
-const FACTION_FLAGS: Record<string, string> = {
-  Iran: '🇮🇷', Coalizione: '🇺🇸', Russia: '🇷🇺', Cina: '🇨🇳', Europa: '🇪🇺',
-};
-const FACTION_COLORS: Record<string, string> = {
-  Iran: '#22c55e', Coalizione: '#3b82f6', Russia: '#ef4444', Cina: '#f59e0b', Europa: '#8b5cf6',
-};
-const CARD_TYPE_COLORS: Record<string, string> = {
-  Militare: '#ef4444', Diplomatico: '#3b82f6', Economico: '#f59e0b',
-  Segreto: '#8b5cf6', Media: '#ec4899', Evento: '#f97316', Politico: '#6b7280',
-};
+// Importati da @/lib/factionColors
 
 // ─── Definizione tracciati ────────────────────
 interface TrackZone { from: number; to: number; color: string; bg: string; label: string; }
@@ -899,60 +892,18 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           🎴 Nessuna carta in mano
                         </p>
                       )}
-                      {myHandCards.map(dc => {
-                        const ownerFaction = (dc.owner_faction ?? dc.faction) as string;
-                        const ownerColor = FACTION_COLORS[ownerFaction] ?? '#8899aa';
-                        const isMyOwn = ownerFaction === myFaction;
-                        const isSelected = selectedUnifiedCard === dc.id;
-                        return (
-                          <button key={dc.id}
-                            onClick={() => {
-                              if (!isMyTurn || isBotThinking) return;
-                              setSelectedUnifiedCard(isSelected ? null : dc.id);
-                            }}
-                            disabled={!isMyTurn || isBotThinking}
-                            className={`w-full text-left p-3 rounded-lg border transition-all ${
-                              isSelected
-                                ? 'ring-2 ring-[#f97316]'
-                                : 'hover:border-opacity-60'
-                            } ${(!isMyTurn || isBotThinking) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                            style={{
-                              borderColor: isSelected ? '#f97316' : `${ownerColor}40`,
-                              backgroundColor: isSelected ? '#f9731612' : `${ownerColor}08`,
-                            }}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="text-xs">{FACTION_FLAGS[ownerFaction] ?? '🎴'}</span>
-                                  <span className="text-[9px] font-mono font-bold"
-                                    style={{ color: ownerColor }}>
-                                    {ownerFaction}
-                                  </span>
-                                  {!isMyOwn && (
-                                    <span className="text-[8px] font-mono px-1 rounded bg-[#f9731620] text-[#f97316] border border-[#f9731640]">
-                                      altrui
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="font-mono font-bold text-xs text-white truncate">
-                                  {dc.card_name}
-                                </p>
-                                <p className="font-mono text-[10px] text-[#556677] mt-0.5">
-                                  {dc.card_type} · {dc.card_id}
-                                </p>
-                              </div>
-                              <div className="flex flex-col items-end gap-1 shrink-0">
-                                <span className="text-base font-black font-mono"
-                                  style={{ color: ownerColor }}>{dc.op_points}</span>
-                                <span className="text-[8px] font-mono text-[#556677]">OP</span>
-                                {isMyOwn
-                                  ? <span className="text-[8px] font-mono text-[#22c55e]">evt|ops</span>
-                                  : <span className="text-[8px] font-mono text-[#f97316]">ops+evt↗</span>}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                      {myHandCards.map(dc => (
+                        <UnifiedHandCard
+                          key={dc.id}
+                          dc={dc}
+                          myFaction={myFaction!}
+                          selected={selectedUnifiedCard === dc.id}
+                          disabled={!isMyTurn || isBotThinking}
+                          onToggle={() => setSelectedUnifiedCard(
+                            selectedUnifiedCard === dc.id ? null : dc.id
+                          )}
+                        />
+                      ))}
                     </div>
                   )}
                 </div>
@@ -994,74 +945,19 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                             🃏 Mazzo esaurito — nessuna carta disponibile
                           </p>
                         )}
-                      {myCards.map(card => {
-                        const typeColor = CARD_TYPE_COLORS[card.card_type] ?? '#8899aa';
-                        const isSelected = selectedCard === card.card_id;
-
-                        // ── Calcola effetti contestualizzati col valore corrente dei tracciati ──
-                        const eff = card.effects;
-                        const dN = eff.nucleare?.(gameState.nucleare) ?? 0;
-                        const dS = eff.sanzioni?.(gameState.sanzioni) ?? 0;
-                        const dD = eff.defcon?.(gameState.defcon) ?? 0;
-                        const dO = eff.opinione?.(gameState.opinione) ?? 0;
-                        const myRis = (gameState[`risorse_${(myFaction ?? 'iran').toLowerCase()}` as keyof GameState] as number) ?? 5;
-                        const myStab = (gameState[`stabilita_${(myFaction ?? 'iran').toLowerCase()}` as keyof GameState] as number) ?? 5;
-                        const dR = eff.risorse?.(myRis) ?? 0;
-                        const dSt = eff.stabilita?.(myStab) ?? 0;
-                        const effPills: { icon: string; val: number; pos: string; neg: string }[] = [
-                          { icon: '☢️', val: dN,  pos: '#22c55e', neg: '#ef4444' },
-                          { icon: '💰', val: dS,  pos: '#3b82f6', neg: '#f59e0b' },
-                          { icon: '🎯', val: dD,  pos: '#22c55e', neg: '#ef4444' },
-                          { icon: '🌍', val: dO,  pos: '#8b5cf6', neg: '#ec4899' },
-                          { icon: '📦', val: dR,  pos: '#f59e0b', neg: '#8899aa' },
-                          { icon: '🏛️', val: dSt, pos: '#22c55e', neg: '#ef4444' },
-                        ].filter(e => e.val !== 0);
-
-                        return (
-                          <button key={card.card_id}
-                            onClick={() => setSelectedCard(isSelected ? null : card.card_id)}
-                            disabled={!isMyTurn || isBotThinking}
-                            className={`w-full text-left p-3 rounded-lg border transition-all ${
-                              isSelected
-                                ? 'border-[#00ff88] bg-[#00ff8815] ring-1 ring-[#00ff88]'
-                                : 'border-[#1e2a3a] hover:border-[#2a3a5a] bg-[#0a0e1a]'
-                            } ${(!isMyTurn || isBotThinking) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.01]'}`}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="font-mono font-bold text-xs text-white truncate">
-                                  {card.card_name}
-                                </p>
-                                <p className="font-mono text-[10px] text-[#8899aa] mt-0.5 line-clamp-2">
-                                  {card.description}
-                                </p>
-                                {/* Effetti contestualizzati */}
-                                {effPills.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                    {effPills.map((p, i) => (
-                                      <span key={i}
-                                        title={`${p.icon} ${p.val > 0 ? '+' : ''}${p.val} (valore corrente tracciato)`}
-                                        style={{ color: p.val > 0 ? p.pos : p.neg, backgroundColor: `${p.val > 0 ? p.pos : p.neg}20` }}
-                                        className="text-[10px] font-mono px-1 rounded cursor-default">
-                                        {p.icon}{p.val > 0 ? '+' : ''}{p.val}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex flex-col items-end gap-1 shrink-0">
-                                <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
-                                  style={{ color: typeColor, backgroundColor: `${typeColor}20` }}>
-                                  {card.card_type}
-                                </span>
-                                <span className="text-[10px] font-mono text-[#f59e0b]">OP {card.op_points}</span>
-                                {card.deck_type === 'speciale' && (
-                                  <span className="text-[10px] font-mono text-[#8b5cf6]">★ SPEC</span>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                      {myCards.map(card => (
+                        <ClassicHandCard
+                          key={card.card_id}
+                          card={card}
+                          faction={myFaction!}
+                          gameState={gameState}
+                          selected={selectedCard === card.card_id}
+                          disabled={!isMyTurn || isBotThinking}
+                          onToggle={() => setSelectedCard(
+                            selectedCard === card.card_id ? null : card.card_id
+                          )}
+                        />
+                      ))}
                     </div>
                   )}
 

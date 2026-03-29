@@ -16,26 +16,7 @@
 // =============================================
 import { useState } from 'react';
 import type { DeckCard, Faction } from '@/types/game';
-
-// Colori fazione
-const FACTION_COLORS: Record<string, string> = {
-  Iran:       '#22c55e',
-  Coalizione: '#3b82f6',
-  Russia:     '#ef4444',
-  Cina:       '#f97316',
-  Europa:     '#8b5cf6',
-};
-const FACTION_FLAGS: Record<string, string> = {
-  Iran: '🇮🇷', Coalizione: '🏳️', Russia: '🇷🇺', Cina: '🇨🇳', Europa: '🇪🇺',
-};
-const CARD_TYPE_COLORS: Record<string, string> = {
-  Militare:   '#ef4444',
-  Diplomatico:'#3b82f6',
-  Economico:  '#22c55e',
-  Segreto:    '#8b5cf6',
-  Media:      '#f59e0b',
-  Speciale:   '#f97316',
-};
+import { FACTION_COLORS, FACTION_FLAGS, CARD_TYPE_COLORS } from '@/lib/factionColors';
 
 interface Props {
   card: DeckCard;
