@@ -84,8 +84,8 @@ function AppRouter() {
     }
   }, [game?.id, view]);
 
-  const handleJoinGame = async (gameId: string) => {
-    await loadGame(gameId);
+  const handleJoinGame = async (gameId: string, chosenFaction?: string) => {
+    await loadGame(gameId, chosenFaction ?? null);
     setView('game');
   };
 

@@ -12,7 +12,7 @@ import WaitingRoom from '@/components/WaitingRoom';
 
 interface LobbyPageProps {
   profile: Profile;
-  onJoinGame: (gameId: string) => void;
+  onJoinGame: (gameId: string, chosenFaction?: string) => void;
   onLogout: () => void;
 }
 
@@ -149,7 +149,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout }: LobbyPagePr
         gameName={waitingGame.name}
         profile={profile}
         isHost={waitingGame.isHost}
-        onGameStart={() => onJoinGame(waitingGame.id)}
+        onGameStart={(faction) => onJoinGame(waitingGame.id, faction)}
         onLeave={() => { setWaitingGame(null); loadMyGames(); }}
       />
     );

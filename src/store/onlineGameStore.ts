@@ -36,7 +36,7 @@ interface OnlineGameStore {
   // Actions
   initAuth: () => Promise<void>;
   logout: () => Promise<void>;
-  loadGame: (gameId: string) => Promise<void>;
+  loadGame: (gameId: string, forceFaction?: string | null) => Promise<void>;
   startGame: () => Promise<void>;
   playCard: (cardId: string) => Promise<void>;
   runBotTurn: () => Promise<void>;
@@ -136,7 +136,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   },
 
   // -----------------------------------------------
-  loadGame: async (gameId: string) => {
+  loadGame: async (gameId: string, forceFaction?: string | null) => {
     set({ loading: true, error: null });
     try {
       const [gameRes, playersRes, stateRes, movesRes, deckRes] = await Promise.all([
@@ -151,12 +151,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const { profile } = get();
       const players = (playersRes.data ?? []) as GamePlayer[];
       const myPlayer = players.find(p => p.player_id === profile?.id);
+      // forceFaction: usato quando il redirect avviene prima che i bot siano nel DB
+      // evita che myFaction sia null per timing issue
+      const resolvedFaction = (myPlayer?.faction ?? forceFaction ?? null) as import('./onlineGameStore').Faction | null;
 
       set({
         game: gameRes.data as Game,
         players,
         gameState: stateRes.data as GameState,
-        myFaction: myPlayer?.faction ?? null,
+        myFaction: resolvedFaction,
         moves: (movesRes.data ?? []) as MoveLog[],
         deckCards: (deckRes.data ?? []) as DeckCard[],
         loading: false,

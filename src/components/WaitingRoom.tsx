@@ -34,7 +34,7 @@ interface WaitingRoomProps {
   gameName: string;
   profile: Profile;
   isHost: boolean;                          // chi ha creato la partita
-  onGameStart: () => void;                  // callback quando status → active
+  onGameStart: (faction: string | null) => void; // callback quando status → active
   onLeave: () => void;
 }
 
@@ -105,7 +105,7 @@ export default function WaitingRoom({
         event: 'UPDATE', schema: 'public', table: 'games',
         filter: `id=eq.${gameId}`,
       }, (payload) => {
-        if (payload.new?.status === 'active') onGameStart();
+        if (payload.new?.status === 'active') onGameStart(myFaction);
       })
       .subscribe();
 
