@@ -126,6 +126,7 @@ export default function WaitingRoom({
     // Se già selezionata → deseleziona
     if (myFaction === faction) {
       setLoading(true); setError('');
+      isSwitchingFaction.current = true; // ← FIX: blocca il real-time anche durante la deselezione
       try {
         await supabase
           .from('game_players')
@@ -135,7 +136,10 @@ export default function WaitingRoom({
         setMyFaction(null);
         myFactionRef.current = null;
       } catch { setError('Errore nella deselezione'); }
-      finally { setLoading(false); }
+      finally {
+        isSwitchingFaction.current = false; // riabilita
+        setLoading(false);
+      }
       return;
     }
 
@@ -146,18 +150,25 @@ export default function WaitingRoom({
     setLoading(true); setError('');
     isSwitchingFaction.current = true; // blocca reset da real-time durante il cambio
     try {
-      // Prima rimuove l'eventuale scelta precedente con player_id diverso dalla nuova fazione
+      // 1. Rimuove l'eventuale scelta precedente del giocatore (qualsiasi fazione)
       await supabase
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
-        .eq('player_id', profile.id)
-        .neq('faction', faction);
+        .eq('player_id', profile.id);
 
-      // Upsert sulla nuova fazione
+      // 2. Rimuove la riga bot/vuota per quella fazione, se esiste (libera il slot)
+      await supabase
+        .from('game_players')
+        .delete()
+        .eq('game_id', gameId)
+        .eq('faction', faction)
+        .is('player_id', null); // rimuove solo le righe senza player_id (bot non assegnati)
+
+      // 3. Insert diretto (non upsert) sulla nuova fazione — ora il slot è libero
       const { error: insErr } = await supabase
         .from('game_players')
-        .upsert({
+        .insert({
           game_id: gameId,
           faction,
           player_id: profile.id,
@@ -165,9 +176,10 @@ export default function WaitingRoom({
           bot_difficulty: 'normal',
           turn_order: TURN_ORDER.indexOf(faction) + 1,
           is_ready: true,
-        }, { onConflict: 'game_id,faction' });
+        });
 
       if (insErr) {
+        // Se c'è ancora conflitto (un umano ha preso la fazione nel frattempo)
         if (insErr.code === '23505') {
           setError(`${faction} è stata appena presa da un altro giocatore`);
         } else {
