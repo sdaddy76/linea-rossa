@@ -55,3 +55,37 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Fine migration
 SELECT 'Migration completata con successo!' AS risultato;
+
+-- =============================================
+-- FIX RLS Policy cards_deck (bug: game_id = game_id confronta colonna con se stessa)
+-- =============================================
+DROP POLICY IF EXISTS "Mazzo modificabile da partecipanti" ON public.cards_deck;
+CREATE POLICY "Mazzo modificabile da partecipanti" ON public.cards_deck FOR UPDATE USING (
+  auth.uid() IN (
+    SELECT player_id FROM public.game_players
+    WHERE game_players.game_id = cards_deck.game_id   -- ← corretto: cards_deck.game_id
+    AND player_id IS NOT NULL
+  )
+);
+
+-- FIX RLS Policy game_state UPDATE (stesso bug potenziale)
+DROP POLICY IF EXISTS "Stato modificabile da partecipanti" ON public.game_state;
+CREATE POLICY "Stato modificabile da partecipanti" ON public.game_state FOR UPDATE USING (
+  auth.uid() IN (
+    SELECT player_id FROM public.game_players
+    WHERE game_players.game_id = game_state.game_id
+    AND player_id IS NOT NULL
+  )
+);
+
+-- FIX RLS Policy moves_log INSERT
+DROP POLICY IF EXISTS "Log inseribile da partecipanti" ON public.moves_log;
+CREATE POLICY "Log inseribile da partecipanti" ON public.moves_log FOR INSERT WITH CHECK (
+  auth.uid() IN (
+    SELECT player_id FROM public.game_players
+    WHERE game_players.game_id = moves_log.game_id
+    AND player_id IS NOT NULL
+  )
+);
+
+SELECT 'RLS policies corrette!' AS risultato;

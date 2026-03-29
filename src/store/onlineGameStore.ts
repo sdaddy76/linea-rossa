@@ -255,6 +255,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .select('*')
         .eq('game_id', game.id)
         .eq('card_id', cardId)
+        .eq('faction', myFaction)   // ← filtra per fazione per evitare duplicati cross-faction
         .eq('status', 'available')
         .single();
 
@@ -295,8 +296,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         }).eq('id', deckCard.id),
       ]);
 
-      if (stateRes.error) throw new Error(`Errore aggiornamento stato: ${stateRes.error.message}`);
-      if (deckRes.error)  throw new Error(`Errore aggiornamento carta: ${deckRes.error.message}`);
+      if (stateRes.error) throw new Error(`Errore aggiornamento stato: ${stateRes.error.message} [${stateRes.error.code}]`);
+      if (deckRes.error)  throw new Error(`Errore aggiornamento carta: ${deckRes.error.message} [${deckRes.error.code}] — verifica RLS policy cards_deck`);
 
       // Aggiorna turno/partita
       if (winCheck.isOver) {

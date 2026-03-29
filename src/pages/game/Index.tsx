@@ -725,6 +725,16 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
 
             {/* ── CARTE / AZIONI ── */}
             <div className="space-y-2">
+              {/* Debug bar — rimuovere dopo test */}
+              <div className="px-3 py-1 bg-[#0a0e1a] border border-[#334455] rounded text-[9px] font-mono text-[#556677] flex flex-wrap gap-2">
+                <span>myFaction=<b className="text-[#00ff88]">{myFaction ?? 'NULL'}</b></span>
+                <span>active=<b className="text-[#f59e0b]">{gameState.active_faction}</b></span>
+                <span>isMyTurn=<b className={isMyTurn ? 'text-[#00ff88]' : 'text-[#ef4444]'}>{String(isMyTurn)}</b></span>
+                <span>botThinking=<b className={isBotThinking ? 'text-[#ef4444]' : 'text-[#22c55e]'}>{String(isBotThinking)}</b></span>
+                <span>cards=<b className="text-white">{myCards.length}</b></span>
+                <span>deckCards(store)=<b className="text-white">{deckCards.filter(d=>d.faction===myFaction).length}</b></span>
+              </div>
+
               {/* Banner turno */}
               <div className={`px-4 py-2.5 rounded-xl border text-center ${
                 isMyTurn && !isBotThinking
