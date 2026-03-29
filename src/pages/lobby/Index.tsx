@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Game, Profile } from '@/types/game';
 import CardLibraryManager from '@/components/CardLibraryManager';
 import BotCardLibraryManager from '@/components/BotCardLibraryManager';
+import EventLibraryManager from '@/components/EventLibraryManager';
 import WaitingRoom from '@/components/WaitingRoom';
 
 interface LobbyPageProps {
@@ -27,6 +28,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin}: Lob
   const [myGames, setMyGames] = useState<Game[]>([]);
   const [showLibrary, setShowLibrary] = useState(false);
   const [showBotLibrary, setShowBotLibrary] = useState(false);
+  const [showEventLibrary, setShowEventLibrary] = useState(false);
 
   // Sala d'attesa
   const [waitingGame, setWaitingGame] = useState<{
@@ -179,6 +181,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin}: Lob
               className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#c8a55a]
                 text-[#8899aa] hover:text-[#c8a55a] rounded-lg font-mono text-xs transition-colors">
               🤖 BOT
+            </button>
+            <button onClick={() => setShowEventLibrary(true)}
+              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#f97316]
+                text-[#8899aa] hover:text-[#f97316] rounded-lg font-mono text-xs transition-colors">
+              🎴 Eventi
             </button>
             <button onClick={onAdmin}
   className="text-[#8899aa] hover:text-[#00ff88] font-mono text-xs border border-[#334455] rounded px-2 py-1">
@@ -352,6 +359,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin}: Lob
 
       {/* Modali librerie */}
       {showLibrary && <CardLibraryManager onClose={() => setShowLibrary(false)} />}
+      {showEventLibrary && <EventLibraryManager onClose={() => setShowEventLibrary(false)} />}
       {showBotLibrary && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">

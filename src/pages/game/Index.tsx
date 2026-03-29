@@ -2,7 +2,7 @@
 // LINEA ROSSA — Pagina di Gioco Online
 // Layout: plancia completa in alto, azioni in basso
 // =============================================
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useOnlineGameStore } from '@/store/onlineGameStore';
 import type { Faction, GameState } from '@/types/game';
 import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } from '@/data/mazzi';
@@ -16,6 +16,8 @@ import type { PlayerActionType, PlayerActionPayload } from '@/components/PlayerA
 import type { TerritoryState } from '@/components/TerritoryMap';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
+import EventoModal from '@/components/EventoModal';
+import { pescaEvento, type EventoCard } from '@/data/eventi';
 
 // ─── Colori fazione ───────────────────────────
 const FACTION_FLAGS: Record<string, string> = {
@@ -359,6 +361,11 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [showCombat, setShowCombat] = useState(false);
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
 
+  // ── Sistema eventi ───────────────────────────────────────────────────────
+  const [eventoCorrente, setEventoCorrente] = useState<EventoCard | null>(null);
+  const eventiUsatiRef = useRef<string[]>([]); // tiene traccia degli eventi già pescati
+  const lastEventTurnRef = useRef<string>(''); // chiave turno+fazione per evitare doppia pesca
+
   // Carica territori e unità a inizio partita
   useEffect(() => {
     if (game?.id) loadTerritories();
@@ -394,6 +401,55 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     const key = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
     return (gameState[key] as Record<string, number>) ?? {};
   }, [gameState, myFaction]);
+
+  // ── Pesca evento all'inizio del turno Iran ─────────────────────────────────
+  useEffect(() => {
+    if (!game || !gameState || game.status !== 'active') return;
+    if (gameState.active_faction !== 'Iran') return;
+    // Chiave univoca per questo turno: evita pescare due volte lo stesso turno
+    const turnKey = `${game.current_turn}-Iran`;
+    if (lastEventTurnRef.current === turnKey) return;
+    // Non mostrare evento se il bot sta giocando (non è turno umano Iran)
+    // ma mostrarlo sempre a tutti i giocatori quando è turno Iran
+    lastEventTurnRef.current = turnKey;
+    const evento = pescaEvento(eventiUsatiRef.current);
+    eventiUsatiRef.current = [...eventiUsatiRef.current, evento.event_id];
+    // Piccolo delay per non sovrapporre alla transizione di turno
+    const t = setTimeout(() => setEventoCorrente(evento), 800);
+    return () => clearTimeout(t);
+  }, [gameState?.active_faction, game?.current_turn, game?.status]);
+
+  // ── Applica effetti meccanici dell'evento ─────────────────────────────────
+  const applicaEvento = async () => {
+    if (!eventoCorrente) return;
+    const ef = eventoCorrente.effects;
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { game: g, gameState: gs } = useOnlineGameStore.getState();
+    if (!g || !gs) { setEventoCorrente(null); return; }
+
+    // Costruisce l'oggetto di aggiornamento con i delta non-zero
+    const updates: Record<string, number> = {};
+    const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
+
+    if (ef.delta_nucleare)    updates.nucleare  = clamp((gs.nucleare  ?? 1) + ef.delta_nucleare,  1, 15);
+    if (ef.delta_sanzioni)    updates.sanzioni  = clamp((gs.sanzioni  ?? 5) + ef.delta_sanzioni,  1, 10);
+    if (ef.delta_opinione)    updates.opinione  = clamp((gs.opinione  ?? 0) + ef.delta_opinione,  -10, 10);
+    if (ef.delta_defcon)      updates.defcon    = clamp((gs.defcon    ?? 5) + ef.delta_defcon,    1, 5);
+    if (ef.delta_risorse_iran)         updates.risorse_iran         = clamp((gs.risorse_iran         ?? 5) + ef.delta_risorse_iran,         1, 15);
+    if (ef.delta_risorse_coalizione)   updates.risorse_coalizione   = clamp((gs.risorse_coalizione   ?? 5) + ef.delta_risorse_coalizione,   1, 15);
+    if (ef.delta_risorse_russia)       updates.risorse_russia       = clamp((gs.risorse_russia       ?? 5) + ef.delta_risorse_russia,       1, 15);
+    if (ef.delta_risorse_cina)         updates.risorse_cina         = clamp((gs.risorse_cina         ?? 5) + ef.delta_risorse_cina,         1, 15);
+    if (ef.delta_risorse_europa)       updates.risorse_europa       = clamp((gs.risorse_europa       ?? 5) + ef.delta_risorse_europa,       1, 15);
+    if (ef.delta_stabilita_iran)       updates.stabilita_iran       = clamp((gs.stabilita_iran       ?? 5) + ef.delta_stabilita_iran,       1, 10);
+
+    if (Object.keys(updates).length > 0) {
+      await supabase.from('game_state').update(updates).eq('game_id', g.id);
+      useOnlineGameStore.setState(s => ({
+        gameState: { ...s.gameState!, ...updates },
+      }));
+    }
+    setEventoCorrente(null);
+  };
 
   // Traccia lo stato precedente per mostrare i delta
   useEffect(() => {
@@ -981,6 +1037,16 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
               )}
 
               {/* Mercato Risorse Militari — overlay */}
+              {/* ── Modale Evento (turno Iran) ── */}
+              {eventoCorrente && (
+                <EventoModal
+                  evento={eventoCorrente}
+                  onConfirm={applicaEvento}
+                  isMyTurn={isMyTurn}
+                  currentFaction={gameState?.active_faction ?? 'Iran'}
+                />
+              )}
+
               {showMarket && myFaction && gameState && (
                 <MilitaryMarket
                   faction={myFaction}
