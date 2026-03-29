@@ -81,7 +81,7 @@ const TERR_DEF: TerrDef[] = [
 
   { id: 'Israele', label: 'ISRAELE',
     pts: [[492,406],[512,406],[509,470],[488,530],[464,468]],
-    cubeAnchor: [491, 461], cubeOffsetY: 0, cubeOffsetX: -70, maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione' },
+    cubeAnchor: [491, 461], cubeOffsetY: 0, cubeOffsetX: -110, maxSlots: 6, pvPerRound: 3, type: 'casa', homeFaction: 'Coalizione' },
 
   { id: 'Giordania', label: 'GIORDANIA',
     pts: [[497,529],[522,468],[520,423],[554,436],[627,401],[641,441],[573,463],
@@ -111,7 +111,7 @@ const TERR_DEF: TerrDef[] = [
 
   { id: 'Kuwait', label: 'KUWAIT',
     pts: [[967,519],[935,517],[914,543],[935,546],[945,562],[973,563]],
-    cubeAnchor: [949, 539], cubeOffsetY: -38, maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [949, 539], cubeOffsetY: -52, maxSlots: 2, pvPerRound: 1, type: 'normale' },
 
   { id: 'Bahrain', label: 'BAHRAIN',
     pts: [[1086,576],[1075,595],[1090,612],[1106,610],[1108,590]],
