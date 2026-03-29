@@ -234,9 +234,7 @@ export default function WaitingRoom({
       }
       console.log('[startGame] step 2 — game_state');
 
-      // ── Inizializza game_state con SOLO le colonne garantite dal DB ──
-      // Le colonne units_*, special_uses, tracciati fazione sono opzionali
-      // (aggiunte da migration separata) — non bloccare l'avvio se mancano
+      // ── Inizializza game_state con SOLO le colonne garantite dal schema base ──
       const baseState = {
         game_id: gameId,
         nucleare: 1, sanzioni: 5, opinione: 0, defcon: 5,
@@ -244,31 +242,32 @@ export default function WaitingRoom({
         risorse_cina: 5, risorse_europa: 5,
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,
         stabilita_cina: 5, stabilita_europa: 5,
-        forze_militari_iran: 5, forze_militari_coalizione: 5,
         active_faction: 'Iran',
       };
       const { error: stateErr } = await supabase.from('game_state').upsert(
         baseState, { onConflict: 'game_id' }
       );
-      if (stateErr) throw stateErr;
+      if (stateErr) { console.error('[startGame] game_state upsert err:', stateErr); throw stateErr; }
 
-      // ── Prova ad aggiornare le colonne opzionali (se esistono nel DB) ──
-      // Non throw se fallisce: il gioco funziona anche senza di esse
+      // ── Colonne opzionali (aggiunte da migration separate) ──
+      // Ogni update è indipendente: se la colonna non esiste Supabase restituisce
+      // error.code='42703' — lo ignoriamo, non blocchiamo l'avvio.
+      const tryUpdate = async (data: Record<string, unknown>) => {
+        const { error: e } = await supabase.from('game_state').update(data).eq('game_id', gameId);
+        if (e && e.code !== '42703') console.warn('[startGame] optional update warn:', e);
+      };
+      await tryUpdate({ forze_militari_iran: 5, forze_militari_coalizione: 5 });
+      await tryUpdate({ forze_militari_russia: 5, forze_militari_cina: 5, forze_militari_europa: 5 });
       try {
         const { INITIAL_UNITS } = await import('@/lib/territoriesData');
-        await supabase.from('game_state').update({
-          forze_militari_russia: 5,
-          forze_militari_cina: 5,
-          forze_militari_europa: 5,
-          units_iran:       INITIAL_UNITS.Iran,
-          units_coalizione: INITIAL_UNITS.Coalizione,
-          units_russia:     INITIAL_UNITS.Russia,
-          units_cina:       INITIAL_UNITS.Cina,
-          units_europa:     INITIAL_UNITS.Europa,
+        await tryUpdate({
+          units_iran: INITIAL_UNITS.Iran, units_coalizione: INITIAL_UNITS.Coalizione,
+          units_russia: INITIAL_UNITS.Russia, units_cina: INITIAL_UNITS.Cina,
+          units_europa: INITIAL_UNITS.Europa,
           special_uses: { veto_russia: 3, hormuz_iran: false, superiorita_aerea: false },
           active_alliances: [],
-        }).eq('game_id', gameId);
-      } catch { /* colonne opzionali non ancora presenti nel DB — ignorato */ }
+        });
+      } catch { /* import fallito — ignorato */ }
 
       console.log('[startGame] step 3 — mazzi carte');
       const { getFullDeck, CLASSIC_HAND_SIZE: HAND_SIZE } = await import('@/data/mazzi');
