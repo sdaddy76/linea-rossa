@@ -206,7 +206,8 @@ export default function WaitingRoom({
         await supabase.from('game_players').insert(botRows);
       }
 
-      // Inizializza stato partita
+      // Inizializza stato partita con units pool e tracciati militari
+      const { INITIAL_UNITS } = await import('@/lib/territoriesData');
       const { error: stateErr } = await supabase.from('game_state').upsert({
         game_id: gameId,
         nucleare: 1, sanzioni: 5, opinione: 0, defcon: 5,
@@ -214,6 +215,16 @@ export default function WaitingRoom({
         risorse_cina: 5, risorse_europa: 5,
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,
         stabilita_cina: 5, stabilita_europa: 5,
+        forze_militari_iran: 5, forze_militari_coalizione: 5,
+        forze_militari_russia: 5, forze_militari_cina: 5, forze_militari_europa: 5,
+        // Pool unità iniziali per fazione (asimmetriche)
+        units_iran:       INITIAL_UNITS.Iran,
+        units_coalizione: INITIAL_UNITS.Coalizione,
+        units_russia:     INITIAL_UNITS.Russia,
+        units_cina:       INITIAL_UNITS.Cina,
+        units_europa:     INITIAL_UNITS.Europa,
+        special_uses: { veto_russia: 3, hormuz_iran: false, superiorita_aerea: false },
+        active_alliances: [],
         active_faction: 'Iran',
       }, { onConflict: 'game_id' });
       if (stateErr) throw stateErr;

@@ -646,14 +646,25 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // Aggiorna pool (riduci disponibili)
       const newPool = { ...pool, [unitType]: available - qty };
 
-      // Upsert unità nel territorio
+      // Leggi quantità già schierata per sommare (non sovrascrivere)
+      const { data: existingUnit } = await supabase
+        .from('military_units')
+        .select('quantity')
+        .eq('game_id', game.id)
+        .eq('faction', myFaction)
+        .eq('territory', territory)
+        .eq('unit_type', unitType)
+        .maybeSingle();
+      const existingQty = existingUnit?.quantity ?? 0;
+
+      // Upsert con quantità sommata
       await Promise.all([
         supabase.from('military_units').upsert({
           game_id: game.id,
           faction: myFaction,
           territory,
           unit_type: unitType,
-          quantity: qty,
+          quantity: existingQty + qty,
           updated_at: new Date().toISOString(),
         }, { onConflict: 'game_id,faction,territory,unit_type', ignoreDuplicates: false }),
 
@@ -728,7 +739,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         [unitsKey]: pool,
       }).eq('game_id', game.id);
 
-      // 4. Scrivi combat_log
+      // 4. Scrivi combat_log (includi extra_effects)
       const logEntry = {
         game_id: game.id,
         turn_number: game.current_turn,

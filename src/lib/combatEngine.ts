@@ -1,5 +1,6 @@
 // =============================================
-// LINEA ROSSA — Motore di Combattimento (Sezione 8.1)
+// LINEA ROSSA — Motore di Combattimento v2
+// Sistema asimmetrico per fazione
 // =============================================
 
 import type { Faction, GameState } from '@/types/game';
@@ -9,7 +10,7 @@ import { UNIT_MAP, TERRITORY_MAP } from '@/lib/territoriesData';
 export type CombatResult =
   | 'vittoria_decisiva'   // Attacco > Difesa di 3+
   | 'vittoria'            // Attacco > Difesa di 1-2
-  | 'stallo'              // Pareggio
+  | 'stallo'              // Pareggio ±0
   | 'sconfitta'           // Difesa > Attacco di 1-2
   | 'sconfitta_grave';    // Difesa > Attacco di 3+
 
@@ -17,13 +18,14 @@ export interface CombatInput {
   attacker: Faction;
   defender: Faction;
   territory: TerritoryId;
-  cardOpPoints: number;               // PO carta giocata = forza base
+  cardOpPoints: number;               // PO carta giocata
   unitTypesUsed: UnitType[];          // unità schierate dall'attaccante
   defenderUnitsInTerritory: Partial<Record<UnitType, number>>;
   gameState: GameState;
-  hormuzActive?: boolean;             // Iran ha 2+ navali nello stretto
+  // Flag speciali
+  hormuzActive?: boolean;             // Iran ha ≥2 NavaleGolfo in Hormuz
   allianceActive?: boolean;           // alleanza attiva +1 attacco
-  guerraAsimmetricaActive?: boolean;  // Iran attiva Guerra Asimmetrica
+  guerraAsimmetricaActive?: boolean;  // Iran attiva Guerra Asimmetrica (carta)
 }
 
 export interface CombatOutcome {
@@ -31,81 +33,161 @@ export interface CombatOutcome {
   defenseForce: number;
   difference: number;
   result: CombatResult;
-  infChangeAttacker: number;   // +1, +2 o 0
-  infChangeDefender: number;   // -1, -2 o 0
-  defconChange: number;        // -1 quasi sempre
-  attackerUnitsLost: number;   // 0, 1 o 2
-  stabilityChange: number;     // 0 o -1 per sconfitta_grave
+  infChangeAttacker: number;
+  infChangeDefender: number;
+  defconChange: number;
+  attackerUnitsLost: number;
+  stabilityChange: number;
+  extraEffects: string[];           // effetti speciali attivati
   description: string;
   attackBreakdown: string[];
   defenseBreakdown: string[];
 }
 
-// ── PASSO 2: Forza d'Attacco ──────────────────────────────────────────────────
-function calcAttackForce(input: CombatInput): { force: number; breakdown: string[] } {
+// ─── Effetti speciali attivi ─────────────────────────────────────────────────
+interface SpecialFlags {
+  s400Active: boolean;      // Russia ha S-400 → blocca AviazioneTattica
+  scudoActive: boolean;     // Coalizione ha ScudoMissilistico → blocca MissileiBalistici
+  peacekeepingHere: boolean; // Europa ha Peacekeeping → DEFCON non scende in difesa
+  forzeSpecialiUsed: boolean; // Coalizione ForzeSpeciali → +1 inf in vittoria
+  guerraIbridaUsed: boolean;  // Russia GuerraIbrida → -1 stabilità difensore
+  proxyUsed: boolean;         // Iran Proxy → -1 stabilità difensore
+  cyberUsed: boolean;         // Iran CyberIran o CyberCina → -1 difesa bersaglio
+  guerraEconomicaUsed: boolean; // Cina GuerraEconomica → -2 sanzioni difensore
+}
+
+function detectSpecialFlags(
+  unitTypesUsed: UnitType[],
+  defenderUnits: Partial<Record<UnitType, number>>,
+): SpecialFlags {
+  const defArr = (Object.entries(defenderUnits) as [UnitType, number][])
+    .filter(([, q]) => q > 0).map(([t]) => t);
+
+  return {
+    s400Active:           defArr.includes('SystemsS400'),
+    scudoActive:          defArr.includes('ScudoMissilistico'),
+    peacekeepingHere:     defArr.includes('Peacekeeping'),
+    forzeSpecialiUsed:    unitTypesUsed.includes('ForzeSpeciali'),
+    guerraIbridaUsed:     unitTypesUsed.includes('GuerraIbrida'),
+    proxyUsed:            unitTypesUsed.includes('Proxy'),
+    cyberUsed:            unitTypesUsed.includes('CyberIran') || unitTypesUsed.includes('CyberCina'),
+    guerraEconomicaUsed:  unitTypesUsed.includes('GuerraEconomica'),
+  };
+}
+
+// ─── Forza d'Attacco ─────────────────────────────────────────────────────────
+function calcAttackForce(
+  input: CombatInput,
+  flags: SpecialFlags,
+): { force: number; breakdown: string[] } {
   const bd: string[] = [];
+  const tDef = TERRITORY_MAP[input.territory];
   let force = input.cardOpPoints;
-  bd.push(`Base (PO carta): ${force}`);
+  bd.push(`Base carta (PO): ${force}`);
 
-  // DEFCON basso
-  if (input.gameState.defcon <= 3) {
-    force += 1;
-    bd.push(`DEFCON ≤ 3: +1 → ${force}`);
-  }
+  // ── Bonus unità attaccanti ──────────────────────────────────────────────────
+  for (const utype of input.unitTypesUsed) {
+    const udef = UNIT_MAP[utype];
+    if (!udef) continue;
+    let bonus = udef.attackBonus;
 
-  // Unità IRGC (Iran)
-  if (input.unitTypesUsed.includes('IRGC')) {
-    force += 2;
-    bd.push(`Unità IRGC: +2 → ${force}`);
-  }
+    // Regola navale/terrestre
+    if (udef.navalOnly && !tDef?.isNaval) {
+      bd.push(`${udef.icon} ${udef.label}: navale non applicabile`);
+      continue;
+    }
+    if (udef.landOnly && !tDef?.isLand) {
+      bd.push(`${udef.icon} ${udef.label}: terrestre non applicabile`);
+      continue;
+    }
 
-  // Superiorità Aerea (Coalizione) — richiede Risorse Militari ≥ 10
-  const coalition_res = input.gameState.risorse_coalizione ?? 0;
-  if (
-    input.attacker === 'Coalizione' &&
-    input.unitTypesUsed.includes('AereoStrategico') &&
-    coalition_res >= 10
-  ) {
-    force += 2;
-    bd.push(`Superiorità Aerea (RM ≥ 10): +2 → ${force}`);
-  }
+    // GuerraEconomica Cina: non ha attackBonus diretto nel combattimento armato,
+    // ma conta come +2 economico contro difensori non militari
+    if (utype === 'GuerraEconomica') {
+      if (input.defender === 'Europa' || input.defender === 'Cina') {
+        bonus = 2;
+        bd.push(`${udef.icon} ${udef.label}: attacco economico contro ${input.defender}: +${bonus} → ${force + bonus}`);
+      } else {
+        bd.push(`${udef.icon} ${udef.label}: nessun effetto militare diretto`);
+        continue;
+      }
+    }
 
-  // Sottomarino russo in acque navali
-  if (input.attacker === 'Russia' && input.unitTypesUsed.includes('SottoMar')) {
-    const tDef = TERRITORY_MAP[input.territory];
-    if (tDef?.isNaval) {
-      force += 1;
-      bd.push(`Sottomarino AKULA (territorio navale): +1 → ${force}`);
+    // AviazioneTattica Coalizione: bloccata da S-400
+    if (utype === 'AviazioneTattica' && flags.s400Active) {
+      bd.push(`✈️ AviazioneTattica: BLOCCATA da S-400 russo`);
+      continue;
+    }
+
+    // MissileiBalistici Iran: bloccati da Scudo Missilistico
+    if (utype === 'MissileiBalistici' && flags.scudoActive) {
+      bd.push(`🚀 MissileiBalistici: BLOCCATI da Scudo Missilistico`);
+      continue;
+    }
+
+    // Peacekeeping Europa: non attacca
+    if (utype === 'Peacekeeping') {
+      bd.push(`🕊️ Peacekeeping: non combatte in attacco`);
+      continue;
+    }
+    if (utype === 'MissioneAddestr') {
+      bd.push(`📋 Missione Addestramento: non attacca`);
+      continue;
+    }
+
+    // Cyber: -1 difesa (applicato dopo, qui contiamo come +1 forza effettiva)
+    if ((utype === 'CyberIran' || utype === 'CyberCina') && bonus > 0) {
+      force += bonus;
+      bd.push(`${udef.icon} ${udef.label}: Cyber attacco +${bonus} → ${force}`);
+      continue;
+    }
+
+    if (bonus > 0) {
+      force += bonus;
+      bd.push(`${udef.icon} ${udef.label}: +${bonus} → ${force}`);
+    } else {
+      bd.push(`${udef.icon} ${udef.label}: nessun bonus attacco`);
     }
   }
 
-  // Alleanza attiva
+  // ── Bonus situazionali ──────────────────────────────────────────────────────
+  if (input.gameState.defcon <= 3) {
+    force += 1;
+    bd.push(`DEFCON ≤ 3 (escalation): +1 → ${force}`);
+  }
   if (input.allianceActive) {
     force += 1;
     bd.push(`Alleanza attiva: +1 → ${force}`);
   }
 
-  // Hormuz — Coalizione paga +2 PO ma non riduce forza (già pagato in input)
-  // oppure nega Superiorità Aerea nel Golfo Persico
+  // Iran: Hormuz penalizza Coalizione nel Golfo
   if (input.hormuzActive && input.attacker === 'Coalizione') {
     const gulf = ['StrettoHormuz','Kuwait','Bahrain','Qatar','EmiratiArabi','Oman'];
     if (gulf.includes(input.territory)) {
       force -= 2;
-      bd.push(`Controllo Stretto di Hormuz (Golfo): -2 → ${force}`);
+      bd.push(`⚠️ Blocco Stretto Hormuz (Golfo): -2 → ${force}`);
     }
+  }
+
+  // Iran: Guerra Asimmetrica (carta attivata) difende casa propria
+  if (input.guerraAsimmetricaActive && input.attacker === 'Iran' && input.territory !== 'Iran') {
+    // non dà bonus attacco ma viene usata in difesa
   }
 
   return { force: Math.max(1, force), breakdown: bd };
 }
 
-// ── PASSO 3: Forza Difensiva ──────────────────────────────────────────────────
-function calcDefenseForce(input: CombatInput): { force: number; breakdown: string[] } {
+// ─── Forza Difensiva ─────────────────────────────────────────────────────────
+function calcDefenseForce(
+  input: CombatInput,
+  flags: SpecialFlags,
+): { force: number; breakdown: string[] } {
   const bd: string[] = [];
   const tDef = TERRITORY_MAP[input.territory];
 
   // Base = tracciato militare del difensore
   const militaryKey = `forze_militari_${input.defender.toLowerCase()}` as keyof GameState;
-  let force = (input.gameState[militaryKey] as number) ?? 5;
+  let force = ((input.gameState[militaryKey] as number) ?? 5);
   bd.push(`Tracciato Militare ${input.defender}: ${force}`);
 
   // Territorio casa +2
@@ -114,48 +196,131 @@ function calcDefenseForce(input: CombatInput): { force: number; breakdown: strin
     bd.push(`Territorio casa: +2 → ${force}`);
   }
 
-  // Stabilità interna alta ≥ 7
+  // Stabilità alta ≥ 7
   const stabKey = `stabilita_${input.defender.toLowerCase()}` as keyof GameState;
   const stab = (input.gameState[stabKey] as number) ?? 5;
   if (stab >= 7) {
     force += 1;
-    bd.push(`Stabilità Interna ≥ 7 (${stab}): +1 → ${force}`);
+    bd.push(`Stabilità interna ≥7 (${stab}): +1 → ${force}`);
   }
 
-  // Unità difensive schierate nel territorio
-  for (const [utype, qty] of Object.entries(input.defenderUnitsInTerritory)) {
-    if ((qty ?? 0) > 0) {
-      const udef = UNIT_MAP[utype as UnitType];
-      const bonus = udef?.defenseBonus ?? 0;
-      if (bonus > 0) {
-        force += bonus * (qty as number);
-        bd.push(`${udef.icon} ${udef.label} x${qty}: +${bonus * (qty as number)} → ${force}`);
-      }
+  // Cyber: riduce difesa -1 (attaccante ha CyberIran o CyberCina)
+  if (flags.cyberUsed) {
+    force = Math.max(1, force - 1);
+    bd.push(`💻 Attacco Cyber: -1 difesa → ${force}`);
+  }
+
+  // ── Bonus unità difensive ──────────────────────────────────────────────────
+  for (const [utype, qty] of (Object.entries(input.defenderUnitsInTerritory) as [UnitType, number][])) {
+    if ((qty ?? 0) <= 0) continue;
+    const udef = UNIT_MAP[utype];
+    if (!udef) continue;
+
+    // Validità navale/terrestre
+    if (udef.navalOnly && !tDef?.isNaval) continue;
+    if (udef.landOnly && !tDef?.isLand) continue;
+
+    // MissileiBalistici: nessun bonus difensivo
+    if (utype === 'MissileiBalistici') continue;
+    // GuerraEconomica: non difende militarmente
+    if (utype === 'GuerraEconomica') continue;
+    // SanzioniBCE: non difende militarmente
+    if (utype === 'SanzioniBCE') continue;
+
+    const bonus = udef.defenseBonus;
+    if (bonus > 0) {
+      force += bonus * qty;
+      bd.push(`${udef.icon} ${udef.label} ×${qty}: +${bonus * qty} → ${force}`);
     }
   }
 
-  // DEFCON 3: tutte le unità navali ottengono +1 difesa
-  if (input.gameState.defcon === 3 && tDef?.isNaval) {
-    const navali = input.defenderUnitsInTerritory['Navale'] ?? 0;
-    if (navali > 0) {
-      force += navali;
-      bd.push(`DEFCON 3 (navali +1 cad., x${navali}): +${navali} → ${force}`);
+  // DEFCON 3: unità navali difensive +1 ciascuna
+  if (input.gameState.defcon <= 3 && tDef?.isNaval) {
+    const navTypes: UnitType[] = ['NavaleGolfo','PortaereiBattleGroup','SottomariniAKULA','NavalePLA'];
+    let bonus = 0;
+    for (const nt of navTypes) {
+      bonus += input.defenderUnitsInTerritory[nt] ?? 0;
+    }
+    if (bonus > 0) {
+      force += bonus;
+      bd.push(`DEFCON ≤3 (navali +1 cad., ×${bonus}): +${bonus} → ${force}`);
     }
   }
 
-  // Guerra Asimmetrica Iran (difesa in territorio Iran)
+  // Iran: Guerra Asimmetrica nel territorio Iran
   if (input.guerraAsimmetricaActive && input.defender === 'Iran' && input.territory === 'Iran') {
     force += 3;
-    bd.push(`⚡ Guerra Asimmetrica: +3 → ${force}`);
+    bd.push(`⚡ Guerra Asimmetrica (Iran in casa): +3 → ${force}`);
+  }
+
+  // IRGC in Iran: difesa bonus casa
+  if (input.defender === 'Iran') {
+    const irgcQty = input.defenderUnitsInTerritory['IRGC'] ?? 0;
+    if (irgcQty > 0 && input.territory === 'Iran') {
+      // già calcolato come defenseBonus ma doppio in casa
+      force += irgcQty;
+      bd.push(`🦅 IRGC in casa (bonus doppio): +${irgcQty} → ${force}`);
+    }
   }
 
   return { force: Math.max(1, force), breakdown: bd };
 }
 
-// ── PASSO 4: Confronto e Risultato ───────────────────────────────────────────
+// ─── Effetti post-combattimento ───────────────────────────────────────────────
+function buildExtraEffects(
+  result: CombatResult,
+  input: CombatInput,
+  flags: SpecialFlags,
+): string[] {
+  const effects: string[] = [];
+  const won = result === 'vittoria' || result === 'vittoria_decisiva';
+
+  // ForzeSpeciali: +1 influenza aggiuntiva in vittoria
+  if (flags.forzeSpecialiUsed && won) {
+    effects.push('🎯 Forze Speciali: +1 influenza aggiuntiva per precisione');
+  }
+
+  // GuerraIbrida Russia: -1 stabilità difensore in vittoria
+  if (flags.guerraIbridaUsed && won) {
+    effects.push(`🕵️ Guerra Ibrida: -1 Stabilità Interna a ${input.defender}`);
+  }
+
+  // Proxy Iran: -1 stabilità difensore in vittoria
+  if (flags.proxyUsed && won) {
+    effects.push(`🎭 Milizie Proxy: -1 Stabilità Interna a ${input.defender}`);
+  }
+
+  // GuerraEconomica Cina: -2 sanzioni difensore in vittoria (riduce sanzioni = meno pressione)
+  if (flags.guerraEconomicaUsed && won) {
+    effects.push(`💰 Guerra Economica Cina: -2 Sanzioni su ${input.defender} (mercato aperto)`);
+  }
+
+  // Peacekeeping Europa: DEFCON non scende se Europa difende con peacekeeping
+  if (flags.peacekeepingHere && input.defender === 'Europa') {
+    effects.push(`🕊️ Peacekeeping: DEFCON stabile (nessuna escalation)`);
+  }
+
+  // ForzaRapidaEU in difesa: DEFCON non scende se EU vince in difesa
+  const forzaRapida = (input.defenderUnitsInTerritory['ForzaRapidaEU'] ?? 0) > 0;
+  if (forzaRapida && input.defender === 'Europa' && !won) {
+    effects.push(`🇪🇺 Forza Rapida EU: DEFCON stabile in difesa`);
+  }
+
+  // WagnerGroup: nessun costo politico Russia in sconfitta
+  const wagnerUsed = input.unitTypesUsed.includes('WagnerGroup');
+  if (wagnerUsed && !won) {
+    effects.push(`💀 Gruppo Wagner: Russia non perde Stabilità Interna`);
+  }
+
+  return effects;
+}
+
+// ─── Risoluzione principale ───────────────────────────────────────────────────
 export function resolveCombat(input: CombatInput): CombatOutcome {
-  const { force: atk, breakdown: atkBd } = calcAttackForce(input);
-  const { force: def, breakdown: defBd } = calcDefenseForce(input);
+  const flags = detectSpecialFlags(input.unitTypesUsed, input.defenderUnitsInTerritory);
+
+  const { force: atk, breakdown: atkBd } = calcAttackForce(input, flags);
+  const { force: def, breakdown: defBd } = calcDefenseForce(input, flags);
   const diff = atk - def;
 
   let result: CombatResult;
@@ -165,25 +330,43 @@ export function resolveCombat(input: CombatInput): CombatOutcome {
   if (diff >= 3) {
     result = 'vittoria_decisiva';
     infAtk = 1; infDef = -2;
-    desc = `VITTORIA DECISIVA (+${diff}) — rimosse 2 influenze ${input.defender}, piazzata 1 influenza ${input.attacker}.`;
+    desc = `VITTORIA DECISIVA (+${diff}): +1 influenza ${input.attacker}, -2 influenza ${input.defender}.`;
   } else if (diff >= 1) {
     result = 'vittoria';
     infDef = -1;
-    desc = `VITTORIA (+${diff}) — rimossa 1 influenza ${input.defender}.`;
+    desc = `VITTORIA (+${diff}): -1 influenza ${input.defender}.`;
   } else if (diff === 0) {
     result = 'stallo';
-    desc = `STALLO — nessun cambiamento di influenza.`;
+    desc = `STALLO: nessun cambio influenza.`;
   } else if (diff >= -2) {
     result = 'sconfitta';
     unitsLost = 1;
-    desc = `SCONFITTA (${diff}) — l'attaccante perde 1 unità.`;
+    desc = `SCONFITTA (${diff}): ${input.attacker} perde 1 unità.`;
   } else {
     result = 'sconfitta_grave';
     unitsLost = 2; stabCh = -1;
-    desc = `SCONFITTA GRAVE (${diff}) — l'attaccante perde 2 unità e −1 Stabilità Interna.`;
+    desc = `SCONFITTA GRAVE (${diff}): ${input.attacker} perde 2 unità e -1 Stabilità.`;
   }
 
-  // Guerra Asimmetrica: +danno all'attaccante anche in vittoria
+  // Forze Speciali: +1 influenza aggiuntiva
+  const won = result === 'vittoria' || result === 'vittoria_decisiva';
+  if (flags.forzeSpecialiUsed && won) {
+    infAtk += 1;
+  }
+
+  // Peacekeeping / ForzaRapidaEU in difesa: DEFCON non scende
+  const forzaRapida = (input.defenderUnitsInTerritory['ForzaRapidaEU'] ?? 0) > 0;
+  if ((flags.peacekeepingHere || forzaRapida) && input.defender === 'Europa') {
+    defconCh = 0;
+  }
+
+  // Wagner: non perde stabilità Russia
+  const wagnerUsed = input.unitTypesUsed.includes('WagnerGroup');
+  if (wagnerUsed && !won) {
+    stabCh = 0;
+  }
+
+  // Guerra Asimmetrica: danno aggiuntivo all'attaccante anche in vittoria
   if (
     input.guerraAsimmetricaActive &&
     input.defender === 'Iran' &&
@@ -191,8 +374,10 @@ export function resolveCombat(input: CombatInput): CombatOutcome {
     result !== 'vittoria_decisiva'
   ) {
     unitsLost = Math.max(unitsLost, 1);
-    desc += ` ⚡ Guerra Asimmetrica: attaccante subisce 1 danno.`;
+    desc += ` ⚡ Guerra Asimmetrica: attaccante perde almeno 1 unità.`;
   }
+
+  const extraEffects = buildExtraEffects(result, input, flags);
 
   return {
     attackForce: atk,
@@ -204,23 +389,19 @@ export function resolveCombat(input: CombatInput): CombatOutcome {
     defconChange: defconCh,
     attackerUnitsLost: unitsLost,
     stabilityChange: stabCh,
+    extraEffects,
     description: desc,
     attackBreakdown: atkBd,
     defenseBreakdown: defBd,
   };
 }
 
-// ── Controllo Hormuz ──────────────────────────────────────────────────────────
-export function checkHormuz(
-  navalUnitsInHormuz: number
-): boolean {
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+export function checkHormuz(navalUnitsInHormuz: number): boolean {
   return navalUnitsInHormuz >= 2;
 }
 
-// ── Controllo territorio ──────────────────────────────────────────────────────
-export function getController(
-  influences: Record<Faction, number>
-): Faction | null {
+export function getController(influences: Record<Faction, number>): Faction | null {
   const entries = Object.entries(influences) as [Faction, number][];
   const sorted = entries.sort((a, b) => b[1] - a[1]);
   if (sorted.length < 2) return sorted[0]?.[1] >= 2 ? sorted[0][0] : null;
