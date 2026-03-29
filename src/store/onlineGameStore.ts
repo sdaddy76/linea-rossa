@@ -161,6 +161,19 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         deckCards: (deckRes.data ?? []) as DeckCard[],
         loading: false,
       });
+
+      // Se la partita è attiva e il turno corrente è di un bot → avvia il bot
+      const loadedState = stateRes.data as GameState;
+      const loadedGame  = gameRes.data as Game;
+      if (loadedGame?.status === 'active' && loadedState?.active_faction) {
+        const activeFactionBot = (playersRes.data ?? []).find(
+          (p: { faction: string; is_bot: boolean }) =>
+            p.faction === loadedState.active_faction && p.is_bot
+        );
+        if (activeFactionBot) {
+          setTimeout(() => get().runBotTurn(), 1800);
+        }
+      }
     } catch (err) {
       set({ error: 'Errore nel caricamento della partita', loading: false });
     }
@@ -486,6 +499,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }, payload => {
         // Merge con lo stato esistente: payload.new può contenere solo i campi aggiornati
         set(s => ({ gameState: { ...s.gameState, ...payload.new } as GameState }));
+        // Se il turno è passato a un bot, avvialo
+        const newActiveFaction = payload.new?.active_faction;
+        if (newActiveFaction) {
+          const { players: currentPlayers, isBotThinking } = get();
+          const nextIsBot = currentPlayers.find(p => p.faction === newActiveFaction && p.is_bot);
+          if (nextIsBot && !isBotThinking) {
+            setTimeout(() => get().runBotTurn(), 1500);
+          }
+        }
       })
       .subscribe();
 

@@ -346,6 +346,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     loading, isBotThinking, error, gameOverInfo, notification,
     playCard, startGame, clearError, setNotification, buyMilitaryResources,
     loadTerritories, deployUnit, attackTerritory, addInfluence,
+    runBotTurn,
     territories: terrRecords, militaryUnits: unitRecords,
   } = useOnlineGameStore();
 
@@ -409,6 +410,20 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
       return () => clearTimeout(t);
     }
   }, [notification, setNotification]);
+
+  // ── Watchdog bot: se è il turno di un bot ma isBotThinking=false → riavvia ──
+  useEffect(() => {
+    if (!game || !gameState || game.status !== 'active') return;
+    if (isBotThinking) return;
+    const activeFaction = gameState.active_faction;
+    const activePlayer  = players.find(p => p.faction === activeFaction);
+    if (!activePlayer?.is_bot) return;
+    // Bot bloccato → riavvia dopo 2.5s
+    const t = setTimeout(() => {
+      runBotTurn();
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [gameState?.active_faction, isBotThinking, game?.status]);
 
   if (!game || !gameState) return (
     <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
