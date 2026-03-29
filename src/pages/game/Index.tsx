@@ -344,7 +344,11 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     loadTerritories, deployUnit, attackTerritory, addInfluence,
     runBotTurn, playCardUnified, drawCards, myHand,
     territories: terrRecords, militaryUnits: unitRecords,
+    profile, session,
   } = useOnlineGameStore();
+
+  // L'host è chi ha creato la partita (game.created_by === utente corrente)
+  const isHost = !!(game && (session?.user?.id ?? profile?.id) && game.created_by === (session?.user?.id ?? profile?.id));
 
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [showActionPanel, setShowActionPanel] = useState(false);
