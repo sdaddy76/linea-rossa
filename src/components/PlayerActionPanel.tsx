@@ -106,6 +106,7 @@ export default function PlayerActionPanel({
   const [inflCubes, setInflCubes]         = useState(1);
   const [diceResult, setDiceResult]       = useState<number | null>(null);
   const [diceRolled, setDiceRolled]       = useState(false);
+  const [diceSuccess, setDiceSuccess]     = useState(false);
 
   // ── Stato tracciato ──────────────────────────────────────────────────────
   const [trackKey, setTrackKey] = useState<string | null>(null);
@@ -154,17 +155,24 @@ export default function PlayerActionPanel({
   // ── Handlers ─────────────────────────────────────────────────────────────
   const doInfluenza = () => {
     if (!inflTerritory || !canAfford) return;
+    // Solo lancia il dado e mostra il risultato — NON chiama ancora onAction
     const roll = Math.floor(Math.random() * 6) + 1;
     const success = roll >= threshold;
     setDiceResult(roll);
     setDiceRolled(true);
+    setDiceSuccess(success);
+  };
+
+  const confirmInfluenza = () => {
+    if (!inflTerritory || diceResult === null) return;
+    // Ora applica l'azione (chiama playCard, addInfluence, ecc.) e chiude il pannello
     onAction('influenza', {
       type: 'influenza',
       card,
       targetTerritory: inflTerritory,
-      influenceDelta: success ? inflCubes : 0,
-      diceResult: roll,
-      diceSuccess: success,
+      influenceDelta: diceSuccess ? inflCubes : 0,
+      diceResult,
+      diceSuccess,
       finalThreshold: threshold,
       costPO: costTot,
     });
@@ -399,6 +407,16 @@ export default function PlayerActionPanel({
                   </p>
                 </div>
               )}
+              {/* Bottone conferma: esegue l'azione e chiude il pannello */}
+              <button
+                onClick={confirmInfluenza}
+                className="mt-2 w-full py-2.5 rounded-lg font-mono font-bold text-sm transition-all"
+                style={{
+                  background: diceSuccess ? '#22c55e' : '#ef4444',
+                  color: '#0a0e1a',
+                }}>
+                {diceSuccess ? '✅ Conferma e vai avanti' : '❌ Confermato — prossima mossa'}
+              </button>
             </div>
           )}
         </div>
