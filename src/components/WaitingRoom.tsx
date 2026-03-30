@@ -640,26 +640,64 @@ export default function WaitingRoom({
                     }}>
                     {starting ? '⏳ AVVIO IN CORSO…' : '🤖 GIOCA DA SOLO (con bot)'}
                   </button>
-                  {/* Aspetta altri giocatori */}
-                  <div className="flex items-center gap-2 py-2 px-3 rounded-xl border border-[#1e3a5f] bg-[#0a0e1a]">
-                    <span className="text-sm">⏳</span>
-                    <div className="flex-1">
-                      <p className="text-[11px] font-mono text-[#8899aa]">
-                        In attesa di altri giocatori…
-                      </p>
-                      <p className="text-[9px] font-mono text-[#334455]">
-                        Condividi il codice <span className="text-[#00ff88] font-bold">{gameCode}</span> — avvia quando tutti sono pronti
-                      </p>
+                  {/* Aspetta altri giocatori — comportamento diverso per aperto/riservato */}
+                  <div className="rounded-xl border bg-[#0a0e1a] overflow-hidden"
+                    style={{ borderColor: isPublic ? '#22d3ee44' : '#a78bfa44' }}>
+                    <div className="flex items-center gap-2 px-3 py-2"
+                      style={{ backgroundColor: isPublic ? '#22d3ee0a' : '#a78bfa0a' }}>
+                      <span className="text-base">{isPublic ? '🌐' : '🔒'}</span>
+                      <div>
+                        <p className="text-[11px] font-mono font-bold"
+                          style={{ color: isPublic ? '#22d3ee' : '#a78bfa' }}>
+                          {isPublic ? 'Tavolo aperto — visibile a tutti nel lobby' : 'Tavolo riservato — solo con codice'}
+                        </p>
+                        <p className="text-[9px] font-mono text-[#334455]">
+                          {isPublic
+                            ? 'Chiunque può entrare dalla lista partite. Puoi anche condividere il codice direttamente.'
+                            : 'Solo chi ha il codice può entrare. Condividilo con i tuoi giocatori.'}
+                        </p>
+                      </div>
                     </div>
-                    {humanPlayers.length > 1 && (
-                      <button
-                        onClick={startGame}
-                        disabled={starting}
-                        className="shrink-0 px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
-                          disabled:opacity-40"
-                        style={{ background: '#3b82f6', color: '#fff' }}>
-                        ▶ AVVIA
-                      </button>
+                    {/* Codice da condividere */}
+                    <div className="flex items-center justify-between px-3 py-2 border-t border-[#1e3a5f]">
+                      <div>
+                        <p className="text-[9px] font-mono text-[#445566] uppercase tracking-wider mb-0.5">
+                          {isPublic ? 'Codice (opzionale)' : 'Codice da condividere'}
+                        </p>
+                        <p className="text-lg font-black font-mono tracking-[0.15em]"
+                          style={{ color: isPublic ? '#22d3ee' : '#a78bfa' }}>
+                          {gameCode}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={copyCode}
+                          className="px-3 py-1.5 rounded-lg border font-mono text-xs font-bold transition-all"
+                          style={{
+                            borderColor: copied ? '#00ff88' : '#1e3a5f',
+                            color: copied ? '#00ff88' : '#8899aa',
+                            background: copied ? '#00ff8810' : 'transparent',
+                          }}>
+                          {copied ? '✓ Copiato' : '📋 Copia'}
+                        </button>
+                        {humanPlayers.length > 1 && (
+                          <button
+                            onClick={startGame}
+                            disabled={starting}
+                            className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
+                              disabled:opacity-40"
+                            style={{ background: '#3b82f6', color: '#fff' }}>
+                            ▶ Avvia
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {humanPlayers.length === 1 && (
+                      <div className="px-3 py-2 border-t border-[#1e3a5f]">
+                        <p className="text-[9px] font-mono text-[#334455]">
+                          ⏳ {humanPlayers.length} giocatore connesso — il pulsante "Avvia" apparirà quando entrerà almeno un altro giocatore
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
