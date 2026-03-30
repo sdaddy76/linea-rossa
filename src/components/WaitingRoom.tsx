@@ -46,6 +46,8 @@ export default function WaitingRoom({
   const [myFaction, setMyFaction] = useState<Faction | null>(null);
   const myFactionRef = useRef<Faction | null>(null); // ref sempre aggiornato — evita stale closure
   const isSwitchingFaction = useRef(false); // guard: evita reset durante cambio fazione
+  const onGameStartRef = useRef(onGameStart); // ref stabile — evita re-subscribe ad ogni render
+  useEffect(() => { onGameStartRef.current = onGameStart; }, [onGameStart]);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
@@ -114,7 +116,7 @@ export default function WaitingRoom({
         event: 'UPDATE', schema: 'public', table: 'games',
         filter: `id=eq.${gameId}`,
       }, (payload) => {
-        if (payload.new?.status === 'active') onGameStart(myFactionRef.current);
+        if (payload.new?.status === 'active') onGameStartRef.current(myFactionRef.current);
       })
       .subscribe();
 
@@ -122,7 +124,10 @@ export default function WaitingRoom({
       playersCh.unsubscribe();
       gameCh.unsubscribe();
     };
-  }, [gameId, loadPlayers, onGameStart]);
+  // onGameStart è ora stabile tramite ref — rimosso dalle dipendenze per evitare
+  // re-subscribe indesiderati che causano eventi "catch-up" da Supabase
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId, loadPlayers]);
 
   // ── Scelta fazione ────────────────────────────────────────────────
   const chooseFaction = async (faction: Faction) => {
