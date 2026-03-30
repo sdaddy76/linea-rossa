@@ -9,6 +9,7 @@ import type { Game, Profile, Faction } from '@/types/game';
 import CardLibraryManager from '@/components/CardLibraryManager';
 import BotCardLibraryManager from '@/components/BotCardLibraryManager';
 import EventLibraryManager from '@/components/EventLibraryManager';
+import ObjectiveLibraryManager from '@/components/ObjectiveLibraryManager';
 import WaitingRoom from '@/components/WaitingRoom';
 
 interface LobbyPageProps {
@@ -65,6 +66,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   const [showLibrary, setShowLibrary]         = useState(false);
   const [showBotLibrary, setShowBotLibrary]   = useState(false);
   const [showEventLibrary, setShowEventLibrary] = useState(false);
+  const [showObjectiveLibrary, setShowObjectiveLibrary] = useState(false);
 
   // ─── Carica lista tavoli ─────────────────────────────────────────────────
   const loadGames = useCallback(async () => {
@@ -384,6 +386,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                 text-[#8899aa] hover:text-[#f97316] rounded-lg font-mono text-xs transition-colors">
               🎴 Eventi
             </button>
+            <button onClick={() => setShowObjectiveLibrary(true)}
+              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#8b5cf6]
+                text-[#8899aa] hover:text-[#8b5cf6] rounded-lg font-mono text-xs transition-colors">
+              🎯 Obiettivi
+            </button>
             <button onClick={onAdmin}
               className="text-[#8899aa] hover:text-[#00ff88] font-mono text-xs
                 border border-[#334455] rounded px-2 py-1">
@@ -576,6 +583,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       {/* ── Modali ── */}
       {showLibrary    && <CardLibraryManager   onClose={() => setShowLibrary(false)} />}
       {showEventLibrary && <EventLibraryManager onClose={() => setShowEventLibrary(false)} />}
+      {showObjectiveLibrary && <ObjectiveLibraryManager onClose={() => setShowObjectiveLibrary(false)} />}
       {showBotLibrary && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">

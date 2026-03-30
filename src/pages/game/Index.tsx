@@ -22,6 +22,7 @@ import OpsActionModal from '@/components/OpsActionModal';
 import { ClassicHandCard, UnifiedHandCard } from '@/components/HandCard';
 import { FACTION_FLAGS, FACTION_COLORS, CARD_TYPE_COLORS } from '@/lib/factionColors';
 import type { EventoCard } from '@/data/eventi';
+import ObjectivesModal from '@/components/ObjectivesModal';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -381,6 +382,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
 
   const [eventoCorrente, setEventoCorrente] = useState<EventoCard | null>(null);
   const applicandoEventoRef = useRef(false); // lock anti-race tra tab multipli
+  const [showObjectives, setShowObjectives] = useState(false);
 
   // Carica territori e unità a inizio partita
   useEffect(() => {
@@ -686,6 +688,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                 border border-[#334455] rounded px-2 py-1 transition-colors ml-2">
               ◀ LOBBY
             </button>
+            {myFaction && (
+              <button onClick={() => setShowObjectives(true)}
+                className="text-[#8b5cf6] hover:text-white font-mono text-xs
+                  border border-[#8b5cf640] hover:border-[#8b5cf6] rounded px-2 py-1
+                  transition-colors bg-[#8b5cf608]"
+                title="Visualizza i tuoi obiettivi segreti">
+                🎯 OBJ
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1270,6 +1281,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           </div>{/* fine grid azioni */}
         </div>{/* fine max-w */}
       </div>{/* fine overflow */}
+
+      {/* ─── MODALE OBIETTIVI SEGRETI ─── */}
+      {showObjectives && myFaction && (
+        <ObjectivesModal
+          myFaction={myFaction}
+          gameState={gameState}
+          onClose={() => setShowObjectives(false)}
+        />
+      )}
     </div>
   );
 }
