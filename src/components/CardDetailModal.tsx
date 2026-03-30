@@ -1,134 +1,93 @@
 // =============================================
-// LINEA ROSSA — Modale dettaglio carta
-// Mostra la carta a schermo intero con grafica,
-// valori degli effetti e tutte le informazioni
+// LINEA ROSSA — CardDetailModal.tsx
+// Modale a schermo intero — layout fedele al fronte TCG:
+// Artwork hero | OP + flag | Tipo + nome | Prerequisiti
+// Descrizione | Modificatori tracciati | Metadati
 // =============================================
 import { useEffect } from 'react';
 import type { GameCard, DeckCard } from '@/types/game';
 import {
   CARD_ART,
-  FACTION_COLOR,
-  CARD_TYPE_ICON,
   CARD_TYPE_BORDER,
+  CARD_TYPE_ICON,
+  FACTION_FLAG,
+  FACTION_COLOR,
 } from './CardVisual';
 
 interface CardDetailModalProps {
   card: GameCard | DeckCard;
   onClose: () => void;
-  onPlay?: () => void;        // pulsante "Gioca carta" opzionale
+  onPlay?: () => void;
 }
 
-// ─── Descrizione leggibile degli effetti ─────
-function buildEffectSummary(card: GameCard | DeckCard): string[] {
-  const lines: string[] = [];
-
-  // Per GameCard abbiamo la funzione effects
-  if ('effects' in card && card.effects) {
-    const e = card.effects as Record<string, ((v: number) => number) | undefined>;
-    const trackNames: Record<string, string> = {
-      nucleare: '☢️ Nucleare',
-      sanzioni: '💰 Sanzioni',
-      opinione: '🌍 Opinione',
-      defcon: '🎯 DEFCON',
-      risorse: '⚡ Risorse',
-      stabilita: '🛡️ Stabilità',
-    };
-    for (const [key, fn] of Object.entries(e)) {
-      if (!fn) continue;
-      const name = trackNames[key] ?? key;
-      // Calcola effetto su valore medio per dare un'idea
-      const mid = fn(5);
-      const sign = mid > 0 ? `+${mid}` : `${mid}`;
-      const delta = mid - 5;
-      const label = delta > 0
-        ? `+${delta} (valore medio)`
-        : delta < 0
-        ? `${delta} (valore medio)`
-        : 'condizionale';
-      lines.push(`${name}: ${label}`);
-    }
-  }
-  return lines;
-}
-
-// ─── Indicatori effetti visivi ────────────────
-const TRACK_ICONS: Record<string, { icon: string; color: string; label: string }> = {
-  nucleare: { icon: '☢️', color: '#22c55e', label: 'Nucleare' },
-  sanzioni: { icon: '💰', color: '#3b82f6', label: 'Sanzioni' },
-  opinione: { icon: '🌍', color: '#ec4899', label: 'Opinione' },
-  defcon:   { icon: '🎯', color: '#8b5cf6', label: 'DEFCON' },
-  risorse:  { icon: '⚡', color: '#f59e0b', label: 'Risorse' },
-  stabilita:{ icon: '🛡️', color: '#22d3ee', label: 'Stabilità' },
+// ─── Tracciati ────────────────────────────────
+const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean }> = {
+  nucleare:  { icon: '☢️', label: 'Nucleare',  posGood: false },
+  sanzioni:  { icon: '💰', label: 'Sanzioni',  posGood: false },
+  opinione:  { icon: '🌍', label: 'Opinione',  posGood: true  },
+  defcon:    { icon: '🎯', label: 'DEFCON',    posGood: false },
+  risorse:   { icon: '⚡', label: 'Risorse',   posGood: true  },
+  stabilita: { icon: '🛡️', label: 'Stabilità', posGood: true  },
 };
 
-function EffectPills({ card }: { card: GameCard | DeckCard }) {
-  if (!('effects' in card) || !card.effects) return null;
+function getDeltas(card: GameCard | DeckCard) {
+  if (!('effects' in card) || !card.effects) return [];
   const e = card.effects as Record<string, ((v: number) => number) | undefined>;
-
-  const pills = Object.keys(e)
-    .filter(k => !!e[k])
-    .map(key => {
-      const info = TRACK_ICONS[key];
+  return Object.entries(e)
+    .map(([key, fn]) => {
+      if (!fn) return null;
+      const ref = key === 'defcon' ? 3 : key === 'opinione' ? 0 : 5;
+      const result = fn(ref);
+      const delta = result - ref;
+      if (delta === 0) return null;
+      const info = TRACK_INFO[key];
       if (!info) return null;
-      const fn = e[key]!;
-      // Confronta f(5) vs 5 per capire la direzione
-      const val = fn(5);
-      const delta = val - 5;
-      const direction = delta > 0 ? '▲' : delta < 0 ? '▼' : '◆';
-      const color = delta > 0 ? '#22c55e' : delta < 0 ? '#ef4444' : '#f59e0b';
-      return { key, ...info, direction, color, delta };
+      return { key, ...info, delta };
     })
-    .filter(Boolean);
-
-  if (pills.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2">
-      {pills.map(p => p && (
-        <div
-          key={p.key}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-mono font-bold"
-          style={{
-            backgroundColor: `${p.color}14`,
-            borderColor: `${p.color}44`,
-            color: p.color,
-          }}
-        >
-          <span>{p.icon}</span>
-          <span>{p.label}</span>
-          <span
-            className="px-1 rounded font-black text-[10px]"
-            style={{ backgroundColor: `${p.color}22`, color: p.color }}
-          >
-            {p.direction}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
+    .filter(Boolean) as Array<{ key: string; icon: string; label: string; posGood: boolean; delta: number }>;
 }
 
-// ─── Componente principale ─────────────────────
-export default function CardDetailModal({ card, onClose, onPlay }: CardDetailModalProps) {
-  const faction = card.faction as string;
-  const cardType = card.card_type as string;
-  const artUrl = CARD_ART[faction] ?? CARD_ART['Neutrale'];
-  const factionColor = FACTION_COLOR[faction] ?? '#94a3b8';
-  const typeIcon = CARD_TYPE_ICON[cardType] ?? '🃏';
-  const typeBorder = CARD_TYPE_BORDER[cardType] ?? '#334455';
-  const description = 'description' in card ? (card as GameCard).description : undefined;
+function getPrerequisites(card: GameCard | DeckCard): string[] {
+  const out: string[] = [];
+  out.push(`Fazione: ${card.faction as string}`);
+  out.push(`Costo: ${card.op_points} OP`);
+  if ('deck_type' in card && card.deck_type === 'speciale') out.push('★ Carta Speciale');
+  if ('effects' in card && card.effects) {
+    const e = card.effects as Record<string, ((v: number) => number) | undefined>;
+    if (e.defcon) {
+      const atLow = e.defcon(2) !== e.defcon(4);
+      if (atLow) out.push('Condizione: DEFCON ≤ 3');
+    }
+    if (e.nucleare) {
+      const atHigh = e.nucleare(12) > e.nucleare(5);
+      if (atHigh) out.push('Condizione: Nucleare ≥ 10');
+    }
+  }
+  return out;
+}
 
-  // Blocca scroll body
+export default function CardDetailModal({ card, onClose, onPlay }: CardDetailModalProps) {
+  const faction      = card.faction as string;
+  const cardType     = card.card_type as string;
+  const artUrl       = CARD_ART[faction] ?? CARD_ART['Neutrale'];
+  const borderColor  = CARD_TYPE_BORDER[cardType] ?? '#445566';
+  const factionColor = FACTION_COLOR[faction] ?? '#94a3b8';
+  const typeIcon     = CARD_TYPE_ICON[cardType] ?? '🃏';
+  const flag         = FACTION_FLAG[faction] ?? '🌐';
+  const description  = 'description' in card ? (card as GameCard).description : undefined;
+  const isSpecial    = 'deck_type' in card && card.deck_type === 'speciale';
+  const deltas       = getDeltas(card);
+  const prereqs      = getPrerequisites(card);
+
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
   }, []);
 
-  // Chiudi con Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
   }, [onClose]);
 
   return (
@@ -140,108 +99,119 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
       <div
         className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
         style={{
-          boxShadow: `0 0 0 1px ${typeBorder}66, 0 0 60px ${factionColor}33`,
+          border: `2px solid ${borderColor}`,
+          boxShadow: `0 0 0 1px #0a0e1a, 0 0 60px ${factionColor}33`,
           background: '#0d1220',
-          maxHeight: '90vh',
-          overflowY: 'auto',
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {/* ── Pulsante chiudi ── */}
+        {/* ── Chiudi ── */}
         <button
           onClick={onClose}
-          className="absolute top-3 right-3 z-30 w-8 h-8 rounded-full flex items-center justify-center
-            font-bold text-sm transition-colors"
-          style={{
-            backgroundColor: '#1e3a5f',
-            color: '#8899aa',
-          }}
-        >
-          ✕
-        </button>
+          className="absolute top-3 right-3 z-30 w-7 h-7 rounded-full flex items-center justify-center
+            font-bold text-xs transition-colors"
+          style={{ backgroundColor: '#1e3a5f99', color: '#8899aa' }}
+        >✕</button>
 
-        {/* ── Artwork fazione (hero) ── */}
-        <div className="relative h-52 overflow-hidden">
+        {/* ── ARTWORK HERO ── */}
+        <div className="relative flex-shrink-0" style={{ height: 160 }}>
           <img
             src={artUrl}
-            alt={`${faction} artwork`}
+            alt=""
             className="w-full h-full object-cover object-center"
-            style={{ filter: 'brightness(0.65) saturate(1.2)' }}
+            style={{ filter: 'brightness(0.6) saturate(1.2)' }}
           />
-          {/* Gradiente bottom */}
           <div
             className="absolute inset-0"
             style={{
-              background: `linear-gradient(
-                to bottom,
-                transparent 20%,
-                ${factionColor}22 60%,
-                #0d1220 100%
-              )`,
+              background: `linear-gradient(to bottom, transparent 30%, ${factionColor}18 70%, #0d1220 100%)`,
             }}
           />
-          {/* Badge OP in overlay */}
+          {/* Badge OP */}
           <div
-            className="absolute bottom-4 right-4 w-14 h-14 rounded-full flex flex-col items-center
+            className="absolute bottom-4 right-4 w-12 h-12 rounded-full flex flex-col items-center
               justify-center border-2 font-mono"
             style={{
               backgroundColor: '#0a0e1a',
-              borderColor: factionColor,
-              boxShadow: `0 0 20px ${factionColor}88`,
+              borderColor: borderColor,
+              boxShadow: `0 0 16px ${borderColor}88`,
             }}
           >
-            <span className="font-black text-xl" style={{ color: factionColor, lineHeight: 1 }}>
+            <span className="font-black text-lg leading-none" style={{ color: borderColor }}>
               {card.op_points}
             </span>
-            <span className="text-[8px] text-[#8899aa] uppercase tracking-widest">OP</span>
+            <span className="text-[7px] text-[#8899aa] uppercase tracking-widest">OP</span>
           </div>
-
-          {/* ID carta */}
+          {/* ID */}
           <div
-            className="absolute bottom-4 left-4 px-2 py-0.5 rounded font-mono text-xs"
+            className="absolute bottom-4 left-4 px-1.5 py-0.5 rounded font-mono text-xs"
             style={{ backgroundColor: '#0a0e1acc', color: '#445566' }}
           >
             {card.card_id}
           </div>
         </div>
 
-        {/* ── Corpo carta ── */}
-        <div className="p-5 space-y-4">
+        {/* ── CORPO SCROLLABILE ── */}
+        <div className="overflow-y-auto flex-1 p-4 space-y-3">
 
-          {/* Nome + tipo */}
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-mono font-bold border"
-                style={{
-                  backgroundColor: `${typeBorder}14`,
-                  borderColor: `${typeBorder}44`,
-                  color: typeBorder,
-                }}
-              >
-                {typeIcon} {cardType}
-              </span>
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-mono font-bold border"
-                style={{
-                  backgroundColor: `${factionColor}14`,
-                  borderColor: `${factionColor}44`,
-                  color: factionColor,
-                }}
-              >
-                {faction}
-              </span>
+          {/* ── HEADER: tipo + nome + fazione ── */}
+          <div className="flex items-start gap-2">
+            {/* Flag fazione in cerchio */}
+            <div
+              className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border text-xl"
+              style={{
+                backgroundColor: `${factionColor}18`,
+                borderColor: `${factionColor}55`,
+              }}
+            >{flag}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                <span
+                  className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border"
+                  style={{ backgroundColor: `${borderColor}14`, borderColor: `${borderColor}44`, color: borderColor }}
+                >
+                  {typeIcon} {cardType}
+                </span>
+                {isSpecial && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold border
+                    bg-[#f59e0b14] border-[#f59e0b44] text-[#f59e0b]">
+                    ★ SPECIALE
+                  </span>
+                )}
+              </div>
+              <h2 className="text-lg font-black font-mono text-white leading-tight">
+                {card.card_name}
+              </h2>
+              <p className="text-xs font-mono" style={{ color: factionColor }}>{faction}</p>
             </div>
-            <h2
-              className="text-xl font-black font-mono text-white leading-tight"
-            >
-              {card.card_name}
-            </h2>
           </div>
 
-          {/* Separatore */}
-          <div className="h-px" style={{ backgroundColor: typeBorder + '44' }} />
+          {/* Divisore */}
+          <div className="h-px" style={{ backgroundColor: borderColor + '44' }} />
 
-          {/* Descrizione */}
+          {/* ── PREREQUISITI ── */}
+          <div>
+            <p className="text-[9px] font-mono font-bold text-[#445566] uppercase tracking-widest mb-1.5">
+              📋 Prerequisiti per giocare
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {prereqs.map((p, i) => (
+                <span
+                  key={i}
+                  className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded border"
+                  style={{
+                    backgroundColor: i === 0 ? `${factionColor}14` : `${borderColor}10`,
+                    borderColor: i === 0 ? `${factionColor}44` : `${borderColor}33`,
+                    color: i === 0 ? factionColor : borderColor,
+                  }}
+                >{p}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* ── DESCRIZIONE ── */}
           {description && (
             <div
               className="p-3 rounded-xl border text-sm font-mono text-[#aabbcc] leading-relaxed italic"
@@ -251,48 +221,82 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
             </div>
           )}
 
-          {/* Effetti visivi */}
-          <div>
-            <p className="text-[10px] font-mono font-bold text-[#445566] uppercase tracking-widest mb-2">
-              Effetti sui tracciati
+          {/* ── MODIFICATORI TRACCIATI ── */}
+          {deltas.length > 0 && (
+            <div>
+              <p className="text-[9px] font-mono font-bold text-[#445566] uppercase tracking-widest mb-1.5">
+                📊 Modificatori tracciati (valore medio)
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {deltas.map(d => {
+                  const positive = d.posGood ? d.delta > 0 : d.delta < 0;
+                  const color = positive ? '#22c55e' : '#ef4444';
+                  return (
+                    <div
+                      key={d.key}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border font-mono"
+                      style={{
+                        backgroundColor: `${color}10`,
+                        borderColor: `${color}33`,
+                      }}
+                    >
+                      <span className="text-sm">{d.icon}</span>
+                      <div className="flex-1">
+                        <p className="text-[9px] text-[#667788] leading-none">{d.label}</p>
+                        <p
+                          className="font-black text-sm leading-none"
+                          style={{ color }}
+                        >
+                          {d.delta > 0 ? '+' : ''}{d.delta}
+                        </p>
+                      </div>
+                      <span
+                        className="text-xs font-black"
+                        style={{ color: positive ? '#22c55e' : '#ef4444' }}
+                      >
+                        {positive ? '▲' : '▼'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {deltas.length === 0 && (
+            <p className="text-xs font-mono text-[#334455] italic text-center py-1">
+              Effetti condizionali — varia in base allo stato del gioco
             </p>
-            <EffectPills card={card} />
-            {(!('effects' in card) || Object.keys((card as GameCard).effects ?? {}).length === 0) && (
-              <p className="text-xs font-mono text-[#334455] italic">Nessun effetto diretto sui tracciati</p>
-            )}
-          </div>
+          )}
 
-          {/* Separatore */}
-          <div className="h-px" style={{ backgroundColor: '#1e3a5f' }} />
-
-          {/* Metadati */}
-          <div className="grid grid-cols-3 gap-2">
+          {/* ── METADATI ── */}
+          <div className="grid grid-cols-3 gap-1.5">
             {[
-              { label: 'Tipo mazzo', value: ('deck_type' in card ? card.deck_type : '—') as string },
-              { label: 'Punti OP', value: String(card.op_points) },
-              { label: 'Fazione', value: faction },
+              { label: 'Mazzo', value: ('deck_type' in card ? card.deck_type : '—') as string },
+              { label: 'Costo OP', value: String(card.op_points) },
+              { label: 'Fazione', value: (faction as string).slice(0, 8) },
             ].map(({ label, value }) => (
               <div
                 key={label}
                 className="p-2 rounded-lg text-center border"
                 style={{ backgroundColor: '#060d18', borderColor: '#1e3a5f' }}
               >
-                <p className="text-[9px] font-mono text-[#445566] uppercase tracking-wider">{label}</p>
-                <p className="text-sm font-mono font-bold text-white mt-0.5">{value}</p>
+                <p className="text-[8px] font-mono text-[#445566] uppercase tracking-wider">{label}</p>
+                <p className="text-xs font-mono font-bold text-white mt-0.5">{value}</p>
               </div>
             ))}
           </div>
 
-          {/* Pulsanti azione */}
+          {/* ── AZIONI ── */}
           <div className="flex gap-2 pt-1">
             {onPlay && (
               <button
                 onClick={() => { onClose(); onPlay(); }}
-                className="flex-1 py-3 rounded-xl font-mono font-black text-sm tracking-wider transition-all"
+                className="flex-1 py-3 rounded-xl font-mono font-black text-sm tracking-wider"
                 style={{
-                  background: `linear-gradient(135deg, ${factionColor}, ${factionColor}bb)`,
+                  background: `linear-gradient(135deg, ${borderColor}, ${borderColor}aa)`,
                   color: '#0a0e1a',
-                  boxShadow: `0 0 20px ${factionColor}44`,
+                  boxShadow: `0 0 16px ${borderColor}44`,
                 }}
               >
                 ▶ Gioca questa carta
