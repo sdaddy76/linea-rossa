@@ -68,14 +68,27 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
 
   // ─── Carica lista tavoli ─────────────────────────────────────────────────
   const loadGames = useCallback(async () => {
-    // Tavoli aperti in lobby
-    const { data: openData } = await supabase
+    // Tavoli aperti in lobby — con fallback se colonna is_public non ancora migrata
+    let openData: Game[] | null = null;
+    const openRes = await supabase
       .from('games')
       .select('*')
       .eq('is_public', true)
       .in('status', ['lobby', 'active'])
       .order('created_at', { ascending: false })
       .limit(20);
+    if (!openRes.error) {
+      openData = openRes.data as Game[];
+    } else {
+      // Colonna is_public non ancora presente → carica tutti i lobby aperti
+      const fallback = await supabase
+        .from('games')
+        .select('*')
+        .in('status', ['lobby', 'active'])
+        .order('created_at', { ascending: false })
+        .limit(20);
+      openData = (fallback.data as Game[]) ?? [];
+    }
 
     // Partite recenti dell'utente (qualsiasi stato)
     const { data: recentData } = await supabase
@@ -133,22 +146,29 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       // Insert con retry su codice duplicato
       let game = null;
       let gameError = null;
+      // Prova prima con is_public; se la colonna non esiste ancora (42703) riprova senza
+      const buildPayload = (withIsPublic: boolean) => ({
+        code,
+        name: code,
+        max_turns: maxTurns,
+        created_by: profile.id,
+        ...(withIsPublic ? { is_public: isPublic } : {}),
+      });
+      let useIsPublic = true;
       for (let attempt = 0; attempt < 5; attempt++) {
         const res = await supabase
           .from('games')
-          .insert({
-            code,
-            name: code,           // usa il codice come nome (campo opzionale)
-            max_turns: maxTurns,
-            created_by: profile.id,
-            is_public: isPublic,
-          })
+          .insert(buildPayload(useIsPublic))
           .select()
           .single();
         game = res.data;
         gameError = res.error;
         if (!gameError) break;
-        if (gameError.code === '23505') { code = makeCode(); continue; }
+        // Colonna is_public non ancora migrata → riprova senza
+        if (gameError.code === 'PGRST204' || gameError.message?.includes('is_public')) {
+          useIsPublic = false; continue;
+        }
+        if (gameError.code === '23505') { code = makeCode(); continue; } // codice duplicato
         break;
       }
 

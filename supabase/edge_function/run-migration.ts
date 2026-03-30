@@ -71,6 +71,10 @@ Deno.serve(async (req: Request) => {
     // cards_deck
     `ALTER TABLE public.cards_deck ADD COLUMN IF NOT EXISTS owner_faction text`,
     `ALTER TABLE public.cards_deck ADD COLUMN IF NOT EXISTS play_mode text`,
+    // games: tavolo aperto / riservato
+    `ALTER TABLE public.games ADD COLUMN IF NOT EXISTS is_public boolean NOT NULL DEFAULT false`,
+    `ALTER TABLE public.games ALTER COLUMN name DROP NOT NULL`,
+    `CREATE INDEX IF NOT EXISTS idx_games_public_lobby ON public.games (is_public, status) WHERE status IN ('lobby','active')`,
     // Reload schema cache
     `NOTIFY pgrst, 'reload schema'`,
   ];
