@@ -153,7 +153,7 @@ export interface Profile {
 export interface Game {
   id: string;
   code: string;
-  name: string;
+  name?: string;          // opzionale — non più richiesto dalla UI
   status: GameStatus;
   current_turn: number;
   max_turns: number;
@@ -163,6 +163,9 @@ export interface Game {
   created_at: string;
   started_at?: string;
   finished_at?: string;
+  /** true = tavolo aperto (chiunque può unirsi senza codice)
+   *  false/undefined = riservato (serve il codice) */
+  is_public?: boolean;
   /** 'classic' = mazzo separato per fazione (default legacy)
    *  'unified' = mazzo unico con tutte le carte, distribuzione mano */
   game_mode?: 'classic' | 'unified';

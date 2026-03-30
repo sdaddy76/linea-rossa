@@ -31,7 +31,8 @@ interface LobbyPlayer {
 interface WaitingRoomProps {
   gameId: string;
   gameCode: string;
-  gameName: string;
+  gameName?: string;   // opzionale — non più richiesto
+  isPublic?: boolean;  // true = aperta, false/undefined = riservata
   profile: Profile;
   isHost: boolean;                          // chi ha creato la partita
   onGameStart: (faction: string | null) => void; // callback quando status → active
@@ -39,7 +40,7 @@ interface WaitingRoomProps {
 }
 
 export default function WaitingRoom({
-  gameId, gameCode, gameName, profile, isHost, onGameStart, onLeave,
+  gameId, gameCode, gameName, isPublic, profile, isHost, onGameStart, onLeave,
 }: WaitingRoomProps) {
   const [players, setPlayers] = useState<LobbyPlayer[]>([]);
   const [myFaction, setMyFaction] = useState<Faction | null>(null);
@@ -433,8 +434,15 @@ export default function WaitingRoom({
         <div className="rounded-xl border border-[#1e3a5f] bg-[#0d1424] p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-black font-mono text-white tracking-widest">{gameName}</h2>
-              <p className="text-xs font-mono text-[#445566] mt-1">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-black tracking-wider ${
+                  isPublic ? 'bg-[#22d3ee15] text-[#22d3ee]' : 'bg-[#a78bfa15] text-[#a78bfa]'
+                }`}>
+                  {isPublic ? '🌐 Tavolo aperto' : '🔒 Tavolo riservato'}
+                </span>
+                <span className="text-[#00ff88] font-mono font-black text-sm tracking-wider">{gameCode}</span>
+              </div>
+              <p className="text-xs font-mono text-[#445566]">
                 {isHost ? 'Sei l\'host — avvia quando tutti sono pronti' : 'In attesa che l\'host avvii la partita…'}
               </p>
             </div>
@@ -447,8 +455,10 @@ export default function WaitingRoom({
           {/* Codice partita */}
           <div className="mt-4 flex items-center gap-3 p-3 rounded-lg bg-[#060d18] border border-[#1e3a5f]">
             <div className="flex-1">
-              <p className="text-[10px] font-mono text-[#445566] uppercase tracking-widest mb-1">Codice partita da condividere</p>
-              <p className="text-2xl font-black font-mono text-[#00ff88] tracking-[0.2em]">{gameCode}</p>
+              <p className="text-[10px] font-mono text-[#445566] uppercase tracking-widest mb-1">
+                {isPublic ? 'Codice (opzionale — tavolo visibile nella lista)' : 'Codice da condividere con i giocatori'}
+              </p>
+              <p className="text-2xl font-black font-mono tracking-[0.2em]" style={{ color: isPublic ? '#22d3ee' : '#a78bfa' }}>{gameCode}</p>
             </div>
             <button
               onClick={copyCode}
