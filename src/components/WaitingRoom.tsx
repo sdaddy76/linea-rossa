@@ -45,7 +45,11 @@ export default function WaitingRoom({
   const [players, setPlayers] = useState<LobbyPlayer[]>([]);
   const [myFaction, setMyFaction] = useState<Faction | null>(null);
   const myFactionRef = useRef<Faction | null>(null); // ref sempre aggiornato — evita stale closure
-  const isSwitchingFaction = useRef(false); // guard: evita reset durante cambio fazione
+  // opSeq: ogni operazione chooseFaction ottiene un numero crescente.
+  // loadPlayers aggiorna myFaction SOLO se non ci sono operazioni in volo (pendingOps===0).
+  // Questo sostituisce isSwitchingFaction (basato su timing/setTimeout) con una
+  // soluzione deterministica basata su contatore.
+  const pendingOps = useRef(0);
   const onGameStartRef = useRef(onGameStart); // ref stabile — evita re-subscribe ad ogni render
   useEffect(() => { onGameStartRef.current = onGameStart; }, [onGameStart]);
   const [loading, setLoading] = useState(false);
@@ -64,12 +68,10 @@ export default function WaitingRoom({
       .order('turn_order');
     if (data) {
       setPlayers(data as LobbyPlayer[]);
-      // Recupera la fazione che ho già scelto (sync con DB)
-      // IMPORTANTE: il guard isSwitchingFaction protegge ENTRAMBI i branch:
-      // durante un cambio/rimozione fazione, il DB potrebbe non essere ancora
-      // aggiornato → loadPlayers leggerebbe dati vecchi e sovrascriverebbe
-      // lo stato ottimistico dell'UI (causando la fazione "bloccata")
-      if (!isSwitchingFaction.current) {
+      // Aggiorna myFaction SOLO se non c'è un'operazione chooseFaction in corso.
+      // Durante selezione/deselezione, l'UI è già aggiornata ottimisticamente:
+      // sovrascrivere con dati DB potenzialmente vecchi causerebbe il "rimbalzo".
+      if (pendingOps.current === 0) {
         const me = data.find((p: LobbyPlayer) => p.player_id === profile.id);
         if (me?.faction) {
           setMyFaction(me.faction as Faction);
@@ -137,10 +139,8 @@ export default function WaitingRoom({
     // Se già selezionata → deseleziona
     if (myFaction === faction) {
       setLoading(true); setError('');
-      isSwitchingFaction.current = true;
-      // Aggiorna UI subito (ottimistico) — la subscription non sovrascriverà
-      // finché isSwitchingFaction.current rimane true
-      setMyFaction(null);
+      pendingOps.current += 1;          // blocca loadPlayers dal sovrascrivere
+      setMyFaction(null);               // aggiornamento ottimistico immediato
       myFactionRef.current = null;
       try {
         const { error: delErr } = await supabase
@@ -149,15 +149,15 @@ export default function WaitingRoom({
           .eq('game_id', gameId)
           .eq('player_id', profile.id);
         if (delErr) throw delErr;
+        // Delete confermato dal DB: ora forza la lettura dello stato corretto
+        await loadPlayers();
       } catch {
         // Rollback UI se il delete fallisce
         setMyFaction(faction);
         myFactionRef.current = faction;
         setError('Errore nella deselezione');
       } finally {
-        // Aspetta un tick prima di riabilitare la subscription,
-        // così l'evento real-time del delete non rimette la fazione
-        setTimeout(() => { isSwitchingFaction.current = false; }, 500);
+        pendingOps.current -= 1;        // sblocca loadPlayers
         setLoading(false);
       }
       return;
@@ -168,10 +168,9 @@ export default function WaitingRoom({
     if (taken) { setError(`${faction} è già presa da un altro giocatore`); return; }
 
     setLoading(true); setError('');
-    isSwitchingFaction.current = true;
-    // Aggiorna UI subito (ottimistico)
+    pendingOps.current += 1;            // blocca loadPlayers dal sovrascrivere
     const prevFaction = myFaction;
-    setMyFaction(faction);
+    setMyFaction(faction);              // aggiornamento ottimistico immediato
     myFactionRef.current = faction;
     try {
       // 1. Rimuove la scelta precedente del giocatore
@@ -219,8 +218,7 @@ export default function WaitingRoom({
       myFactionRef.current = prevFaction;
       setError(err instanceof Error ? err.message : 'Errore nella scelta');
     } finally {
-      // Attesa 500ms prima di riabilitare la subscription real-time
-      setTimeout(() => { isSwitchingFaction.current = false; }, 500);
+      pendingOps.current -= 1;          // sblocca loadPlayers
       setLoading(false);
     }
   };

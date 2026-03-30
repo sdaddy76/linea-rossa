@@ -576,6 +576,11 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   };
   const myCards = buildHand();
 
+  // ── Contatore carte rimanenti nel mazzo (non ancora pescate) ────────────
+  const deckRemaining = isUnified
+    ? deckCards.filter(dc => dc.status === 'available' && !dc.held_by_faction).length
+    : deckCards.filter(dc => dc.faction === myFaction && dc.status === 'available' && !dc.held_by_faction).length;
+
   const getRisorse = (f: string) =>
     (gameState[`risorse_${f.toLowerCase()}` as keyof GameState] as number) ?? 5;
   const getStabilita = (f: string) =>
@@ -891,7 +896,13 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded font-bold ${
                         myHandCards.length === 0 ? 'text-[#ef4444] bg-[#ef444420]'
                           : 'text-[#22c55e] bg-[#22c55e20]'}`}>
-                        {myHandCards.length} carte in mano
+                        {myHandCards.length} in mano
+                      </span>
+                      <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                        deckRemaining === 0 ? 'text-[#ef4444] bg-[#ef444420]'
+                          : deckRemaining <= 10 ? 'text-[#f59e0b] bg-[#f59e0b20]'
+                          : 'text-[#8899aa] bg-[#ffffff10]'}`}>
+                        🗂 {deckRemaining} nel mazzo
                       </span>
                     </div>
                     <span className="text-[#8899aa] font-mono text-xs">{showHand ? '▲' : '▼'}</span>
@@ -949,6 +960,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           ? `${myCards.length} in mano`
                           : `${myCards.length} anteprima`}
                       </span>
+                      {game.status === 'active' && (
+                        <span className={`font-mono text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                          deckRemaining === 0 ? 'text-[#ef4444] bg-[#ef444420]'
+                            : deckRemaining <= 5 ? 'text-[#f59e0b] bg-[#f59e0b20]'
+                            : 'text-[#8899aa] bg-[#ffffff10]'}`}>
+                          🗂 {deckRemaining} nel mazzo
+                        </span>
+                      )}
                     </div>
                     <span className="text-[#8899aa] font-mono text-xs">
                       {showHand ? '▲ NASCONDI' : '▼ MOSTRA'}
