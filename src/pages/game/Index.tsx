@@ -898,24 +898,29 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   </button>
 
                   {showHand && (
-                    <div className="p-3 space-y-2 max-h-72 overflow-y-auto">
+                    <div className="p-3">
                       {myHandCards.length === 0 && (
                         <p className="text-[#ef4444] font-mono text-xs text-center py-4">
                           🎴 Nessuna carta in mano
                         </p>
                       )}
-                      {myHandCards.map(dc => (
-                        <UnifiedHandCard
-                          key={dc.id}
-                          dc={dc}
-                          myFaction={myFaction!}
-                          selected={selectedUnifiedCard === dc.id}
-                          disabled={!isMyTurn || isBotThinking}
-                          onToggle={() => setSelectedUnifiedCard(
-                            selectedUnifiedCard === dc.id ? null : dc.id
-                          )}
-                        />
-                      ))}
+                      {/* Vista a ventaglio orizzontale */}
+                      <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory"
+                        style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e3a5f transparent' }}>
+                        {myHandCards.map(dc => (
+                          <div key={dc.id} className="snap-start shrink-0">
+                            <UnifiedHandCard
+                              dc={dc}
+                              myFaction={myFaction!}
+                              selected={selectedUnifiedCard === dc.id}
+                              disabled={!isMyTurn || isBotThinking}
+                              onToggle={() => setSelectedUnifiedCard(
+                                selectedUnifiedCard === dc.id ? null : dc.id
+                              )}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -951,26 +956,31 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   </button>
 
                     {showHand && (
-                      <div className="p-3 space-y-2 max-h-72 overflow-y-auto">
+                      <div className="p-3">
                         {myCards.length === 0 && (
                           <p className="text-[#ef4444] font-mono text-xs text-center py-4">
                             🃏 Mazzo esaurito — nessuna carta disponibile
                           </p>
                         )}
-                      {myCards.map(card => (
-                        <ClassicHandCard
-                          key={card.card_id}
-                          card={card}
-                          faction={myFaction!}
-                          gameState={gameState}
-                          selected={selectedCard === card.card_id}
-                          disabled={!isMyTurn || isBotThinking}
-                          onToggle={() => setSelectedCard(
-                            selectedCard === card.card_id ? null : card.card_id
-                          )}
-                        />
-                      ))}
-                    </div>
+                        {/* Vista a ventaglio orizzontale */}
+                        <div className="flex gap-2 overflow-x-auto pb-2 snap-x snap-mandatory"
+                          style={{ scrollbarWidth: 'thin', scrollbarColor: '#1e3a5f transparent' }}>
+                          {myCards.map(card => (
+                            <div key={card.card_id} className="snap-start shrink-0">
+                              <ClassicHandCard
+                                card={card}
+                                faction={myFaction!}
+                                gameState={gameState}
+                                selected={selectedCard === card.card_id}
+                                disabled={!isMyTurn || isBotThinking}
+                                onToggle={() => setSelectedCard(
+                                  selectedCard === card.card_id ? null : card.card_id
+                                )}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                   )}
 
                   {/* Azioni carta selezionata */}

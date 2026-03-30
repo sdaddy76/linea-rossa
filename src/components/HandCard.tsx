@@ -1,14 +1,18 @@
 // =============================================
 // LINEA ROSSA — HandCard
-// Carta della mano: stile "carta da gioco" verticale.
-// Usato sia in modalità classica che unificata.
+// Carta della mano: può essere mostrata in modalità
+// "grafica" (artwork AI) o "testuale" (lista compatta).
+// Click sulla carta → modale dettaglio.
 // =============================================
+import { useState } from 'react';
 import type { DeckCard } from '@/types/game';
 import type { GameCard } from '@/data/mazzi';
 import type { GameState } from '@/types/game';
 import {
   FACTION_COLORS, FACTION_FLAGS, CARD_TYPE_COLORS, CARD_TYPE_ICONS,
 } from '@/lib/factionColors';
+import CardVisual from './CardVisual';
+import CardDetailModal from './CardDetailModal';
 
 export { FACTION_COLORS, FACTION_FLAGS, CARD_TYPE_COLORS, CARD_TYPE_ICONS };
 
@@ -37,8 +41,8 @@ interface ClassicHandCardProps {
 }
 
 export function ClassicHandCard({ card, faction, gameState, selected, disabled, onToggle }: ClassicHandCardProps) {
+  const [showDetail, setShowDetail] = useState(false);
   const typeColor = CARD_TYPE_COLORS[card.card_type] ?? '#8899aa';
-  const typeIcon  = CARD_TYPE_ICONS[card.card_type]  ?? '🃏';
   const factionColor = FACTION_COLORS[faction] ?? '#22c55e';
 
   // Effetti contestualizzati
@@ -48,85 +52,63 @@ export function ClassicHandCard({ card, faction, gameState, selected, disabled, 
   const pills: EffectPill[] = [
     { icon: '☢️', val: eff.nucleare?.(gameState.nucleare) ?? 0,  posColor: '#22c55e', negColor: '#ef4444', label: 'Nucleare' },
     { icon: '💰', val: eff.sanzioni?.(gameState.sanzioni) ?? 0,  posColor: '#3b82f6', negColor: '#f59e0b', label: 'Sanzioni' },
-    { icon: '🎯', val: eff.defcon?.(gameState.defcon)     ?? 0,  posColor: '#22c55e', negColor: '#ef4444', label: 'DEFCON' },
-    { icon: '🌍', val: eff.opinione?.(gameState.opinione) ?? 0,  posColor: '#8b5cf6', negColor: '#ec4899', label: 'Opinione' },
-    { icon: '📦', val: eff.risorse?.(myRis)               ?? 0,  posColor: '#f59e0b', negColor: '#8899aa', label: 'Risorse' },
-    { icon: '🏛️', val: eff.stabilita?.(myStab)            ?? 0,  posColor: '#22c55e', negColor: '#ef4444', label: 'Stabilità' },
+    { icon: '🌍', val: eff.opinione?.(gameState.opinione) ?? 0,  posColor: '#22c55e', negColor: '#ef4444', label: 'Opinione' },
+    { icon: '🎯', val: eff.defcon?.(gameState.defcon)   ?? 0,   posColor: '#ef4444', negColor: '#22c55e', label: 'DEFCON' },
+    { icon: '⚡', val: eff.risorse?.(myRis)             ?? 0,   posColor: '#f59e0b', negColor: '#ef4444', label: 'Risorse' },
+    { icon: '🛡️', val: eff.stabilita?.(myStab)          ?? 0,   posColor: '#22d3ee', negColor: '#ef4444', label: 'Stabilità' },
   ].filter(p => p.val !== 0);
 
   return (
-    <button
-      onClick={onToggle}
-      disabled={disabled}
-      className={`group relative w-full text-left rounded-xl border-2 overflow-hidden
-        transition-all duration-200 select-none
-        ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-        ${selected ? 'scale-[1.02] shadow-lg' : 'hover:scale-[1.01]'}`}
-      style={{
-        borderColor:     selected ? factionColor : `${typeColor}50`,
-        backgroundColor: selected ? `${factionColor}10` : '#0d1424',
-        boxShadow:       selected ? `0 0 18px ${factionColor}30, 0 0 0 1px ${factionColor}` : 'none',
-      }}>
+    <>
+      {/* ── Vista grafica + testo compatto ── */}
+      <div
+        className={`relative flex flex-col items-center gap-0 select-none
+          ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        {/* Carta visuale (artwork) */}
+        <CardVisual
+          card={card}
+          size="md"
+          selected={selected}
+          disabled={disabled}
+          showDetailOnClick={false}
+          onClick={() => {
+            if (!disabled) {
+              // Primo click = seleziona/deseleziona; doppio click (o icona 🔍) = dettaglio
+              onToggle();
+            }
+          }}
+        />
 
-      {/* Banda colorata tipo in alto */}
-      <div className="h-1 w-full" style={{ backgroundColor: typeColor }} />
-
-      <div className="p-3">
-        {/* Riga 1: icona tipo + nome + OP */}
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-base shrink-0">{typeIcon}</span>
-            <p className="font-black font-mono text-xs text-white leading-tight">
-              {card.card_name}
-            </p>
-          </div>
-          {/* Badge OP */}
-          <div className="shrink-0 flex flex-col items-center justify-center
-            w-8 h-8 rounded-lg border-2 font-black font-mono text-sm"
-            style={{ borderColor: typeColor, color: typeColor, backgroundColor: `${typeColor}15` }}>
-            {card.op_points}
-          </div>
-        </div>
-
-        {/* Tipo + deck_type */}
-        <div className="flex items-center gap-1.5 mb-2">
-          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
-            style={{ color: typeColor, backgroundColor: `${typeColor}20` }}>
-            {card.card_type}
-          </span>
-          {card.deck_type === 'speciale' && (
-            <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded
-              bg-[#8b5cf620] text-[#8b5cf6] border border-[#8b5cf640]">
-              ★ SPECIALE
-            </span>
-          )}
-        </div>
-
-        {/* Descrizione */}
-        <p className="font-mono text-[10px] text-[#6677aa] leading-relaxed line-clamp-2 mb-2">
-          {card.description}
-        </p>
-
-        {/* Effetti */}
-        {pills.length > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {pills.map((p, i) => <EffPill key={i} {...p} />)}
-          </div>
+        {/* Bottone dettaglio sopra la carta (icona lente) */}
+        {!disabled && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowDetail(true); }}
+            className="absolute top-1 left-1 z-20 w-6 h-6 rounded-full flex items-center justify-center
+              text-[10px] font-bold transition-all opacity-70 hover:opacity-100"
+            style={{ backgroundColor: '#0a0e1acc', border: `1px solid ${factionColor}44`, color: factionColor }}
+            title="Vedi dettaglio carta"
+          >
+            🔍
+          </button>
         )}
 
-        {/* Indicatore selezione */}
-        {selected && (
-          <div className="mt-2 flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse"
-              style={{ backgroundColor: factionColor }} />
-            <span className="text-[10px] font-mono font-bold"
-              style={{ color: factionColor }}>
-              SELEZIONATA — scegli azione ↓
-            </span>
+        {/* Pills effetti (se selezionata, mostra sotto) */}
+        {selected && pills.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1 max-w-[110px] justify-center">
+            {pills.slice(0, 3).map((p, i) => <EffPill key={i} {...p} />)}
           </div>
         )}
       </div>
-    </button>
+
+      {showDetail && (
+        <CardDetailModal
+          card={card}
+          onClose={() => setShowDetail(false)}
+          onPlay={!disabled && !selected ? onToggle : undefined}
+        />
+      )}
+    </>
   );
 }
 
@@ -140,96 +122,68 @@ interface UnifiedHandCardProps {
 }
 
 export function UnifiedHandCard({ dc, myFaction, selected, disabled, onToggle }: UnifiedHandCardProps) {
+  const [showDetail, setShowDetail] = useState(false);
   const ownerFaction = (dc.owner_faction ?? dc.faction) as string;
   const isMyOwn      = ownerFaction === myFaction;
   const ownerColor   = FACTION_COLORS[ownerFaction] ?? '#8899aa';
-  const typeColor    = CARD_TYPE_COLORS[dc.card_type] ?? '#8899aa';
-  const typeIcon     = CARD_TYPE_ICONS[dc.card_type]  ?? '🃏';
 
   return (
-    <button
-      onClick={onToggle}
-      disabled={disabled}
-      className={`group relative w-full text-left rounded-xl border-2 overflow-hidden
-        transition-all duration-200 select-none
-        ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}
-        ${selected ? 'scale-[1.02] shadow-lg' : 'hover:scale-[1.01]'}`}
-      style={{
-        borderColor:     selected ? (isMyOwn ? ownerColor : '#f97316') : `${ownerColor}40`,
-        backgroundColor: selected ? `${ownerColor}10` : `${ownerColor}06`,
-        boxShadow:       selected
-          ? `0 0 18px ${isMyOwn ? ownerColor : '#f97316'}30, 0 0 0 1px ${isMyOwn ? ownerColor : '#f97316'}`
-          : 'none',
-      }}>
+    <>
+      <div
+        className={`relative flex flex-col items-center select-none
+          ${disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+      >
+        {/* Carta visuale con bordo speciale se carta altrui */}
+        <div className="relative">
+          <CardVisual
+            card={dc}
+            size="md"
+            selected={selected}
+            disabled={disabled}
+            showDetailOnClick={false}
+            onClick={() => { if (!disabled) onToggle(); }}
+          />
 
-      {/* Banda superiore con colore proprietario */}
-      <div className="h-1 w-full" style={{ backgroundColor: ownerColor }} />
+          {/* Badge "altrui" sovrapposto */}
+          {!isMyOwn && (
+            <div
+              className="absolute bottom-7 left-0 right-0 mx-auto w-fit px-1.5 py-0.5 rounded font-mono text-[8px]
+                font-bold text-center z-20"
+              style={{ backgroundColor: '#f9731622', border: '1px solid #f9731644', color: '#f97316' }}
+            >
+              ⚠ solo OP
+            </div>
+          )}
 
-      <div className="p-3">
-        {/* Riga 1: flag fazione + nome + OP */}
-        <div className="flex items-start justify-between gap-2 mb-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-sm shrink-0">{FACTION_FLAGS[ownerFaction] ?? '🎴'}</span>
-            <p className="font-black font-mono text-xs text-white leading-tight">
-              {dc.card_name}
-            </p>
-          </div>
-          {/* Badge OP con colore fazione */}
-          <div className="shrink-0 flex flex-col items-center justify-center
-            w-8 h-8 rounded-lg border-2 font-black font-mono text-sm"
-            style={{ borderColor: ownerColor, color: ownerColor, backgroundColor: `${ownerColor}15` }}>
-            {dc.op_points}
-          </div>
-        </div>
-
-        {/* Riga 2: tipo + fazione + badge altrui/propria */}
-        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-          <span className="text-base">{typeIcon}</span>
-          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
-            style={{ color: typeColor, backgroundColor: `${typeColor}20` }}>
-            {dc.card_type}
-          </span>
-          <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
-            style={{ color: ownerColor, backgroundColor: `${ownerColor}15`, border: `1px solid ${ownerColor}30` }}>
-            {ownerFaction}
-          </span>
-          {isMyOwn ? (
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded
-              bg-[#22c55e15] text-[#22c55e] border border-[#22c55e30]">
-              tua — evt / op
-            </span>
-          ) : (
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded
-              bg-[#f9731615] text-[#f97316] border border-[#f9731630]">
-              ⚠ altrui — solo op
-            </span>
+          {/* Bottone dettaglio */}
+          {!disabled && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowDetail(true); }}
+              className="absolute top-1 left-1 z-20 w-6 h-6 rounded-full flex items-center justify-center
+                text-[10px] font-bold transition-all opacity-70 hover:opacity-100"
+              style={{ backgroundColor: '#0a0e1acc', border: `1px solid ${ownerColor}44`, color: ownerColor }}
+              title="Vedi dettaglio carta"
+            >
+              🔍
+            </button>
           )}
         </div>
 
-        {/* Descrizione breve (card_id come fallback) */}
-        <p className="font-mono text-[10px] text-[#556677] leading-relaxed line-clamp-1">
-          {dc.card_id}
-        </p>
-
         {/* Avviso evento automatico per carte altrui */}
-        {!isMyOwn && (
-          <p className="mt-1.5 text-[9px] font-mono text-[#f97316] leading-tight">
-            🔁 Dopo l'uso come OP l'evento si attiva automaticamente
+        {!isMyOwn && selected && (
+          <p className="mt-1 text-[9px] font-mono text-[#f97316] leading-tight text-center max-w-[110px]">
+            🔁 Evento auto dopo uso OP
           </p>
         )}
-
-        {/* Indicatore selezione */}
-        {selected && (
-          <div className="mt-2 flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full animate-pulse"
-              style={{ backgroundColor: isMyOwn ? ownerColor : '#f97316' }} />
-            <span className="text-[10px] font-mono font-bold"
-              style={{ color: isMyOwn ? ownerColor : '#f97316' }}>
-              {isMyOwn ? 'SCEGLI: evento o OP ↓' : 'USA COME OP ↓'}
-            </span>
-          </div>
-        )}
       </div>
-    </button>
+
+      {showDetail && (
+        <CardDetailModal
+          card={dc}
+          onClose={() => setShowDetail(false)}
+          onPlay={!disabled && !selected ? onToggle : undefined}
+        />
+      )}
+    </>
   );
 }
