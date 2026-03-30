@@ -65,16 +65,19 @@ export default function WaitingRoom({
     if (data) {
       setPlayers(data as LobbyPlayer[]);
       // Recupera la fazione che ho già scelto (sync con DB)
-      const me = data.find((p: LobbyPlayer) => p.player_id === profile.id);
-      if (me?.faction) {
-        // Il giocatore ha una fazione nel DB → aggiorna stato
-        setMyFaction(me.faction as Faction);
-        myFactionRef.current = me.faction as Faction;
-      } else if (!isSwitchingFaction.current) {
-        // Nessuna fazione nel DB (me assente o faction=null) → deseleziono
-        // Copre sia il caso in cui non sono nella lista, sia il caso faction=null
-        setMyFaction(null);
-        myFactionRef.current = null;
+      // IMPORTANTE: il guard isSwitchingFaction protegge ENTRAMBI i branch:
+      // durante un cambio/rimozione fazione, il DB potrebbe non essere ancora
+      // aggiornato → loadPlayers leggerebbe dati vecchi e sovrascriverebbe
+      // lo stato ottimistico dell'UI (causando la fazione "bloccata")
+      if (!isSwitchingFaction.current) {
+        const me = data.find((p: LobbyPlayer) => p.player_id === profile.id);
+        if (me?.faction) {
+          setMyFaction(me.faction as Faction);
+          myFactionRef.current = me.faction as Faction;
+        } else {
+          setMyFaction(null);
+          myFactionRef.current = null;
+        }
       }
     }
   }, [gameId, profile.id]);
@@ -427,8 +430,10 @@ export default function WaitingRoom({
 
   // ── Stato derivato ────────────────────────────────────────────────
   const humanPlayers = players.filter(p => p.player_id && !p.is_bot);
+  // takenFactions esclude sempre il giocatore corrente: così durante la deselezione
+  // ottimistica (myFaction → null) il bottone non passa a "preso da altri"
   const takenFactions = new Set(
-    players.filter(p => p.player_id && !p.is_bot).map(p => p.faction)
+    players.filter(p => p.player_id && !p.is_bot && p.player_id !== profile.id).map(p => p.faction)
   );
 
   return (
