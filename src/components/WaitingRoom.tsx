@@ -617,18 +617,58 @@ export default function WaitingRoom({
               )}
             </div>
 
-            <button
-              onClick={startGame}
-              disabled={starting || !myFaction}
-              className="w-full py-4 rounded-xl font-black font-mono tracking-widest text-sm transition-all
-                disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{
-                background: myFaction ? 'linear-gradient(135deg, #00ff88, #00cc66)' : '#1e3a5f',
-                color: myFaction ? '#0a0e1a' : '#334455',
-                boxShadow: myFaction ? '0 0 30px #00ff8840' : 'none',
-              }}>
-              {starting ? '⏳ AVVIO IN CORSO…' : myFaction ? '▶ AVVIA PARTITA' : 'SCEGLI LA TUA FAZIONE PER AVVIARE'}
-            </button>
+            {/* Sezione avvio — visibile solo quando la fazione è scelta */}
+            {myFaction ? (
+              <div className="rounded-xl border border-[#1e3a5f] bg-[#060d18] p-4 space-y-3">
+                <p className="text-[11px] font-mono font-bold text-[#8899aa] uppercase tracking-widest text-center">
+                  ✅ Fazione scelta: <span style={{ color: FACTION_INFO[myFaction].color }}>{FACTION_INFO[myFaction].flag} {myFaction}</span>
+                </p>
+                <p className="text-[10px] font-mono text-[#445566] text-center">
+                  Come vuoi procedere?
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {/* Gioca da solo con bot */}
+                  <button
+                    onClick={startGame}
+                    disabled={starting}
+                    className="w-full py-3 rounded-xl font-black font-mono tracking-widest text-sm transition-all
+                      disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      background: 'linear-gradient(135deg, #00ff88, #00cc66)',
+                      color: '#0a0e1a',
+                      boxShadow: '0 0 24px #00ff8840',
+                    }}>
+                    {starting ? '⏳ AVVIO IN CORSO…' : '🤖 GIOCA DA SOLO (con bot)'}
+                  </button>
+                  {/* Aspetta altri giocatori */}
+                  <div className="flex items-center gap-2 py-2 px-3 rounded-xl border border-[#1e3a5f] bg-[#0a0e1a]">
+                    <span className="text-sm">⏳</span>
+                    <div className="flex-1">
+                      <p className="text-[11px] font-mono text-[#8899aa]">
+                        In attesa di altri giocatori…
+                      </p>
+                      <p className="text-[9px] font-mono text-[#334455]">
+                        Condividi il codice <span className="text-[#00ff88] font-bold">{gameCode}</span> — avvia quando tutti sono pronti
+                      </p>
+                    </div>
+                    {humanPlayers.length > 1 && (
+                      <button
+                        onClick={startGame}
+                        disabled={starting}
+                        className="shrink-0 px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
+                          disabled:opacity-40"
+                        style={{ background: '#3b82f6', color: '#fff' }}>
+                        ▶ AVVIA
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-3 text-center text-[11px] font-mono text-[#334455]">
+                👆 Scegli prima la tua fazione per avviare
+              </div>
+            )}
           </div>
         )}
 

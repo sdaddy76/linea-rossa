@@ -77,6 +77,14 @@ function AppRouter() {
     }
   }, [session, profile]);
 
+  // Reset store quando si torna al lobby (evita che lo stato della partita
+  // precedente interferisca con la creazione di una nuova partita)
+  useEffect(() => {
+    if (view === 'lobby') {
+      resetGame();
+    }
+  }, [view]);
+
   // Sottoscrivi real-time quando sei in partita
   useEffect(() => {
     if (game?.id && view === 'game') {
