@@ -346,9 +346,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // Se la definizione non esiste usa effetti vuoti (carta senza effetti meccanici)
       const cardDef = allCards.find(c => c.card_id === cardId) ?? {
         card_id: cardId,
-        card_name: deckCard.card_name,
+        card_name: resolvedCard.card_name,
         effects: {},
-        description: deckCard.card_name,
+        description: resolvedCard.card_name,
       };
 
       // ── 3. Applica effetti e calcola prossimo stato ──────────────────
@@ -394,7 +394,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
         deckCards: s.deckCards.filter(dc => dc.id !== resolvedCard.id),
         loading: false,
-        notification: `✅ ${myFaction}: "${deckCard.card_name}" giocata — turno di ${nextFact}`,
+        notification: `✅ ${myFaction}: "${resolvedCard.card_name}" giocata — turno di ${nextFact}`,
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
           condition: winCheck.condition ?? '',
@@ -461,17 +461,17 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     set({ isBotThinking: true });
 
     try {
-      // Recupera carte disponibili per il bot
+      // Recupera carte in mano al bot (classico: faction+in_hand, unified: held_by_faction+in_hand)
       const { data: available } = await supabase
         .from('cards_deck')
         .select('*')
         .eq('game_id', game.id)
-        .eq('faction', botFaction)
-        .eq('status', 'available')
+        .eq('held_by_faction', botFaction)
+        .eq('status', 'in_hand')
         .limit(10);
 
       if (!available || available.length === 0) {
-        // Mazzo esaurito: turno saltato, passa al prossimo
+        // Mano vuota: turno saltato, passa al prossimo
         const nextFact = nextFaction(botFaction);
         await supabase.from('game_state').update({ active_faction: nextFact }).eq('game_id', game.id);
         set(s => ({
@@ -485,15 +485,16 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
 
       // Importa dati carte dalla libreria
-      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } = await import('@/data/mazzi');
+      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI, getUnifiedDeck } = await import('@/data/mazzi');
       const allCards = [
         ...(MAZZI_PER_FAZIONE[botFaction] ?? []),
         ...(MAZZI_SPECIALI[botFaction] ?? []),
       ];
+      const unifiedCards = getUnifiedDeck();
 
-      // Mappa: card_id → definizione completa
+      // Mappa: card_id → definizione completa (cerca prima nel mazzo fazione, poi in quello unificato)
       const availableWithDef = available
-        .map(dc => allCards.find(c => c.card_id === dc.card_id))
+        .map(dc => allCards.find(c => c.card_id === dc.card_id) ?? unifiedCards.find(c => c.card_id === dc.card_id))
         .filter(Boolean) as typeof allCards;
 
       if (availableWithDef.length === 0) {
@@ -517,7 +518,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       await Promise.all([
         supabase.from('game_state').update({ ...newState, active_faction: nextFact }).eq('game_id', game.id),
         supabase.from('cards_deck').update({ status: 'played', played_at_turn: game.current_turn })
-          .eq('game_id', game.id).eq('card_id', decision.card.card_id),
+          .eq('game_id', game.id).eq('held_by_faction', botFaction).eq('card_id', decision.card.card_id),
         supabase.from('moves_log').insert({
           game_id: game.id,
           turn_number: game.current_turn,
@@ -558,6 +559,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           message: winCheck.message ?? '',
         } : null,
       }));
+
+      // Bot pesca una nuova carta dopo aver giocato
+      if (!winCheck.isOver) {
+        try { await get().drawCards(botFaction); } catch { /* silenzioso */ }
+      }
 
       // Catena bot: se il prossimo è ancora un bot, esegui
       if (!winCheck.isOver) {
@@ -1217,10 +1223,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         notification: `⚔️ ${result.toUpperCase().replace('_', ' ')}: ${myFaction} attacca ${territory} — ${description}`,
       });
 
-      // Controlla DEFCON 1
+      // Controlla DEFCON 1 → game over immediato, NON passare il turno
       if (newDefcon <= 1) {
         set({ gameOverInfo: { winner: null, condition: 'defcon', message: '☢️ GUERRA TERMONUCLEARE — tutti perdono!' } });
         await supabase.from('games').update({ status: 'finished', winner_condition: 'defcon' }).eq('id', game.id);
+        return; // stop: non passare il turno
       }
 
       // Passa il turno su DB (altrimenti gli altri client non vedono il cambio via realtime)
