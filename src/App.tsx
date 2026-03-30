@@ -77,13 +77,12 @@ function AppRouter() {
     }
   }, [session, profile]);
 
-  // Reset store quando si torna al lobby (evita che lo stato della partita
-  // precedente interferisca con la creazione di una nuova partita)
-  useEffect(() => {
-    if (view === 'lobby') {
-      resetGame();
-    }
-  }, [view]);
+  // Reset store SOLO quando si torna al lobby dalla GamePage
+  // (NON ad ogni render con view='lobby', altrimenti resetta anche la WaitingRoom)
+  const handleBackToLobby = () => {
+    resetGame();
+    setView('lobby');
+  };
 
   // Sottoscrivi real-time quando sei in partita
   useEffect(() => {
@@ -116,7 +115,7 @@ function AppRouter() {
     />
   );
   if (view === 'game') return (
-    <GamePage onBack={() => { resetGame(); setView('lobby'); }} />
+    <GamePage onBack={handleBackToLobby} />
   );
 
   // Cover page (default / home)
