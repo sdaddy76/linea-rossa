@@ -517,8 +517,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       await Promise.all([
         supabase.from('game_state').update({ ...newState, active_faction: nextFact }).eq('game_id', game.id),
-        supabase.from('cards_deck').update({ status: 'played', played_at_turn: game.current_turn })
-          .eq('game_id', game.id).eq('held_by_faction', botFaction).eq('card_id', decision.card.card_id),
+        supabase.from('cards_deck').update({ status: 'played', played_at_turn: game.current_turn, held_by_faction: null })
+          .eq('game_id', game.id).eq('held_by_faction', botFaction).eq('card_id', decision.card.card_id).eq('status', 'in_hand'),
         supabase.from('moves_log').insert({
           game_id: game.id,
           turn_number: game.current_turn,
@@ -1259,9 +1259,16 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     set({ loading: true, error: null });
     try {
       if (action === 'buy') {
-        // Acquista unità: schiera nel pool (territory = '__pool__' come placeholder)
+        // Acquista unità: aggiunge al pool della fazione (aumenta disponibili, NON richiede pool esistente)
         const { unitType = 'Convenzionale', qty = 1 } = params;
-        await deployUnit('__pool__', unitType, qty);
+        const unitsKey = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
+        const pool = { ...((gameState[unitsKey] as Record<string, number>) ?? {}) };
+        pool[unitType] = (pool[unitType] ?? 0) + qty;
+        await supabase.from('game_state').update({ [unitsKey]: pool }).eq('game_id', game.id);
+        set(s => ({
+          gameState: { ...s.gameState!, [unitsKey]: pool } as typeof gameState,
+          notification: `🏭 ${myFaction}: acquistate ${qty}× ${unitType}`,
+        }));
 
       } else if (action === 'influence') {
         const { territory = '', opSpent = 1 } = params;
