@@ -9,53 +9,46 @@ import {
   OBJ_FACTION_FLAGS,
   OBJ_DIFFICOLTA_COLORS,
   OBJ_DIFFICOLTA_ICONS,
+  evalObjectiveCondition,
   type ObiettivoSegreto,
   type ObjFazione,
-  type ObjDifficolta,
 } from '@/data/obiettivi';
 import type { GameState } from '@/types/game';
 
 interface Props {
   myFaction: string;
   gameState?: Partial<GameState>;
+  /** Obiettivi già assegnati alla mia fazione (dallo store) */
+  myObjectives?: ObiettivoSegreto[];
+  /** Callback per ri-estrarre obiettivi (se non ancora assegnati) */
+  onAssignNew?: () => void;
   onClose: () => void;
 }
 
-// ─── Valutazione automatica condizione (dove possibile) ──────────────────────
-function evalCondizione(obj: ObiettivoSegreto, gs?: Partial<GameState>): boolean | null {
-  if (!gs || !obj.condizione_tipo || obj.condizione_tipo === 'manuale') return null;
-  if (obj.condizione_tipo !== 'tracciato') return null; // tracciati valutabili automaticamente
-
-  const fieldMap: Record<string, keyof GameState> = {
-    nucleare: 'nucleare',
-    sanzioni: 'sanzioni',
-    defcon:   'defcon',
-    opinione: 'opinione',
-  };
-  const key = fieldMap[obj.condizione_campo ?? ''];
-  if (!key) return null;
-
-  const val = gs[key] as number | undefined;
-  if (val === undefined || val === null) return null;
-
-  switch (obj.condizione_op) {
-    case '>=': return val >= (obj.condizione_valore ?? 0);
-    case '<=': return val <= (obj.condizione_valore ?? 0);
-    case '==': return val === (obj.condizione_valore ?? 0);
-    default:   return null;
-  }
-}
-
 // ─── Componente principale ────────────────────────────────────────────────────
-export default function ObjectivesModal({ myFaction, gameState, onClose }: Props) {
+export default function ObjectivesModal({ myFaction, gameState, myObjectives = [], onAssignNew, onClose }: Props) {
   const [showAll, setShowAll] = useState(false);
 
   const faction = myFaction as ObjFazione;
-  const miei   = TUTTI_GLI_OBIETTIVI.filter(o => o.faction === faction && o.attivo);
-  const altri  = TUTTI_GLI_OBIETTIVI.filter(o => o.faction !== faction && o.attivo);
-
   const fColor = OBJ_FACTION_COLORS[faction] ?? '#8b5cf6';
   const fFlag  = OBJ_FACTION_FLAGS[faction]  ?? '🎯';
+
+  // Usa gli obiettivi già assegnati dallo store; se vuoti mostra tutti quelli della fazione
+  const miei = myObjectives.length > 0
+    ? myObjectives
+    : TUTTI_GLI_OBIETTIVI.filter(o => o.faction === faction && o.attivo);
+
+  const altri = TUTTI_GLI_OBIETTIVI.filter(o => o.faction !== faction && o.attivo);
+
+  // Mappa campo gameState per la valutazione condizioni
+  const gsMap: Partial<Record<string, number>> = {
+    nucleare:           (gameState as Record<string, unknown>)?.nucleare as number,
+    sanzioni:           (gameState as Record<string, unknown>)?.sanzioni as number,
+    defcon:             (gameState as Record<string, unknown>)?.defcon   as number,
+    opinione:           (gameState as Record<string, unknown>)?.opinione as number,
+    stabilita:          (gameState as Record<string, unknown>)?.stabilita_iran as number,
+    supporto_pubblico:  (gameState as Record<string, unknown>)?.supporto_pubblico as number,
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-85 flex items-center justify-center p-4"
@@ -75,14 +68,25 @@ export default function ObjectivesModal({ myFaction, gameState, onClose }: Props
                 Obiettivi Segreti
               </h2>
               <p className="font-mono text-xs mt-0.5" style={{ color: fColor }}>
-                {faction} — {miei.length} obiettivi assegnati
+                {faction} — {miei.length} obiettivi assegnati (estratti da 15)
               </p>
             </div>
           </div>
-          <button onClick={onClose}
-            className="text-[#8899aa] hover:text-white font-mono text-lg px-2 transition-colors">
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {miei.length === 0 && onAssignNew && (
+              <button
+                onClick={onAssignNew}
+                className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold
+                  bg-[#f59e0b20] border border-[#f59e0b60] text-[#f59e0b]
+                  hover:bg-[#f59e0b30] transition-colors">
+                🎲 Estrai Obiettivi
+              </button>
+            )}
+            <button onClick={onClose}
+              className="text-[#8899aa] hover:text-white font-mono text-lg px-2 transition-colors">
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* ── Contenuto ── */}
@@ -91,18 +95,26 @@ export default function ObjectivesModal({ myFaction, gameState, onClose }: Props
           {/* I miei obiettivi */}
           <div>
             <p className="font-mono text-[10px] text-[#8899aa] font-bold uppercase tracking-widest mb-2">
-              🎯 I tuoi obiettivi segreti
+              🎯 I tuoi {miei.length} obiettivi segreti (pool: 15 per fazione)
             </p>
-            <div className="space-y-2">
-              {miei.map(obj => (
-                <ObjGameCard
-                  key={obj.obj_id}
-                  obj={obj}
-                  isMine={true}
-                  evalResult={evalCondizione(obj, gameState)}
-                />
-              ))}
-            </div>
+            {miei.length === 0 ? (
+              <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-4 text-center">
+                <p className="font-mono text-[#8899aa] text-xs">
+                  Nessun obiettivo assegnato. {onAssignNew ? 'Clicca "Estrai Obiettivi" per assegnarne 3.' : 'Attendi l\'inizio della partita.'}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {miei.map(obj => (
+                  <ObjGameCard
+                    key={obj.obj_id}
+                    obj={obj}
+                    isMine={true}
+                    evalResult={evalObjectiveCondition(obj, gsMap)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Obiettivi degli altri (collassabili) */}
@@ -112,7 +124,7 @@ export default function ObjectivesModal({ myFaction, gameState, onClose }: Props
               className="w-full flex items-center justify-between px-3 py-2
                 bg-[#111827] border border-[#1e3a5f] rounded-lg
                 font-mono text-xs text-[#8899aa] hover:text-white transition-colors">
-              <span>👁 Obiettivi delle altre fazioni (intelligence)</span>
+              <span>👁 Pool obiettivi delle altre fazioni (intelligence — 15 cad.)</span>
               <span>{showAll ? '▲' : '▼'}</span>
             </button>
 
@@ -125,7 +137,7 @@ export default function ObjectivesModal({ myFaction, gameState, onClose }: Props
                       <div className="flex items-center gap-2 px-2 py-1">
                         <span className="font-mono text-[10px] font-bold"
                           style={{ color: OBJ_FACTION_COLORS[f] }}>
-                          {OBJ_FACTION_FLAGS[f]} {f}
+                          {OBJ_FACTION_FLAGS[f]} {f} — {altri.filter(o => o.faction === f).length} obiettivi nel pool
                         </span>
                       </div>
                       {altri.filter(o => o.faction === f).map(obj => (
@@ -145,24 +157,23 @@ export default function ObjectivesModal({ myFaction, gameState, onClose }: Props
           {/* Legenda punti */}
           <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-3">
             <p className="font-mono text-[#8899aa] text-[9px] font-bold mb-2 uppercase tracking-wider">
-              📊 Legenda Punti Fine Partita
+              📊 Legenda — Come funzionano gli obiettivi segreti
             </p>
-            <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#22c55e]"/>
-                <span className="text-[#22c55e] font-bold">⭐ Facile</span>
-                <span className="text-[#8899aa]">5 pt — condizione semplice</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#f59e0b]"/>
-                <span className="text-[#f59e0b] font-bold">⭐⭐ Media</span>
-                <span className="text-[#8899aa]">6-7 pt — condizione moderata</span>
-              </div>
-              <div className="flex items-center gap-1.5 col-span-2">
-                <span className="w-2 h-2 rounded-full bg-[#ef4444]"/>
-                <span className="text-[#ef4444] font-bold">⭐⭐⭐ Difficile</span>
-                <span className="text-[#8899aa]">8+ pt — condizione strategica avanzata</span>
-              </div>
+            <div className="grid grid-cols-1 gap-1.5 text-[9px] font-mono">
+              <p className="text-[#8899aa]">
+                🎲 <span className="text-white">Estrazione:</span> All'inizio della partita vengono estratti <strong className="text-[#f59e0b]">3 obiettivi casuali</strong> dal pool di 15 della tua fazione.
+              </p>
+              <p className="text-[#8899aa]">
+                🏆 <span className="text-white">Punteggio:</span> I punti vengono conteggiati <strong>a fine partita</strong>. Obiettivi soddisfatti = punti bonus al totale.
+              </p>
+              <p className="text-[#8899aa]">
+                🔍 <span className="text-white">Condizioni auto:</span> Le condizioni sui tracciati (nucleare, sanzioni, defcon) vengono valutate automaticamente. Le altre (<em>territorio, carta, manuale</em>) richiedono verifica al termine.
+              </p>
+            </div>
+            <div className="flex gap-3 mt-2">
+              <span className="font-mono text-[8px] text-[#22c55e]">⭐ Facile = 4-5 pt</span>
+              <span className="font-mono text-[8px] text-[#f59e0b]">⭐⭐ Media = 5-7 pt</span>
+              <span className="font-mono text-[8px] text-[#ef4444]">⭐⭐⭐ Difficile = 7-9 pt</span>
             </div>
           </div>
         </div>
@@ -278,3 +289,4 @@ function ObjGameCard({ obj, isMine, evalResult }: ObjGameCardProps) {
     </div>
   );
 }
+

@@ -12,6 +12,7 @@ import {
 } from '@/lib/botEngine';
 import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN, CLASSIC_HAND_SIZE, CLASSIC_DRAW_PER_TURN } from '@/data/mazzi';
 import { TERRITORIES } from '@/lib/territoriesData';
+import { assignObjectives, TUTTI_GLI_OBIETTIVI, type ObjFazione, type ObiettivoSegreto } from '@/data/obiettivi';
 
 interface OnlineGameStore {
   // Auth
@@ -108,6 +109,27 @@ interface OnlineGameStore {
   territories: import('@/types/game').TerritoryRecord[];
   militaryUnits: import('@/types/game').MilitaryUnitRecord[];
   combatLog: import('@/types/game').CombatLogRecord[];
+
+  // ── Obiettivi Segreti ──────────────────────────────────────────────────────
+  /** Gli obiettivi segreti della mia fazione per questa partita (3 estratti a caso) */
+  myObjectives: ObiettivoSegreto[];
+  /**
+   * Estrae e salva gli obiettivi segreti per la fazione indicata.
+   * - In modalità online: salva in Supabase tramite la funzione RPC assign_objectives_to_faction
+   * - In modalità locale/fallback: usa il pool locale in obiettivi.ts
+   * @param faction  la fazione del giocatore
+   * @param numDraw  quanti obiettivi estrarre (default 3)
+   */
+  assignObjectivesToFaction: (faction: string, numDraw?: number) => Promise<ObiettivoSegreto[]>;
+  /**
+   * Carica gli obiettivi già assegnati per questa partita dalla tabella game_objectives.
+   * Chiamare in loadGame() per ripristinare dopo un refresh.
+   */
+  loadMyObjectives: (faction: string) => Promise<void>;
+  /**
+   * Marca un obiettivo come completato e aggiorna il punteggio in Supabase.
+   */
+  markObjectiveComplete: (objId: string, completed: boolean) => Promise<void>;
 }
 
 export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
@@ -127,6 +149,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   territories: [],
   militaryUnits: [],
   combatLog: [],
+  myObjectives: [],
 
   // -----------------------------------------------
   initAuth: async () => {
@@ -225,6 +248,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         loading: false,
       });
 
+      // Carica/assegna obiettivi segreti se ho una fazione
+      if (resolvedFaction) {
+        setTimeout(() => get().loadMyObjectives(resolvedFaction), 500);
+      }
+
       // Se la partita è attiva e il turno corrente è di un bot → avvia il bot
       const loadedState = stateRes.data as GameState;
       const loadedGame  = gameRes.data as Game;
@@ -294,7 +322,27 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     }));
     await supabase.from('territories').upsert(terrRows, { onConflict: 'game_id,territory' });
 
-    // 4. Ricarica tutto (stato + mazzo + territori appena creati)
+    // 4. Assegna obiettivi segreti a ogni fazione (3 casuali ciascuna)
+    for (const faction of factions) {
+      try {
+        const localObs = assignObjectives(faction as ObjFazione, 3);
+        if (localObs.length > 0) {
+          await supabase.from('game_objectives').insert(
+            localObs.map(o => ({
+              game_id:    game.id,
+              faction:    faction as string,
+              obj_id:     o.obj_id,
+              completato: false,
+              punteggio:  0,
+            }))
+          );
+        }
+      } catch (e) {
+        console.warn(`[startGame] obiettivi ${faction} fallback locale:`, e);
+      }
+    }
+
+    // 5. Ricarica tutto (stato + mazzo + territori appena creati)
     await get().loadGame(game.id);
     set({ loading: false });
 
@@ -1320,5 +1368,96 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Errore azione OP', loading: false });
     }
+  },
+
+  // ── Obiettivi Segreti ──────────────────────────────────────────────────────
+
+  assignObjectivesToFaction: async (faction: string, numDraw = 3): Promise<ObiettivoSegreto[]> => {
+    const { game } = get();
+    // 1) Estrai obiettivi dal pool locale (sempre disponibile offline)
+    const localObs = assignObjectives(faction as ObjFazione, numDraw);
+
+    // 2) Salva in Supabase se la partita esiste
+    if (game?.id) {
+      try {
+        // Prima rimuovi assegnazioni precedenti per questa fazione
+        await supabase
+          .from('game_objectives')
+          .delete()
+          .eq('game_id', game.id)
+          .eq('faction', faction);
+
+        // Inserisci i nuovi obiettivi
+        if (localObs.length > 0) {
+          await supabase.from('game_objectives').insert(
+            localObs.map(o => ({
+              game_id:   game.id,
+              faction,
+              obj_id:    o.obj_id,
+              completato: false,
+              punteggio:  0,
+            }))
+          );
+        }
+      } catch (e) {
+        console.warn('[assignObjectivesToFaction] Supabase fallback to local:', e);
+      }
+    }
+
+    set({ myObjectives: localObs });
+    return localObs;
+  },
+
+  loadMyObjectives: async (faction: string): Promise<void> => {
+    const { game } = get();
+    if (!game?.id) return;
+
+    try {
+      // Carica gli obj_id assegnati in Supabase
+      const { data: rows } = await supabase
+        .from('game_objectives')
+        .select('obj_id, completato, punteggio')
+        .eq('game_id', game.id)
+        .eq('faction', faction);
+
+      if (!rows || rows.length === 0) {
+        // Nessun obiettivo in DB → assegna ora
+        await get().assignObjectivesToFaction(faction);
+        return;
+      }
+
+      // Ricostruisci gli ObiettivoSegreto dal pool locale (import statico)
+      const loaded: ObiettivoSegreto[] = rows
+        .map(r => TUTTI_GLI_OBIETTIVI.find(o => o.obj_id === r.obj_id))
+        .filter((o): o is ObiettivoSegreto => !!o);
+
+      set({ myObjectives: loaded });
+    } catch (e) {
+      console.warn('[loadMyObjectives] errore:', e);
+    }
+  },
+
+  markObjectiveComplete: async (objId: string, completed: boolean): Promise<void> => {
+    const { game, myObjectives } = get();
+    const obj = myObjectives.find(o => o.obj_id === objId);
+    if (!obj) return;
+
+    if (game?.id) {
+      try {
+        await supabase
+          .from('game_objectives')
+          .update({ completato: completed, punteggio: completed ? obj.punti : 0 })
+          .eq('game_id', game.id)
+          .eq('obj_id', objId);
+      } catch (e) {
+        console.warn('[markObjectiveComplete] errore:', e);
+      }
+    }
+    // Aggiorna lo stato locale
+    set({
+      myObjectives: myObjectives.map(o =>
+        o.obj_id === objId ? { ...o } : o
+      )
+    });
   },
 }));

@@ -347,6 +347,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     runBotTurn, playCardUnified, playCardOps, drawCards, myHand,
     territories: terrRecords, militaryUnits: unitRecords,
     profile, session,
+    myObjectives, assignObjectivesToFaction,
   } = useOnlineGameStore();
 
   // L'host è chi ha creato la partita (game.created_by === utente corrente)
@@ -1287,7 +1288,9 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
         <ObjectivesModal
           myFaction={myFaction}
           gameState={gameState}
+          myObjectives={myObjectives}
           onClose={() => setShowObjectives(false)}
+          onAssignNew={() => assignObjectivesToFaction(myFaction)}
         />
       )}
     </div>
