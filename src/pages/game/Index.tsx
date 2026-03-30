@@ -997,13 +997,13 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                             territories={territoryState}
                             onCancel={() => { setShowActionPanel(false); setSelectedCard(null); }}
                             onAction={async (actionType: PlayerActionType, payload: PlayerActionPayload) => {
-                              // 1. INFLUENZA: applica cubi e scarta la carta SOLO se dado è successo
+                              // 1. INFLUENZA: influenza applicata solo su successo, carta SEMPRE scartata
                               if (actionType === 'influenza') {
                                 if (payload.diceSuccess && payload.targetTerritory && (payload.influenceDelta ?? 0) > 0) {
                                   await addInfluence(payload.targetTerritory, payload.influenceDelta!);
-                                  await playCard(selectedCard!); // scarta solo su successo
                                 }
-                                // su fallimento: la carta rimane in mano, nessuna azione
+                                // carta sempre scartata e turno passa, successo o fallimento
+                                await playCard(selectedCard!);
 
                               // 2. TRACCIATO: applica delta al tracciato, poi gioca carta
                               } else if (actionType === 'tracciato' && payload.trackKey && payload.trackDelta) {
