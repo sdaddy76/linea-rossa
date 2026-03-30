@@ -86,7 +86,7 @@ function getEffectDeltas(card: GameCard | DeckCard) {
   return Object.entries(e)
     .map(([key, fn]) => {
       if (!fn) return null;
-      const ref = key === 'defcon' ? 3 : key === 'opinione' ? 0 : 5;
+      const ref = key === 'defcon' ? 6 : key === 'opinione' ? 0 : 5;
       const result = fn(ref);
       const delta = result - ref;
       if (delta === 0) return null;
@@ -109,7 +109,7 @@ function getPrerequisites(card: GameCard | DeckCard) {
   if ('effects' in card && card.effects) {
     const e = card.effects as Record<string, ((v: number) => number) | undefined>;
     if (e.defcon) {
-      const atLow = e.defcon(2) !== e.defcon(4);
+      const atLow = e.defcon(4) !== e.defcon(8);
       if (atLow) prereqs.push('DEFCON≤3');
     }
     if (e.nucleare) {

@@ -258,7 +258,7 @@ export default function WaitingRoom({
       // ── Inizializza game_state con SOLO le colonne garantite dal schema base ──
       const baseState = {
         game_id: gameId,
-        nucleare: 1, sanzioni: 5, opinione: 0, defcon: 5,
+        nucleare: 1, sanzioni: 5, opinione: 0, defcon: 10,
         risorse_iran: 5, risorse_coalizione: 5, risorse_russia: 5,
         risorse_cina: 5, risorse_europa: 5,
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,

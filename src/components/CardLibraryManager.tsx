@@ -74,7 +74,7 @@ const EXCEL_COLUMNS: { key: keyof CardLibraryRow; label: string; example: string
   { key: 'delta_nucleare',   label: 'Δ Nucleare (1-15)',  example: '2'            },
   { key: 'delta_sanzioni',   label: 'Δ Sanzioni (1-10)',  example: ''             },
   { key: 'delta_opinione',   label: 'Δ Opinione (-10/+10)', example: ''           },
-  { key: 'delta_defcon',     label: 'Δ DEFCON (5-1)',     example: ''             },
+  { key: 'delta_defcon',     label: 'Δ DEFCON (10-1)',    example: ''             },
   { key: 'delta_risorse',    label: 'Δ Risorse (1-10)',   example: ''             },
   { key: 'delta_stabilita',  label: 'Δ Stab.Int (1-10)', example: ''             },
   // IRAN
@@ -154,7 +154,7 @@ function parseRow(row: Record<string, unknown>): CardLibraryRow {
     delta_nucleare:      toSeq(g('Δ Nucleare (1-15)',   'delta_nucleare')),
     delta_sanzioni:      toSeq(g('Δ Sanzioni (1-10)',   'delta_sanzioni')),
     delta_opinione:      toSeq(g('Δ Opinione (-10/+10)','delta_opinione')),
-    delta_defcon:        toSeq(g('Δ DEFCON (5-1)',      'delta_defcon')),
+    delta_defcon:        toSeq(g('Δ DEFCON (10-1)',     'delta_defcon')),
     delta_risorse:       toSeq(g('Δ Risorse (1-10)',    'delta_risorse')),
     delta_stabilita:     toSeq(g('Δ Stab.Int (1-10)',   'delta_stabilita')),
     // Iran

@@ -285,7 +285,7 @@ function scoreCard(card: GameCard, state: GameState, faction: Faction): number {
     // Sanzioni vicino alla vittoria → spingi
     if (sanzioni >= 7) score += dSanzioni * 25;
     // Defcon basso → evita escalation
-    if (defcon <= 2 && dDefcon > 0) score += dDefcon * 30;
+    if (defcon <= 4 && dDefcon > 0) score += dDefcon * 30;
   }
 
   // --- LOGICA PER RUSSIA ---
@@ -313,7 +313,7 @@ function scoreCard(card: GameCard, state: GameState, faction: Faction): number {
     if (card.card_type === 'Diplomatico') score += 10;
     if (card.card_type === 'Economico') score += 8;
     // Defcon basso → Cina spinge mediazione
-    if (defcon <= 2 && dDefcon > 0) score += 30;
+    if (defcon <= 4 && dDefcon > 0) score += 30;
   }
 
   // --- LOGICA PER EUROPA ---
@@ -327,7 +327,7 @@ function scoreCard(card: GameCard, state: GameState, faction: Faction): number {
     if (card.card_type === 'Diplomatico') score += 15;
     if (card.card_type === 'Economico') score += 10;
     // DEFCON critico → Europa gioca sempre diplomatico
-    if (defcon <= 2) {
+    if (defcon <= 4) {
       if (card.card_type === 'Diplomatico') score += 50;
       if (dDefcon > 0) score += 40;
     }
@@ -341,7 +341,8 @@ function scoreCard(card: GameCard, state: GameState, faction: Faction): number {
 
   // DEFCON 1 = tutti perdono → evita assolutamente
   if (defcon === 1 && dDefcon < 0) score -= 200;
-  if (defcon === 2 && dDefcon < 0) score -= 80;
+  if (defcon === 2 && dDefcon < 0) score -= 150;
+  if (defcon === 3 && dDefcon < 0) score -= 80;
 
   return score;
 }
@@ -370,7 +371,7 @@ function buildReason(card: GameCard, state: GameState, faction: Faction): string
   const context: string[] = [];
   if (state.nucleare >= 12) context.push('nucleare critico');
   if (state.sanzioni >= 8) context.push('sanzioni elevate');
-  if (state.defcon <= 2) context.push('DEFCON emergenza');
+  if (state.defcon <= 4) context.push('DEFCON emergenza');
 
   const contextStr = context.length > 0 ? ` [${context.join(', ')}]` : '';
   return reasons.length > 0
@@ -455,7 +456,7 @@ export function applyCardEffects(
     nucleare:  Math.max(1, Math.min(15, curNucleare + dNucleare)),
     sanzioni:  Math.max(1, Math.min(10, curSanzioni + dSanzioni)),
     opinione:  Math.max(-10, Math.min(10, curOpinione + dOpinione)),
-    defcon:    Math.max(1, Math.min(5, curDefcon + dDefcon)),
+    defcon:    Math.max(1, Math.min(10, curDefcon + dDefcon)),
     [risorseKey]:  Math.max(1, Math.min(10, curRisorse + dRisorse)),
     [stabilitaKey]: Math.max(1, Math.min(10, curStabilita + dStabilita)),
   };
@@ -485,7 +486,7 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
       message: '🏴 Il regime iraniano è collassato sotto le sanzioni!' };
   }
   // Tutti perdono: DEFCON scende a 1
-  if (state.defcon <= 1) {
+  if (state.defcon <= 1) { // DEFCON 1 = guerra nucleare
     return { isOver: true, winner: undefined, condition: 'defcon',
       message: '💥 DEFCON 1 — Guerra Termonucleare. Tutti hanno perso.' };
   }

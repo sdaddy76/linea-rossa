@@ -138,7 +138,7 @@ export default function PlayerActionPanel({
     // Opinione favorevole
     if (state.opinione > 2) { thr -= 1; mods.push(`📣 Opinione +${state.opinione}: -1 soglia`); }
     // DEFCON basso complica la diplomazia
-    if (state.defcon <= 2) { thr += 1; mods.push(`⚠️ DEFCON ${state.defcon}: +1 soglia`); }
+    if (state.defcon <= 4) { thr += 1; mods.push(`⚠️ DEFCON ${state.defcon}: +1 soglia`); }
     // Più PO = più pressione = soglia più bassa
     if (opTotal >= 4) { thr -= 1; mods.push(`💪 Carta ${opTotal}PO (potente): -1 soglia`); }
     // Presenza nemica alta = territorio resistente

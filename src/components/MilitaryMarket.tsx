@@ -132,8 +132,8 @@ export default function MilitaryMarket({ faction, gameState, carteOpDisponibili,
     }
   }
 
-  const defconLabels: Record<number, string> = { 5: 'PACE', 4: 'ATTENZIONE', 3: 'TENSIONE', 2: 'ALLERTA', 1: 'GUERRA' };
-  const defconColors: Record<number, string> = { 5: '#22c55e', 4: '#84cc16', 3: '#f59e0b', 2: '#f97316', 1: '#ef4444' };
+  const defconLabels: Record<number, string> = { 10: 'PACE', 9: 'PACE', 8: 'PACE', 7: 'ATTENZIONE', 6: 'ATTENZIONE', 5: 'TENSIONE', 4: 'TENSIONE', 3: 'ALLERTA', 2: 'ALLERTA', 1: 'GUERRA' };
+  const defconColors: Record<number, string> = { 10: '#22c55e', 9: '#22c55e', 8: '#22c55e', 7: '#84cc16', 6: '#84cc16', 5: '#f59e0b', 4: '#f59e0b', 3: '#f97316', 2: '#f97316', 1: '#ef4444' };
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -301,7 +301,7 @@ export default function MilitaryMarket({ faction, gameState, carteOpDisponibili,
           </div>
 
           {/* ── Avvisi contestuali ── */}
-          {gameState.defcon <= 2 && (
+          {gameState.defcon <= 4 && (
             <div className="flex items-center gap-2 bg-[#ef444415] border border-[#ef444440] rounded-lg px-3 py-2">
               <span className="text-red-400 text-base">⚠️</span>
               <p className="text-xs text-red-300 font-mono">

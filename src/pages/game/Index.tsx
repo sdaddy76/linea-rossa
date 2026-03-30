@@ -58,13 +58,13 @@ const TRACKS: TrackDef[] = [
     ],
   },
   {
-    id: 'defcon', label: 'DEFCON', icon: '🎯', min: 1, max: 5, color: '#8b5cf6',
+    id: 'defcon', label: 'DEFCON', icon: '🎯', min: 1, max: 10, color: '#8b5cf6',
     getValue: s => s.defcon, winLabel: 'GUERRA', winValue: 1, winDir: 'down',
     zones: [
-      { from: 5,  to: 5,  color: '#22c55e', bg: '#22c55e22', label: 'Pace' },
-      { from: 4,  to: 4,  color: '#84cc16', bg: '#84cc1622', label: 'Attenzione' },
-      { from: 3,  to: 3,  color: '#f59e0b', bg: '#f59e0b22', label: 'Tensione' },
-      { from: 2,  to: 2,  color: '#f97316', bg: '#f9731622', label: 'Allerta' },
+      { from: 8,  to: 10, color: '#22c55e', bg: '#22c55e22', label: 'Pace' },
+      { from: 6,  to: 7,  color: '#84cc16', bg: '#84cc1622', label: 'Attenzione' },
+      { from: 4,  to: 5,  color: '#f59e0b', bg: '#f59e0b22', label: 'Tensione' },
+      { from: 2,  to: 3,  color: '#f97316', bg: '#f9731622', label: 'Allerta' },
       { from: 1,  to: 1,  color: '#ef4444', bg: '#ef444433', label: 'Guerra' },
     ],
   },
@@ -206,7 +206,7 @@ function FullTrack({
   const currentZone = getZone(value);
   const isPulse = (track.id === 'nucleare' && value >= 12) ||
                   (track.id === 'sanzioni' && value >= 9) ||
-                  (track.id === 'defcon'   && value <= 2);
+                  (track.id === 'defcon'   && value <= 4);
 
   return (
     <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-3 space-y-2">
@@ -469,7 +469,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
       if (ef.delta_nucleare)           updates.nucleare           = clamp((gs.nucleare           ?? 1) + ef.delta_nucleare,           1, 15);
       if (ef.delta_sanzioni)           updates.sanzioni           = clamp((gs.sanzioni           ?? 5) + ef.delta_sanzioni,           1, 10);
       if (ef.delta_opinione)           updates.opinione           = clamp((gs.opinione           ?? 0) + ef.delta_opinione,          -10, 10);
-      if (ef.delta_defcon)             updates.defcon             = clamp((gs.defcon             ?? 5) + ef.delta_defcon,             1,  5);
+      if (ef.delta_defcon)             updates.defcon             = clamp((gs.defcon             ?? 10) + ef.delta_defcon,            1, 10);
       if (ef.delta_risorse_iran)       updates.risorse_iran       = clamp((gs.risorse_iran       ?? 5) + ef.delta_risorse_iran,       1, 15);
       if (ef.delta_risorse_coalizione) updates.risorse_coalizione = clamp((gs.risorse_coalizione ?? 5) + ef.delta_risorse_coalizione, 1, 15);
       if (ef.delta_risorse_russia)     updates.risorse_russia     = clamp((gs.risorse_russia     ?? 5) + ef.delta_risorse_russia,     1, 15);

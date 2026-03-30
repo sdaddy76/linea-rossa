@@ -81,15 +81,15 @@ function AlertPanel() {
 
   const alerts: { msg: string; color: string; icon: string }[] = [];
   const tni = valori['TNI'] ?? 3;
-  const defcon = valori['DEFCON'] ?? 4;
+  const defcon = valori['DEFCON'] ?? 8;
   const tse = valori['TSE'] ?? 4;
   const si = valori['SI'] ?? 6;
 
   if (tni >= 13) alerts.push({ icon: '☢️', msg: 'TNI CRITICO — Test nucleare imminente!', color: '#ff4444' });
   else if (tni >= 9) alerts.push({ icon: '⚠️', msg: 'TNI ALTO — Soglia critica superata', color: '#f97316' });
   if (defcon <= 1) alerts.push({ icon: '💀', msg: 'DEFCON 1 — GUERRA APERTA!', color: '#ff0000' });
-  else if (defcon <= 2) alerts.push({ icon: '💥', msg: 'DEFCON 2 — Guerra imminente!', color: '#ef4444' });
-  else if (defcon <= 3) alerts.push({ icon: '🚨', msg: 'DEFCON 3 — Alta tensione', color: '#f97316' });
+  else if (defcon <= 3) alerts.push({ icon: '💥', msg: `DEFCON ${defcon} — Guerra imminente!`, color: '#ef4444' });
+  else if (defcon <= 5) alerts.push({ icon: '🚨', msg: `DEFCON ${defcon} — Alta tensione`, color: '#f97316' });
   if (tse <= 2) alerts.push({ icon: '📉', msg: 'ECONOMIA COLLASSATA — Regime sotto pressione', color: '#cc2222' });
   if (si <= 2) alerts.push({ icon: '🔥', msg: 'STABILITÀ CRITICA — Rischio cambio regime', color: '#cc2222' });
 
@@ -125,7 +125,7 @@ function ProjectionChart() {
   // Aggreghiamo i punti per turno su TNI e DEFCON (i più importanti)
   const turniMap: Record<number, { tni: number; defcon: number }> = {};
   [...log].reverse().forEach(e => {
-    if (!turniMap[e.turno]) turniMap[e.turno] = { tni: 3, defcon: 4 };
+    if (!turniMap[e.turno]) turniMap[e.turno] = { tni: 3, defcon: 8 };
     if (e.tracciatoId === 'TNI') turniMap[e.turno].tni = e.nuovoValore;
     if (e.tracciatoId === 'DEFCON') turniMap[e.turno].defcon = e.nuovoValore;
   });
