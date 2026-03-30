@@ -356,6 +356,6 @@ export const UNIFIED_HAND_SIZE = 4;
 export const UNIFIED_DRAW_PER_TURN = 1;
 
 /** Dimensione della mano iniziale in modalità classica (per fazione). */
-export const CLASSIC_HAND_SIZE = 3;
+export const CLASSIC_HAND_SIZE = 5;
 /** Quante carte si pescano a fine turno in modalità classica. */
-export const CLASSIC_DRAW_PER_TURN = 1;
+export const CLASSIC_DRAW_PER_TURN = 2;
