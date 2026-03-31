@@ -23,6 +23,7 @@ import { ClassicHandCard, UnifiedHandCard } from '@/components/HandCard';
 import { FACTION_FLAGS, FACTION_COLORS, CARD_TYPE_COLORS } from '@/lib/factionColors';
 import type { EventoCard } from '@/data/eventi';
 import ObjectivesModal from '@/components/ObjectivesModal';
+import { ObjectivesSection } from '@/components/ObjectivesSection';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -777,6 +778,16 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           faction={p.faction}
                           gameState={gameState}
                         />
+                        {/* ── Obiettivi segreti (visibili solo nella propria card) ── */}
+                        {p.faction === myFaction && (
+                          <ObjectivesSection
+                            myFaction={myFaction}
+                            myObjectives={myObjectives}
+                            gameState={gameState}
+                            onMarkComplete={markObjectiveComplete}
+                            onAssignNew={() => assignObjectivesToFaction(myFaction)}
+                          />
+                        )}
                       </div>
                     );
                   })}
