@@ -53,6 +53,30 @@ export interface PlayerActionPayload {
 const BASE_COST_OWN   = 1; // PO per cubo in territorio libero o già tuo
 const BASE_COST_ENEMY = 2; // PO per cubo in territorio con presenza nemica
 
+// ─── Bonus dado influenza ─────────────────────────────────────────────────────
+/**
+ * Calcola il bonus dado per l'azione influenza basato sulla presenza
+ * di cubi della propria fazione nel territorio target.
+ *
+ * +1 se la fazione ha almeno 1 cubo nel territorio
+ * +1 ulteriore (tot +2) se i propri cubi sono più della metà del totale
+ *
+ * @param myFaction  - fazione del giocatore corrente
+ * @param terrInfs   - mappa fazione → cubi nel territorio
+ * @returns 0, 1 o 2
+ */
+function calcolaBonusInfluenza(
+  myFaction: Faction,
+  terrInfs: Partial<Record<Faction, number>>,
+): number {
+  const myCubes = (terrInfs[myFaction] ?? 0);
+  if (myCubes === 0) return 0; // nessun cubo → nessun bonus
+
+  const total = Object.values(terrInfs).reduce<number>((sum, v) => sum + (v ?? 0), 0);
+  if (myCubes * 2 > total) return 2; // maggioranza stretta → +2
+  return 1;                          // cubi presenti ma non maggioranza → +1
+}
+
 // ─── Palette colori fazione ───────────────────────────────────────────────────
 const FC: Record<Faction, string> = {
   Iran: '#dc2626', Coalizione: '#2563eb',
@@ -128,7 +152,13 @@ export default function PlayerActionPanel({
   const costTot    = inflCubes * costPerCube;
   const canAfford  = costTot <= opTotal;
 
-  // Modifica: soglia dado = 6 di base, ridotta da stabilità e bonus PO
+  // Bonus dado per cubi propri nel territorio (nuova regola)
+  const territoryBonus = useMemo(
+    () => calcolaBonusInfluenza(myFaction, terrInfs),
+    [myFaction, terrInfs],
+  );
+
+  // Modifica: soglia dado = 6 di base, ridotta da stabilità, bonus PO e bonus territorio
   const { threshold, modDesc } = useMemo(() => {
     let thr = 6;
     const mods: string[] = [];
@@ -143,8 +173,16 @@ export default function PlayerActionPanel({
     if (opTotal >= 4) { thr -= 1; mods.push(`💪 Carta ${opTotal}PO (potente): -1 soglia`); }
     // Presenza nemica alta = territorio resistente
     if (enemyInf >= 3) { thr += 1; mods.push(`🛡️ Presenza nemica ≥3: +1 soglia`); }
+    // Bonus cubi propri nel territorio (nuova regola)
+    if (territoryBonus === 1) {
+      thr -= 1;
+      mods.push(`🟦 Cubi ${myFaction} presenti: -1 soglia`);
+    } else if (territoryBonus === 2) {
+      thr -= 2;
+      mods.push(`👑 Maggioranza cubi ${myFaction}: -2 soglia`);
+    }
     return { threshold: Math.max(2, Math.min(6, thr)), modDesc: mods };
-  }, [state, myFaction, opTotal, enemyInf]);
+  }, [state, myFaction, opTotal, enemyInf, territoryBonus]);
 
   // ── Track scelto ─────────────────────────────────────────────────────────
   const trackOpts  = TRACK_OPTIONS[myFaction] ?? [];
@@ -361,6 +399,14 @@ export default function PlayerActionPanel({
                     <p className="text-[9px] text-[#8899aa] font-mono mb-1">TIRO DADO — soglia successo: d6 ≥ {threshold}</p>
                     {modDesc.map((m, i) => <p key={i} className="text-[9px] text-[#6b7280] font-mono">{m}</p>)}
                     {modDesc.length === 0 && <p className="text-[9px] text-[#4b5563] font-mono">Nessun modificatore</p>}
+                    {territoryBonus > 0 && (
+                      <div className="mt-1.5 px-2 py-1 rounded bg-[#d97706]/10 border border-[#d97706]/30">
+                        <p className="text-[9px] text-[#fbbf24] font-mono font-bold">
+                          🎲 Bonus territorio: +{territoryBonus}{' '}
+                          {territoryBonus === 2 ? '(maggioranza cubi)' : '(cubi presenti)'}
+                        </p>
+                      </div>
+                    )}
                     <div className="flex gap-1 mt-1.5">
                       {[1,2,3,4,5,6].map(n => (
                         <div key={n} className={`flex-1 h-5 rounded text-center text-[9px] font-mono font-bold flex items-center justify-center
@@ -392,6 +438,12 @@ export default function PlayerActionPanel({
               <p className="text-[10px] text-[#8899aa] font-mono">{inflTerr?.label}</p>
               <div className="text-5xl font-bold font-mono text-white">{diceResult}</div>
               <p className="text-[10px] text-[#8899aa] font-mono">soglia: d6 ≥ {threshold}</p>
+              {territoryBonus > 0 && (
+                <div className="text-xs text-yellow-400 font-mono">
+                  🎲 Bonus territorio: +{territoryBonus}{' '}
+                  {territoryBonus === 2 ? '(maggioranza cubi)' : '(cubi presenti)'}
+                </div>
+              )}
               {diceResult >= threshold ? (
                 <div className="space-y-1">
                   <p className="text-[#22c55e] font-bold font-mono">✅ SUCCESSO</p>
