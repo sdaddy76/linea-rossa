@@ -24,6 +24,7 @@ import { FACTION_FLAGS, FACTION_COLORS, CARD_TYPE_COLORS } from '@/lib/factionCo
 import type { EventoCard } from '@/data/eventi';
 import ObjectivesModal from '@/components/ObjectivesModal';
 import { ObjectivesSection } from '@/components/ObjectivesSection';
+import { ScoreTrack } from '@/components/ScoreTrack';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -740,6 +741,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             {/* TAB: FAZIONI */}
             {activeTab === 'fazioni' && (
               <div className="space-y-3">
+                {/* ── Track punteggi in tempo reale ── */}
+                {game.status === 'active' && (
+                  <ScoreTrack
+                    gameId={game.id}
+                    factions={players.map(p => p.faction).filter(Boolean) as string[]}
+                  />
+                )}
+
                 {/* Header info turno attivo */}
                 <div className="flex items-center gap-3 p-2 rounded-lg border border-[#1e3a5f] bg-[#0d1117]">
                   <span className="font-mono text-[10px] text-[#8899aa]">🎭 STATO FAZIONI &amp; RISORSE</span>
