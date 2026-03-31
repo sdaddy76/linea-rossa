@@ -144,78 +144,77 @@ export default function WaitingRoom({
 
   // ── Scelta fazione ────────────────────────────────────────────────
   const chooseFaction = async (faction: Faction) => {
-    // Se già selezionata → deseleziona
-    if (myFaction === faction) {
+    // Trova TUTTE le mie righe (potrebbero esserci duplicati storici)
+    const myRows = players.filter(p => p.player_id === profile.id);
+    const myCurrentFaction = myRows[0]?.faction ?? myFaction;
+
+    // Se clicco sulla mia fazione attuale → DESELEZIONA
+    if (myCurrentFaction === faction || myFaction === faction) {
       setLoading(true); setError('');
-      pendingOps.current += 1;          // blocca loadPlayers dal sovrascrivere
-      setMyFaction(null);               // aggiornamento ottimistico immediato
+      pendingOps.current += 1;
+      setMyFaction(null);
       myFactionRef.current = null;
       try {
-        // Tentativo 1: DELETE per player_id (più preciso)
-        const { error: delErr } = await supabaseAdmin
+        // Elimina TUTTE le mie righe (gestisce duplicati)
+        await supabaseAdmin
           .from('game_players')
           .delete()
           .eq('game_id', gameId)
           .eq('player_id', profile.id);
-
-        if (delErr) {
-          console.warn('[deselect] DELETE per player_id fallita, provo per faction:', delErr.message);
-          // Tentativo 2: DELETE per faction (bypassa qualsiasi problema con player_id)
-          const { error: del2Err } = await supabaseAdmin
-            .from('game_players')
-            .delete()
-            .eq('game_id', gameId)
-            .eq('faction', faction);
-          if (del2Err) {
-            console.warn('[deselect] DELETE per faction fallita (ignorata):', del2Err.message);
-          }
-        }
-
-        // Indipendentemente dall'esito DB, ricarica per aggiornare la lista
+        // Fallback: elimina anche per faction se il player_id non corrisponde
+        await supabaseAdmin
+          .from('game_players')
+          .delete()
+          .eq('game_id', gameId)
+          .eq('faction', faction)
+          .not('is_bot', 'eq', true);
         await loadPlayers();
-      } catch (e: unknown) {
-        console.error('[chooseFaction deselect] eccezione inaspettata:', e);
-        // NON fare rollback: la UI è già aggiornata ottimisticamente (myFaction=null)
-        // Forza comunque un reload per sincronizzare
-        await loadPlayers();
+      } catch (e) {
+        console.error('[deselect]', e);
+        await loadPlayers(); // ricarica sempre
       } finally {
-        pendingOps.current -= 1;        // sblocca loadPlayers
+        pendingOps.current -= 1;
         setLoading(false);
       }
       return;
     }
 
-    // Controlla che la fazione non sia già presa da un altro umano
-    const taken = players.find(p => p.faction === faction && p.player_id && p.player_id !== profile.id);
-    if (taken) { setError(`${faction} è già presa da un altro giocatore`); return; }
+    // Controlla che la fazione NON sia presa da un ALTRO giocatore (non me stesso)
+    const taken = players.find(p =>
+      p.faction === faction &&
+      p.player_id &&
+      p.player_id !== profile.id && // non sono io
+      !p.is_bot                      // non è un bot
+    );
+    if (taken) {
+      setError(`⚠️ ${faction} è già presa da un altro giocatore`);
+      return;
+    }
 
+    // Fazione libera → prima elimino TUTTE le mie righe, poi inserisco la nuova
     setLoading(true); setError('');
-    pendingOps.current += 1;            // blocca loadPlayers dal sovrascrivere
+    pendingOps.current += 1;
     const prevFaction = myFaction;
-    setMyFaction(faction);              // aggiornamento ottimistico immediato
+    setMyFaction(faction);
     myFactionRef.current = faction;
     try {
-      // 1. Rimuove la scelta precedente del giocatore (supabaseAdmin bypassa RLS)
-      const { error: del1Err } = await supabaseAdmin
+      // 1. Elimina TUTTE le mie righe precedenti (gestisce duplicati)
+      await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('player_id', profile.id);
-      if (del1Err) {
-        // Fallback: RPC SECURITY DEFINER che bypassa RLS
-        await supabase.rpc('elimina_mia_fazione', { p_game_id: gameId });
-      }
 
-      // 2. Pulisce righe stale della fazione target (bot/placeholder/chi ha lasciato)
+      // 2. Pulisce slot stale della fazione target (bot o righe orfane)
       await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('faction', faction)
-        .or(`player_id.is.null,player_id.eq.${profile.id}`);
+        .or('player_id.is.null,is_bot.eq.true');
 
-      // 3. Insert diretto — slot garantito libero
-      const { error: insErr } = await supabase
+      // 3. Insert nuova riga
+      const { error: insErr } = await supabaseAdmin
         .from('game_players')
         .insert({
           game_id: gameId,
@@ -227,25 +226,17 @@ export default function WaitingRoom({
           is_ready: true,
         });
 
-      if (insErr) {
-        if (insErr.code === '23505') {
-          // Rollback: un altro giocatore ha preso la fazione nel frattempo
-          setMyFaction(prevFaction);
-          myFactionRef.current = prevFaction;
-          setError(`${faction} è stata appena presa da un altro giocatore`);
-          await loadPlayers();
-        } else {
-          throw insErr;
-        }
+      if (insErr && insErr.code !== '23505') {
+        throw insErr;
       }
     } catch (err: unknown) {
-      // Rollback UI
       setMyFaction(prevFaction);
       myFactionRef.current = prevFaction;
       setError(err instanceof Error ? err.message : 'Errore nella scelta');
     } finally {
-      pendingOps.current -= 1;          // sblocca loadPlayers
+      pendingOps.current -= 1;
       setLoading(false);
+      await loadPlayers();
     }
   };
 
