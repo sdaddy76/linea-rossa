@@ -205,8 +205,8 @@ export default function WaitingRoom({
         .eq('faction', faction)
         .or('player_id.is.null,is_bot.eq.true');
 
-      // 3. Insert nuova riga
-      const { error: insErr } = await supabaseAdmin
+      // 3. Insert nuova riga — usa client normale (auth utente) per rispettare FK profiles
+      const { error: insErr } = await supabase
         .from('game_players')
         .insert({
           game_id: gameId,
@@ -219,12 +219,15 @@ export default function WaitingRoom({
         });
 
       if (insErr && insErr.code !== '23505') {
+        console.error('[chooseFaction insert] codice:', insErr.code, 'msg:', insErr.message, 'details:', insErr.details);
         throw insErr;
       }
     } catch (err: unknown) {
       setMyFaction(prevFaction);
       myFactionRef.current = prevFaction;
-      setError(err instanceof Error ? err.message : 'Errore nella scelta');
+      const msg = err instanceof Error ? err.message : (err as {message?: string})?.message ?? JSON.stringify(err);
+      console.error('[chooseFaction] ERRORE COMPLETO:', err);
+      setError('Errore nella scelta: ' + msg);
     } finally {
       pendingOps.current -= 1;
       setLoading(false);
