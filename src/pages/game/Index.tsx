@@ -840,6 +840,12 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       myUnitsPool={myUnitsPool}
                       onDeploy={async (territory, unitType, qty) => {
                         await deployUnit(territory, unitType, qty);
+                        // Scarta la carta selezionata e chiudi il pannello
+                        if (selectedUnifiedCard) {
+                          await playCardUnified(selectedUnifiedCard, 'ops').catch(() => {});
+                          setSelectedUnifiedCard(null);
+                        }
+                        setShowCombat(false);
                       }}
                       onAttack={async ({ territory, defender, unitsUsed, outcome }) => {
                         await attackTerritory({
@@ -856,6 +862,19 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           stabilityChange: outcome.stabilityChange,
                           description: outcome.description,
                         });
+                        // attackTerritory avanza già il turno; scarta solo la carta
+                        if (selectedUnifiedCard) {
+                          const cardId = selectedUnifiedCard;
+                          import('@/integrations/supabase/client').then(({ supabase }) => {
+                            supabase.from('cards_deck').update({
+                              status: 'played',
+                              held_by_faction: null,
+                              play_mode: 'ops',
+                            }).eq('id', cardId).catch(() => {});
+                          });
+                          setSelectedUnifiedCard(null);
+                        }
+                        setShowCombat(false);
                       }}
                       onClose={() => setShowCombat(false)}
                     />
