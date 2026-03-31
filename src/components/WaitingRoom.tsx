@@ -262,11 +262,19 @@ export default function WaitingRoom({
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,
         stabilita_cina: 5, stabilita_europa: 5,
         active_faction: 'Iran',
+        turno_corrente: 1,
       };
-      const { error: stateErr } = await supabase.from('game_state').upsert(
-        baseState, { onConflict: 'game_id' }
-      );
-      if (stateErr) { console.error('[startGame] game_state upsert err:', stateErr); throw stateErr; }
+      const { data: existingState } = await supabase
+        .from('game_state').select('game_id').eq('game_id', gameId).maybeSingle();
+      let stateErr;
+      if (existingState) {
+        const { error: updErr } = await supabase.from('game_state').update(baseState).eq('game_id', gameId);
+        stateErr = updErr;
+      } else {
+        const { error: insErr } = await supabase.from('game_state').insert(baseState);
+        stateErr = insErr;
+      }
+      if (stateErr) { console.error('[startGame] game_state err:', stateErr); throw stateErr; }
 
       // ── Colonne opzionali (aggiunte da migration separate) ──
       // Ogni update è indipendente: se la colonna non esiste Supabase restituisce
@@ -414,6 +422,8 @@ export default function WaitingRoom({
       const full = detail ? `${msg} — ${detail}` : msg;
       console.error('[WaitingRoom startGame] errore:', full, err);
       setError(full);
+    } finally {
+      // ✅ SEMPRE resetta lo stato loading — anche in caso di successo o errore
       setStarting(false);
     }
   };
