@@ -58,6 +58,22 @@ export default function WaitingRoom({
   const [copied, setCopied] = useState(false);
   // Modalità mazzo: 'classic' (un mazzo per fazione) o 'unified' (mazzo unico)
   const [gameMode, setGameMode] = useState<'classic' | 'unified'>('classic');
+  // Modalità setup iniziale territori
+  const [setupMode, setSetupMode] = useState<'base' | 'avanzata'>('base');
+
+  // ── Configurazioni setup iniziale ────────────────────────────────────────
+  // Chiavi: faction name → { territoryId: cubetti }
+  // Nota: usare gli ID esatti di TerritoryId (es. 'ArabiaSaudita', non 'Arabia Saudita')
+  const SETUP_BASE: Record<string, Record<string, number>> = {
+    'Iran':       { 'Iran': 3 },
+    'Coalizione': { 'Israele': 4 },
+  };
+
+  const SETUP_AVANZATA: Record<string, Record<string, number>> = {
+    'Iran':       { 'Iran': 3, 'Libano': 1, 'Siria': 1 },
+    'Coalizione': { 'Israele': 4, 'ArabiaSaudita': 2, 'Iraq': 1, 'Yemen': 2 },
+    'Europa':     { 'Turchia': 1, 'Libano': 1 },
+  };
 
   // ── Carica giocatori correnti ─────────────────────────────────────
   const loadPlayers = useCallback(async () => {
@@ -366,6 +382,39 @@ export default function WaitingRoom({
             throw terrErr;
           }
         }
+
+        // ── Applica setup iniziale cubi influenza ─────────────────────────────
+        console.log('[startGame] step 4b — setup influenze:', setupMode);
+        const factionToInfKey: Record<string, string> = {
+          'Iran':                  'inf_iran',
+          'Coalizione':            'inf_coalizione',
+          'Coalizione Occidentale':'inf_coalizione',
+          'Russia':                'inf_russia',
+          'Cina':                  'inf_cina',
+          'Europa':                'inf_europa',
+          'Unione Europea':        'inf_europa',
+        };
+        const activeSetup = setupMode === 'avanzata' ? SETUP_AVANZATA : SETUP_BASE;
+        // Aggrega: territorio → { inf_xxx: n, ... }
+        const setupAgg: Record<string, Record<string, number>> = {};
+        for (const [faction, terrMap] of Object.entries(activeSetup)) {
+          const infKey = factionToInfKey[faction];
+          if (!infKey) continue;
+          for (const [terrId, cubi] of Object.entries(terrMap)) {
+            if (!setupAgg[terrId]) setupAgg[terrId] = {};
+            setupAgg[terrId][infKey] = cubi;
+          }
+        }
+        for (const [terrId, infData] of Object.entries(setupAgg)) {
+          const { error: setupErr } = await supabase
+            .from('territories')
+            .upsert(
+              { game_id: gameId, territory: terrId, ...infData },
+              { onConflict: 'game_id,territory' },
+            );
+          if (setupErr) console.warn('[startGame] setup upsert warn:', terrId, setupErr);
+        }
+        // ─────────────────────────────────────────────────────────────────────
       } catch (e) {
         console.warn('[startGame] territori skip:', e);
       }
@@ -625,6 +674,44 @@ export default function WaitingRoom({
         {/* ── Avvia (solo host) ── */}
         {isHost && (
           <div className="space-y-3">
+            {/* Toggle modalità setup territori */}
+            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
+              <p className="text-[10px] font-mono font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
+                🗺️ Modalità Setup
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSetupMode('base')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold border transition-all ${
+                    setupMode === 'base'
+                      ? 'bg-[#1a6eb520] border-[#1a6eb5] text-[#4a9eff]'
+                      : 'bg-transparent border-[#1e3a5f] text-[#445566] hover:border-[#2a4a7f]'
+                  }`}
+                >
+                  ⚡ BASE
+                  <p className="text-[10px] font-normal mt-0.5 text-[#667788]">Iran 3🟢 + Coal 4🔵</p>
+                </button>
+                <button
+                  onClick={() => setSetupMode('avanzata')}
+                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold border transition-all ${
+                    setupMode === 'avanzata'
+                      ? 'bg-[#2d8a4e20] border-[#2d8a4e] text-[#4ade80]'
+                      : 'bg-transparent border-[#1e3a5f] text-[#445566] hover:border-[#2a4a7f]'
+                  }`}
+                >
+                  🌍 AVANZATA
+                  <p className="text-[10px] font-normal mt-0.5 text-[#667788]">+7 cubi iniziali</p>
+                </button>
+              </div>
+              {setupMode === 'avanzata' && (
+                <div className="mt-2 text-[10px] text-[#445566] space-y-0.5 font-mono">
+                  <p>🇮🇷 Iran → Libano +1, Siria +1</p>
+                  <p>🇺🇸 Coalizione → Arabia Saudita +2, Iraq +1, Yemen +2</p>
+                  <p>🇪🇺 Europa → Turchia +1, Libano +1</p>
+                </div>
+              )}
+            </div>
+
             {/* Toggle modalità mazzo */}
             <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060d18]">
               <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-2">
