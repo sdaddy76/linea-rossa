@@ -67,7 +67,15 @@ export default function WaitingRoom({
       .eq('game_id', gameId)
       .order('turn_order');
     if (data) {
-      setPlayers(data as LobbyPlayer[]);
+      // Deduplicazione client-side: per ogni player_id tieni solo la prima riga
+      const seen = new Set<string>();
+      const deduplicated = (data as LobbyPlayer[]).filter(p => {
+        if (!p.player_id) return true; // bot: tieni sempre
+        if (seen.has(p.player_id)) return false;
+        seen.add(p.player_id);
+        return true;
+      });
+      setPlayers(deduplicated);
       // Aggiorna myFaction SOLO se non c'è un'operazione chooseFaction in corso.
       // Durante selezione/deselezione, l'UI è già aggiornata ottimisticamente:
       // sovrascrivere con dati DB potenzialmente vecchi causerebbe il "rimbalzo".
@@ -148,7 +156,11 @@ export default function WaitingRoom({
           .delete()
           .eq('game_id', gameId)
           .eq('player_id', profile.id);
-        if (delErr) throw delErr;
+        if (delErr) {
+          // Fallback: RPC SECURITY DEFINER che bypassa RLS
+          const { error: rpcErr } = await supabase.rpc('elimina_mia_fazione', { p_game_id: gameId });
+          if (rpcErr) throw rpcErr;
+        }
         // Delete confermato dal DB: ora forza la lettura dello stato corretto
         await loadPlayers();
       } catch {
@@ -174,11 +186,15 @@ export default function WaitingRoom({
     myFactionRef.current = faction;
     try {
       // 1. Rimuove la scelta precedente del giocatore
-      await supabase
+      const { error: del1Err } = await supabase
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('player_id', profile.id);
+      if (del1Err) {
+        // Fallback: RPC SECURITY DEFINER che bypassa RLS
+        await supabase.rpc('elimina_mia_fazione', { p_game_id: gameId });
+      }
 
       // 2. Pulisce righe stale della fazione target (bot/placeholder/chi ha lasciato)
       await supabase
