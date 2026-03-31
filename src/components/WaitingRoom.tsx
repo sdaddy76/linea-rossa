@@ -144,34 +144,26 @@ export default function WaitingRoom({
 
   // ── Scelta fazione ────────────────────────────────────────────────
   const chooseFaction = async (faction: Faction) => {
-    // Trova TUTTE le mie righe (potrebbero esserci duplicati storici)
-    const myRows = players.filter(p => p.player_id === profile.id);
-    const myCurrentFaction = myRows[0]?.faction ?? myFaction;
+    // La mia fazione attuale: usa ref (sempre aggiornato) come fonte primaria
+    const currentFaction = myFactionRef.current ?? myFaction;
 
     // Se clicco sulla mia fazione attuale → DESELEZIONA
-    if (myCurrentFaction === faction || myFaction === faction) {
+    if (currentFaction === faction) {
       setLoading(true); setError('');
       pendingOps.current += 1;
       setMyFaction(null);
       myFactionRef.current = null;
       try {
-        // Elimina TUTTE le mie righe (gestisce duplicati)
+        // Elimina TUTTE le mie righe per player_id (gestisce duplicati)
         await supabaseAdmin
           .from('game_players')
           .delete()
           .eq('game_id', gameId)
           .eq('player_id', profile.id);
-        // Fallback: elimina anche per faction se il player_id non corrisponde
-        await supabaseAdmin
-          .from('game_players')
-          .delete()
-          .eq('game_id', gameId)
-          .eq('faction', faction)
-          .not('is_bot', 'eq', true);
         await loadPlayers();
       } catch (e) {
         console.error('[deselect]', e);
-        await loadPlayers(); // ricarica sempre
+        await loadPlayers();
       } finally {
         pendingOps.current -= 1;
         setLoading(false);
@@ -183,8 +175,8 @@ export default function WaitingRoom({
     const taken = players.find(p =>
       p.faction === faction &&
       p.player_id &&
-      p.player_id !== profile.id && // non sono io
-      !p.is_bot                      // non è un bot
+      p.player_id !== profile.id &&
+      !p.is_bot
     );
     if (taken) {
       setError(`⚠️ ${faction} è già presa da un altro giocatore`);
