@@ -1213,7 +1213,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }, { onConflict: 'game_id,territory' });
 
       // 2. Aggiorna DEFCON e stabilità interna
-      const newDefcon   = Math.max(1, Math.min(10, gameState.defcon + defconChange));
+      const newDefcon   = Math.max(1, Math.min(5, gameState.defcon + defconChange));
       const stabKey     = `stabilita_${myFaction.toLowerCase()}` as keyof typeof gameState;
       const newStab     = Math.max(1, ((gameState[stabKey] as number) ?? 5) + stabilityChange);
 

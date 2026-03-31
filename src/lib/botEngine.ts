@@ -456,7 +456,7 @@ export function applyCardEffects(
     nucleare:  Math.max(1, Math.min(15, curNucleare + dNucleare)),
     sanzioni:  Math.max(1, Math.min(10, curSanzioni + dSanzioni)),
     opinione:  Math.max(-10, Math.min(10, curOpinione + dOpinione)),
-    defcon:    Math.max(1, Math.min(10, curDefcon + dDefcon)),
+    defcon:    Math.max(1, Math.min(5, curDefcon + dDefcon)),
     [risorseKey]:  Math.max(1, Math.min(10, curRisorse + dRisorse)),
     [stabilitaKey]: Math.max(1, Math.min(10, curStabilita + dStabilita)),
   };
