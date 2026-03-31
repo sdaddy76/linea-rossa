@@ -262,7 +262,6 @@ export default function WaitingRoom({
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,
         stabilita_cina: 5, stabilita_europa: 5,
         active_faction: 'Iran',
-        turno_corrente: 1,
       };
       const { data: existingState } = await supabase
         .from('game_state').select('game_id').eq('game_id', gameId).maybeSingle();
@@ -283,6 +282,7 @@ export default function WaitingRoom({
         const { error: e } = await supabase.from('game_state').update(data).eq('game_id', gameId);
         if (e && e.code !== '42703') console.warn('[startGame] optional update warn:', e);
       };
+      await tryUpdate({ turno_corrente: 1 });
       await tryUpdate({ forze_militari_iran: 5, forze_militari_coalizione: 5 });
       await tryUpdate({ forze_militari_russia: 5, forze_militari_cina: 5, forze_militari_europa: 5 });
       try {
