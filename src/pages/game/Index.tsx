@@ -1041,9 +1041,10 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                               // 1. INFLUENZA: influenza applicata solo su successo, carta SEMPRE scartata
                               if (actionType === 'influenza') {
                                 if (payload.diceSuccess && payload.targetTerritory && (payload.influenceDelta ?? 0) > 0) {
-                                  await addInfluence(payload.targetTerritory, payload.influenceDelta!);
+                                  try { await addInfluence(payload.targetTerritory, payload.influenceDelta!); }
+                                  catch (e) { console.warn('[influenza] addInfluence fallita (non bloccante):', e); }
                                 }
-                                // carta sempre scartata e turno passa, successo o fallimento
+                                // carta SEMPRE scartata e turno SEMPRE avanza — sia successo che fallimento dado
                                 await playCard(selectedCard!);
 
                               // 2. TRACCIATO: applica delta al tracciato, poi gioca carta

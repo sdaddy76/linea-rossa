@@ -1086,7 +1086,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   addInfluence: async (territory: string, delta: number) => {
     const { game, gameState, myFaction, territories: terrRecords } = get();
     if (!game || !gameState || !myFaction) return;
-    set({ loading: true });
+    // NON impostare loading: true — lo gestisce playCard chiamata subito dopo
     try {
       const infKey = `inf_${myFaction.toLowerCase()}` as string;
       const terrRec = terrRecords.find(t => t.game_id === game.id && t.territory === territory);
@@ -1117,11 +1117,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       set({
         territories: updTerr,
-        loading: false,
         notification: `🌐 ${myFaction}: +${delta} influenza su ${territory} (ora: ${next})`,
       });
     } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : 'Errore influenza', loading: false });
+      // Non blocca il flusso: playCard viene comunque chiamata dopo
+      console.warn('[addInfluence] errore (non bloccante):', err instanceof Error ? err.message : err);
     }
   },
 
