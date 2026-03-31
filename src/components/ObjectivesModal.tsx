@@ -22,11 +22,13 @@ interface Props {
   myObjectives?: ObiettivoSegreto[];
   /** Callback per ri-estrarre obiettivi (se non ancora assegnati) */
   onAssignNew?: () => void;
+  /** Callback per segnare un obiettivo come completato manualmente */
+  onMarkComplete?: (objectiveId: string) => void;
   onClose: () => void;
 }
 
 // ─── Componente principale ────────────────────────────────────────────────────
-export default function ObjectivesModal({ myFaction, gameState, myObjectives = [], onAssignNew, onClose }: Props) {
+export default function ObjectivesModal({ myFaction, gameState, myObjectives = [], onAssignNew, onMarkComplete, onClose }: Props) {
   const [showAll, setShowAll] = useState(false);
 
   const faction = myFaction as ObjFazione;
@@ -41,13 +43,37 @@ export default function ObjectivesModal({ myFaction, gameState, myObjectives = [
   const altri = TUTTI_GLI_OBIETTIVI.filter(o => o.faction !== faction && o.attivo);
 
   // Mappa campo gameState per la valutazione condizioni
+  const gs = gameState as Record<string, unknown>;
   const gsMap: Partial<Record<string, number>> = {
-    nucleare:           (gameState as Record<string, unknown>)?.nucleare as number,
-    sanzioni:           (gameState as Record<string, unknown>)?.sanzioni as number,
-    defcon:             (gameState as Record<string, unknown>)?.defcon   as number,
-    opinione:           (gameState as Record<string, unknown>)?.opinione as number,
-    stabilita:          (gameState as Record<string, unknown>)?.stabilita_iran as number,
-    supporto_pubblico:  (gameState as Record<string, unknown>)?.supporto_pubblico as number,
+    // Tracciati globali
+    nucleare:              gs?.nucleare              as number,
+    sanzioni:              gs?.sanzioni              as number,
+    defcon:                gs?.defcon                as number,
+    opinione:              gs?.opinione              as number,
+    opinione_globale:      gs?.opinione_globale      as number,
+    supporto_pubblico:     gs?.supporto_pubblico     as number,
+    // Iran
+    stabilita:             gs?.stabilita_iran        as number,
+    stabilita_iran:        gs?.stabilita_iran        as number,
+    deterrenza:            gs?.deterrenza            as number,
+    risorse_iran:          gs?.risorse_iran          as number,
+    influenza_iran:        gs?.influenza_iran        as number,
+    // Russia
+    risorse_russia:        gs?.risorse_russia        as number,
+    influenza_russia:      gs?.influenza_russia      as number,
+    controllo_russia:      gs?.controllo_russia      as number,
+    // Cina
+    influenza_cina:        gs?.influenza_cina        as number,
+    risorse_cina:          gs?.risorse_cina          as number,
+    territori_cina:        gs?.territori_cina        as number,
+    // Unione Europea
+    coesione_ue:           gs?.coesione_ue           as number,
+    influenza_ue:          gs?.influenza_ue          as number,
+    diplomazia_ue:         gs?.diplomazia_ue         as number,
+    // Coalizione Occidentale
+    deterrenza_coalizione: gs?.deterrenza_coalizione as number,
+    influenza_coalizione:  gs?.influenza_coalizione  as number,
+    risorse_coalizione:    gs?.risorse_coalizione    as number,
   };
 
   return (
@@ -106,12 +132,30 @@ export default function ObjectivesModal({ myFaction, gameState, myObjectives = [
             ) : (
               <div className="space-y-2">
                 {miei.map(obj => (
-                  <ObjGameCard
-                    key={obj.obj_id}
-                    obj={obj}
-                    isMine={true}
-                    evalResult={evalObjectiveCondition(obj, gsMap)}
-                  />
+                  <div key={obj.obj_id}>
+                    <ObjGameCard
+                      obj={obj}
+                      isMine={true}
+                      evalResult={evalObjectiveCondition(obj, gsMap)}
+                    />
+                    {/* Bottone "Segna completato" per obiettivi manuali non ancora completati */}
+                    {obj.condizione_tipo !== 'tracciato' && !obj.completato && onMarkComplete && (
+                      <button
+                        onClick={() => onMarkComplete(obj.obj_id)}
+                        className="mt-1 ml-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold
+                          bg-[#22c55e20] text-[#22c55e] border border-[#22c55e40]
+                          hover:bg-[#22c55e30] hover:border-[#22c55e80] transition-colors">
+                        ✓ Segna completato
+                      </button>
+                    )}
+                    {/* Badge completato */}
+                    {obj.completato && (
+                      <span className="mt-1 ml-1 inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold
+                        bg-[#22c55e15] text-[#22c55e] border border-[#22c55e30]">
+                        ✅ Completato
+                      </span>
+                    )}
+                  </div>
                 ))}
               </div>
             )}

@@ -323,9 +323,17 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     await supabase.from('territories').upsert(terrRows, { onConflict: 'game_id,territory' });
 
     // 4. Assegna obiettivi segreti a ogni fazione (3 casuali ciascuna)
+    const FACTION_TO_OBJ_MAP: Record<string, ObjFazione> = {
+      'Iran':      'Iran',
+      'Coalizione':'Coalizione Occidentale',
+      'Russia':    'Russia',
+      'Cina':      'Cina',
+      'Europa':    'Unione Europea',
+    };
     for (const faction of factions) {
       try {
-        const localObs = assignObjectives(faction as ObjFazione, 3);
+        const objFaz: ObjFazione = FACTION_TO_OBJ_MAP[faction] ?? (faction as ObjFazione);
+        const localObs = assignObjectives(objFaz, 3);
         if (localObs.length > 0) {
           await supabase.from('game_objectives').insert(
             localObs.map(o => ({
@@ -1374,8 +1382,19 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   assignObjectivesToFaction: async (faction: string, numDraw = 3): Promise<ObiettivoSegreto[]> => {
     const { game } = get();
-    // 1) Estrai obiettivi dal pool locale (sempre disponibile offline)
-    const localObs = assignObjectives(faction as ObjFazione, numDraw);
+    // 1) Mappa nomi corti Faction → nomi lunghi ObjFazione
+    const FACTION_TO_OBJ: Record<string, ObjFazione> = {
+      'Iran':                  'Iran',
+      'Coalizione':            'Coalizione Occidentale',
+      'Coalizione Occidentale':'Coalizione Occidentale',
+      'Russia':                'Russia',
+      'Cina':                  'Cina',
+      'Europa':                'Unione Europea',
+      'Unione Europea':        'Unione Europea',
+    };
+    const objFazione: ObjFazione = FACTION_TO_OBJ[faction] ?? (faction as ObjFazione);
+    // 2) Estrai obiettivi dal pool locale (sempre disponibile offline)
+    const localObs = assignObjectives(objFazione, numDraw);
 
     // 2) Salva in Supabase se la partita esiste
     if (game?.id) {
@@ -1456,7 +1475,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     // Aggiorna lo stato locale
     set({
       myObjectives: myObjectives.map(o =>
-        o.obj_id === objId ? { ...o } : o
+        o.obj_id === objId
+          ? { ...o, completato: true, data_completamento: new Date().toISOString() }
+          : o
       )
     });
   },

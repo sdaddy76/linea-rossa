@@ -5,18 +5,22 @@
 // ================================================================
 
 export interface ObiettivoSegreto {
-  obj_id:            string;
-  faction:           string;
-  nome:              string;
-  descrizione:       string;
-  punti:             number;
-  difficolta:        'facile' | 'media' | 'difficile';
-  condizione_tipo:   string | null;
-  condizione_campo:  string | null;
-  condizione_op:     string | null;
-  condizione_valore: number | null;
-  condizione_note:   string | null;
-  attivo:            boolean;
+  obj_id:              string;
+  faction:             string;
+  nome:                string;
+  descrizione:         string;
+  punti:               number;
+  difficolta:          'facile' | 'media' | 'difficile';
+  condizione_tipo:     string | null;
+  condizione_campo:    string | null;
+  condizione_op:       string | null;
+  condizione_valore:   number | null;
+  condizione_note:     string | null;
+  attivo:              boolean;
+  /** Stato runtime: true se l'obiettivo è stato completato manualmente */
+  completato?:         boolean;
+  /** Timestamp ISO di completamento manuale */
+  data_completamento?: string;
 }
 
 export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
