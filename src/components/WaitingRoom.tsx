@@ -143,43 +143,14 @@ export default function WaitingRoom({
   }, [gameId, loadPlayers]);
 
   // ── Scelta fazione ────────────────────────────────────────────────
+  // ── Scelta fazione ────────────────────────────────────────────────
+  // Logica semplificata: cliccare su una fazione la SOSTITUISCE sempre.
+  // Non è prevista la deselezione — se vuoi cambiare, clicca direttamente sull'altra.
   const chooseFaction = async (faction: Faction) => {
-    // La mia fazione attuale: usa ref (sempre aggiornato) come fonte primaria
-    const currentFaction = myFactionRef.current ?? myFaction;
+    // Ignora click sulla fazione già selezionata
+    if (myFactionRef.current === faction) return;
 
-    // Se clicco sulla mia fazione attuale → DESELEZIONA
-    if (currentFaction === faction) {
-      setLoading(true); setError('');
-      pendingOps.current += 1;
-      setMyFaction(null);
-      myFactionRef.current = null;
-      try {
-        // DELETE 1: per player_id (rimuove le mie righe)
-        await supabaseAdmin
-          .from('game_players')
-          .delete()
-          .eq('game_id', gameId)
-          .eq('player_id', profile.id);
-        // DELETE 2: per faction (rimuove la riga anche se player_id non corrisponde)
-        // Sicuro perché siamo nel ramo "currentFaction === faction" = è certamente mia
-        await supabaseAdmin
-          .from('game_players')
-          .delete()
-          .eq('game_id', gameId)
-          .eq('faction', faction)
-          .eq('is_bot', false);
-        await loadPlayers();
-      } catch (e) {
-        console.error('[deselect]', e);
-        await loadPlayers();
-      } finally {
-        pendingOps.current -= 1;
-        setLoading(false);
-      }
-      return;
-    }
-
-    // Controlla che la fazione NON sia presa da un ALTRO giocatore (non me stesso)
+    // Controlla che la fazione non sia già presa da un altro umano
     const taken = players.find(p =>
       p.faction === faction &&
       p.player_id &&
@@ -191,21 +162,22 @@ export default function WaitingRoom({
       return;
     }
 
-    // Fazione libera → prima elimino TUTTE le mie righe, poi inserisco la nuova
     setLoading(true); setError('');
     pendingOps.current += 1;
-    const prevFaction = myFaction;
+    const prevFaction = myFactionRef.current;
     setMyFaction(faction);
     myFactionRef.current = faction;
+
     try {
-      // 1a. Elimina le mie righe per player_id
+      // Step 1 — rimuovi TUTTE le righe umane mie (player_id)
       await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('player_id', profile.id);
 
-      // 1b. Elimina anche la mia fazione precedente per nome (gestisce righe con player_id sbagliato)
+      // Step 2 — se avevo una fazione precedente, rimuovi anche per nome fazione
+      //          (gestisce righe che nel DB hanno player_id diverso/null)
       if (prevFaction) {
         await supabaseAdmin
           .from('game_players')
@@ -215,15 +187,15 @@ export default function WaitingRoom({
           .eq('is_bot', false);
       }
 
-      // 2. Pulisce slot stale della fazione target (bot o righe orfane)
+      // Step 3 — rimuovi eventuali bot/placeholder sulla nuova fazione
       await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('faction', faction)
-        .or('player_id.is.null,is_bot.eq.true');
+        .eq('is_bot', true);
 
-      // 3. Insert nuova riga — usa client normale (auth utente) per rispettare FK profiles
+      // Step 4 — inserisci la mia nuova scelta
       const { error: insErr } = await supabase
         .from('game_players')
         .insert({
@@ -237,14 +209,15 @@ export default function WaitingRoom({
         });
 
       if (insErr && insErr.code !== '23505') {
-        console.error('[chooseFaction insert] codice:', insErr.code, 'msg:', insErr.message, 'details:', insErr.details);
+        console.error('[chooseFaction] insert error:', insErr.code, insErr.message);
         throw insErr;
       }
+
     } catch (err: unknown) {
+      // Rollback UI
       setMyFaction(prevFaction);
       myFactionRef.current = prevFaction;
-      const msg = err instanceof Error ? err.message : (err as {message?: string})?.message ?? JSON.stringify(err);
-      console.error('[chooseFaction] ERRORE COMPLETO:', err);
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
       setError('Errore nella scelta: ' + msg);
     } finally {
       pendingOps.current -= 1;
@@ -252,6 +225,7 @@ export default function WaitingRoom({
       await loadPlayers();
     }
   };
+
 
   // ── Avvia partita (solo host) ─────────────────────────────────────
   const startGame = async (mode: 'solo' | 'pubblico' = 'solo') => {
@@ -594,7 +568,7 @@ export default function WaitingRoom({
                   key={faction}
                   onClick={() => !takenByOther && !loading && chooseFaction(faction)}
                   disabled={takenByOther || loading}
-                  title={isMine ? `Clicca per deselezionare ${faction}` : takenByOther ? `${faction} è già presa` : `Scegli ${faction}`}
+                  title={isMine ? `Fazione attuale — clicca un'altra per cambiare` : takenByOther ? `${faction} è già presa` : `Scegli ${faction}`}
                   className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all group"
                   style={{
                     borderColor: isMine ? info.color : takenByOther ? '#1e2a3a' : '#1e3a5f',
@@ -603,16 +577,8 @@ export default function WaitingRoom({
                     boxShadow: isMine ? `0 0 16px ${info.color}30` : 'none',
                     cursor: takenByOther ? 'not-allowed' : 'pointer',
                   }}>
-                  {/* Icona: mostra ✕ su hover se è la fazione selezionata dal giocatore */}
-                  <span className="text-2xl transition-all">
-                    {isMine ? (
-                      <span className="relative inline-block">
-                        <span className="group-hover:opacity-0 transition-opacity">{info.flag}</span>
-                        <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-base font-black"
-                          style={{ color: info.color }}>✕</span>
-                      </span>
-                    ) : info.flag}
-                  </span>
+                  {/* Icona fazione */}
+                  <span className="text-2xl">{info.flag}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-sm" style={{ color: isMine ? info.color : takenByOther ? '#334455' : '#c0cce0' }}>
@@ -620,8 +586,7 @@ export default function WaitingRoom({
                       </span>
                       {isMine && (
                         <>
-                          <span className="text-[10px] font-mono bg-[#00ff8820] text-[#00ff88] px-1.5 rounded group-hover:hidden">✓ TU</span>
-                          <span className="text-[10px] font-mono bg-[#ff444420] text-[#ff6666] px-1.5 rounded hidden group-hover:inline">✕ Deseleziona</span>
+                          <span className="text-[10px] font-mono bg-[#00ff8820] text-[#00ff88] px-1.5 rounded">✓ TU</span>
                         </>
                       )}
                       {takenByOther && (
