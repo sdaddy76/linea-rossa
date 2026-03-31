@@ -1079,3 +1079,79 @@ export const getObiettiviPerFazione = (faction: string): ObiettivoSegreto[] =>
 // Helper: obiettivo per ID
 export const getObiettivoById = (obj_id: string): ObiettivoSegreto | undefined =>
   TUTTI_GLI_OBIETTIVI.find(o => o.obj_id === obj_id);
+
+// Tipo unione delle fazioni valide
+export type ObjFazione =
+  | 'Iran'
+  | 'Coalizione Occidentale'
+  | 'Russia'
+  | 'Cina'
+  | 'Unione Europea';
+
+// Helper: estrae N obiettivi casuali per una fazione (usato come fallback locale)
+export const assignObjectives = (
+  faction: ObjFazione,
+  numDraw: number = 3
+): ObiettivoSegreto[] => {
+  const pool = TUTTI_GLI_OBIETTIVI.filter(o => o.faction === faction && o.attivo);
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, numDraw);
+};
+
+// Tipo difficoltà
+export type ObjDifficolta = 'facile' | 'media' | 'difficile';
+
+// Colori per fazione
+export const OBJ_FACTION_COLORS: Record<ObjFazione, string> = {
+  'Iran':                  '#22c55e',
+  'Coalizione Occidentale':'#3b82f6',
+  'Russia':                '#ef4444',
+  'Cina':                  '#f59e0b',
+  'Unione Europea':        '#8b5cf6',
+};
+
+// Bandiere per fazione
+export const OBJ_FACTION_FLAGS: Record<ObjFazione, string> = {
+  'Iran':                  '🇮🇷',
+  'Coalizione Occidentale':'🇺🇸',
+  'Russia':                '🇷🇺',
+  'Cina':                  '🇨🇳',
+  'Unione Europea':        '🇪🇺',
+};
+
+// Colori per difficoltà
+export const OBJ_DIFFICOLTA_COLORS: Record<ObjDifficolta, string> = {
+  'facile':    '#22c55e',
+  'media':     '#f59e0b',
+  'difficile': '#ef4444',
+};
+
+// Icone per difficoltà
+export const OBJ_DIFFICOLTA_ICONS: Record<ObjDifficolta, string> = {
+  'facile':    '⭐',
+  'media':     '⭐⭐',
+  'difficile': '⭐⭐⭐',
+};
+
+// Valuta una condizione di tipo 'tracciato' confrontando il game_state locale
+// gsMap: mappa campo -> valore corrente (es. { nucleare: 8, defcon: 3 })
+// Restituisce: true = soddisfatta, false = non soddisfatta, null = non valutabile (manuale/territorio/carta)
+export const evalObjectiveCondition = (
+  obj: ObiettivoSegreto,
+  gsMap: Partial<Record<string, number>>
+): boolean | null => {
+  if (obj.condizione_tipo !== 'tracciato') return null;
+  if (!obj.condizione_campo || !obj.condizione_op || obj.condizione_valore == null) return null;
+
+  const current = gsMap[obj.condizione_campo];
+  if (current == null) return null;
+
+  switch (obj.condizione_op) {
+    case '>=': return current >= obj.condizione_valore;
+    case '<=': return current <= obj.condizione_valore;
+    case '=':  return current === obj.condizione_valore;
+    case '>':  return current >  obj.condizione_valore;
+    case '<':  return current <  obj.condizione_valore;
+    default:   return null;
+  }
+};
