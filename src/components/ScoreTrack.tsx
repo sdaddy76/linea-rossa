@@ -96,11 +96,8 @@ export const ScoreTrack: React.FC<Props> = ({ gameId, factions }) => {
         );
         const completati = myRows.filter(r => r.completato);
 
-        const puntiObiettivi = completati.reduce((sum, r) => {
-          // Cerca la definizione dell'obiettivo nei dati locali
-          const def = TUTTI_GLI_OBIETTIVI.find(o => o.obj_id === r.obj_id);
-          return sum + (def?.punti ?? 0);
-        }, 0);
+        // Obiettivi SEGRETI: non mostrare i punti pubblicamente
+        const puntiObiettivi = 0; // nascosto
 
         // ── Punti territorio ─────────────────────────────────────────
         let puntiTerritorio = 0;
@@ -126,7 +123,7 @@ export const ScoreTrack: React.FC<Props> = ({ gameId, factions }) => {
           obiettiviCompletati: completati.length,
           obiettiviTotali:     myRows.length,
           puntiTerritorio,
-          totale: puntiObiettivi + puntiTerritorio,
+          totale: puntiTerritorio, // solo punti visibili (territori)
         };
       });
 
@@ -230,20 +227,13 @@ export const ScoreTrack: React.FC<Props> = ({ gameId, factions }) => {
                 />
               </div>
 
-              {/* Dettaglio obiettivi + territori */}
+              {/* Dettaglio — solo punti visibili, obiettivi segreti nascosti */}
               <div className="flex flex-wrap gap-3 text-[10px] text-[#556677]">
                 <span>
-                  🎯 Obiettivi:{' '}
-                  <span className="text-[#8899aa]">{s.puntiObiettivi} pt</span>
-                  {' '}
-                  <span className="text-[#445566]">
-                    ({s.obiettiviCompletati}/{s.obiettiviTotali})
-                  </span>
-                </span>
-                <span>
-                  🗺️ Territori:{' '}
+                  🗺️ Territori controllati:{' '}
                   <span className="text-[#8899aa]">{s.puntiTerritorio} pt</span>
                 </span>
+                <span className="text-[#334455] italic">🎯 Obiettivi: segreti</span>
               </div>
             </div>
           ))}
