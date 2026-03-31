@@ -224,7 +224,7 @@ export default function WaitingRoom({
   };
 
   // ── Avvia partita (solo host) ─────────────────────────────────────
-  const startGame = async () => {
+  const startGame = async (mode: 'solo' | 'pubblico' = 'solo') => {
     if (!myFaction) { setError('Scegli prima la tua fazione'); return; }
 
     // Umani = chi ha player_id (includo me anche se il real-time non ha ancora aggiornato)
@@ -234,11 +234,13 @@ export default function WaitingRoom({
 
     setStarting(true); setError('');
     try {
-      console.log('[startGame] step 1 — inserimento bot');
-      // Fazioni non prese da umani → assegna bot
+      console.log('[startGame] step 1 — inserimento bot, mode:', mode);
+      // Fazioni non prese da umani → assegna bot solo in modalità 'solo'
       const takenFactions = new Set(players.filter(p => p.player_id).map(p => p.faction));
       if (myFaction) takenFactions.add(myFaction);
-      const botFactions = TURN_ORDER.filter(f => !takenFactions.has(f));
+      const botFactions = mode === 'solo'
+        ? TURN_ORDER.filter(f => !takenFactions.has(f))
+        : []; // modalità pubblica: nessun bot, i posti restano liberi
 
       if (botFactions.length > 0) {
         const botRows = botFactions.map(f => ({
@@ -360,10 +362,21 @@ export default function WaitingRoom({
       }
       console.log('[startGame] step 5 — aggiorna games.status');
 
-      // Cambia status → active (triggera real-time su tutti i client)
+      // Cambia status:
+      // - 'solo'     → 'active' (tutti i posti sono coperti da umani/bot)
+      // - 'pubblico' → 'active' con allow_join:true — posti vuoti restano liberi per nuovi entranti
+      const newStatus = 'active';
+      const gameUpdatePayload: Record<string, unknown> = {
+        status: newStatus,
+        started_at: new Date().toISOString(),
+      };
+      if (mode === 'pubblico') {
+        // allow_join segnala che il tavolo accetta ancora giocatori
+        try { (gameUpdatePayload as Record<string, unknown>)['allow_join'] = true; } catch { /* colonna opzionale */ }
+      }
       const { error: gameErr } = await supabase
         .from('games')
-        .update({ status: 'active', started_at: new Date().toISOString() })
+        .update(gameUpdatePayload)
         .eq('id', gameId);
       if (gameErr) throw gameErr;
 
@@ -663,9 +676,27 @@ export default function WaitingRoom({
                   Come vuoi procedere?
                 </p>
                 <div className="grid grid-cols-1 gap-2">
+                  {/* Pulsante tavolo pubblico — avvia senza bot, posti vuoti aperti */}
+                  <button
+                    onClick={() => startGame('pubblico')}
+                    disabled={starting}
+                    className="w-full py-3 px-4 rounded-xl font-black font-mono tracking-widest text-sm transition-all
+                      disabled:opacity-40 disabled:cursor-not-allowed border-2"
+                    style={{
+                      borderColor: '#22d3ee',
+                      color: '#22d3ee',
+                      background: starting ? '#22d3ee20' : 'transparent',
+                      boxShadow: '0 0 16px #22d3ee30',
+                    }}>
+                    {starting ? '⏳ AVVIO IN CORSO…' : '🌐 APRI TAVOLO PUBBLICO'}
+                  </button>
+                  <p className="text-[9px] font-mono text-[#445566] text-center -mt-1">
+                    Avvia subito — i posti vuoti restano aperti per altri giocatori dalla lobby
+                  </p>
+
                   {/* Gioca da solo con bot */}
                   <button
-                    onClick={startGame}
+                    onClick={() => startGame('solo')}
                     disabled={starting}
                     className="w-full py-3 rounded-xl font-black font-mono tracking-widest text-sm transition-all
                       disabled:opacity-40 disabled:cursor-not-allowed"
@@ -718,7 +749,7 @@ export default function WaitingRoom({
                         </button>
                         {humanPlayers.length > 1 && (
                           <button
-                            onClick={startGame}
+                            onClick={() => startGame('solo')}
                             disabled={starting}
                             className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
                               disabled:opacity-40"
