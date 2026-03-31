@@ -541,7 +541,8 @@ export default function WaitingRoom({
                   key={faction}
                   onClick={() => !takenByOther && !loading && chooseFaction(faction)}
                   disabled={takenByOther || loading}
-                  className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all"
+                  title={isMine ? `Clicca per deselezionare ${faction}` : takenByOther ? `${faction} è già presa` : `Scegli ${faction}`}
+                  className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all group"
                   style={{
                     borderColor: isMine ? info.color : takenByOther ? '#1e2a3a' : '#1e3a5f',
                     background: isMine ? info.color + '15' : takenByOther ? '#060a10' : '#060d18',
@@ -549,14 +550,26 @@ export default function WaitingRoom({
                     boxShadow: isMine ? `0 0 16px ${info.color}30` : 'none',
                     cursor: takenByOther ? 'not-allowed' : 'pointer',
                   }}>
-                  <span className="text-2xl">{info.flag}</span>
+                  {/* Icona: mostra ✕ su hover se è la fazione selezionata dal giocatore */}
+                  <span className="text-2xl transition-all">
+                    {isMine ? (
+                      <span className="relative inline-block">
+                        <span className="group-hover:opacity-0 transition-opacity">{info.flag}</span>
+                        <span className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-base font-black"
+                          style={{ color: info.color }}>✕</span>
+                      </span>
+                    ) : info.flag}
+                  </span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-mono font-bold text-sm" style={{ color: isMine ? info.color : takenByOther ? '#334455' : '#c0cce0' }}>
                         {faction}
                       </span>
                       {isMine && (
-                        <span className="text-[10px] font-mono bg-[#00ff8820] text-[#00ff88] px-1.5 rounded">✓ TU</span>
+                        <>
+                          <span className="text-[10px] font-mono bg-[#00ff8820] text-[#00ff88] px-1.5 rounded group-hover:hidden">✓ TU</span>
+                          <span className="text-[10px] font-mono bg-[#ff444420] text-[#ff6666] px-1.5 rounded hidden group-hover:inline">✕ Deseleziona</span>
+                        </>
                       )}
                       {takenByOther && (
                         <span className="text-[10px] font-mono text-[#334455]">
@@ -565,7 +578,12 @@ export default function WaitingRoom({
                       )}
                     </div>
                     <p className="text-[11px] font-mono truncate" style={{ color: takenByOther ? '#223' : '#445566' }}>
-                      {info.desc}
+                      {isMine ? (
+                        <span className="group-hover:hidden">{info.desc}</span>
+                      ) : info.desc}
+                      {isMine && (
+                        <span className="hidden group-hover:inline text-[#ff6666]">Clicca per cambiare fazione</span>
+                      )}
                     </p>
                   </div>
                 </button>

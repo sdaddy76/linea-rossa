@@ -62,6 +62,34 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   const [openGames, setOpenGames]     = useState<GameWithPlayers[]>([]);
   const [recentGames, setRecentGames] = useState<GameWithPlayers[]>([]);
 
+  // ── Partite nascoste (localStorage) ─────────────────────────────────────
+  const HIDDEN_KEY = `linea_rossa_hidden_games_${profile.id}`;
+  const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(`linea_rossa_hidden_games_${profile.id}`);
+      return raw ? new Set<string>(JSON.parse(raw) as string[]) : new Set<string>();
+    } catch { return new Set<string>(); }
+  });
+  const [showHidden, setShowHidden] = useState(false);
+
+  const hideGame = (gameId: string) => {
+    setHiddenIds(prev => {
+      const next = new Set(prev);
+      next.add(gameId);
+      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next])); } catch { /* ignora */ }
+      return next;
+    });
+  };
+
+  const unhideGame = (gameId: string) => {
+    setHiddenIds(prev => {
+      const next = new Set(prev);
+      next.delete(gameId);
+      try { localStorage.setItem(HIDDEN_KEY, JSON.stringify([...next])); } catch { /* ignora */ }
+      return next;
+    });
+  };
+
   // ── Modali ───────────────────────────────────────────────────────────────
   const [showLibrary, setShowLibrary]         = useState(false);
   const [showBotLibrary, setShowBotLibrary]   = useState(false);
@@ -259,7 +287,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   };
 
   // Card tavolo nella lista
-  const TableRow = ({ game }: { game: GameWithPlayers }) => {
+  const TableRow = ({ game, isHiddenView = false }: { game: GameWithPlayers; isHiddenView?: boolean }) => {
     const humanPlayers  = (game._players ?? []).filter((p) => !p.is_bot && p.player_id);
     const takenFactions = new Set(humanPlayers.map((p) => p.faction));
     const isFinished    = game.status === 'finished';
@@ -269,7 +297,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
 
     return (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3
-        bg-[#0d1424] border border-[#1e3a5f] hover:border-[#2a4a6f] rounded-xl transition-all">
+        bg-[#0d1424] border border-[#1e3a5f] hover:border-[#2a4a6f] rounded-xl transition-all relative group/row">
 
         {/* Sinistra: badge + codice + fazioni */}
         <div className="flex items-center gap-3 min-w-0">
@@ -352,6 +380,26 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
               {isMine ? '↩ Rientra' : '+ Unisciti'}
             </button>
           )}
+
+          {/* Pulsante nascondi/ripristina — visibile su hover */}
+          {isHiddenView ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); unhideGame(game.id); }}
+              title="Ripristina partita nella lista"
+              className="px-2 py-1.5 rounded-lg font-mono text-xs transition-all
+                border border-[#334455] text-[#445566] hover:border-[#00ff88] hover:text-[#00ff88]">
+              ↩
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); hideGame(game.id); }}
+              title="Nascondi questa partita dalla lista"
+              className="px-2 py-1.5 rounded-lg font-mono text-xs transition-all
+                border border-[#334455] text-[#445566] hover:border-[#ff4444] hover:text-[#ff4444]
+                opacity-0 group-hover/row:opacity-100">
+              ✕
+            </button>
+          )}
         </div>
       </div>
     );
@@ -408,10 +456,13 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
         {openGames.length > 0 && (
           <section>
             <h2 className="text-[10px] font-mono text-[#445566] uppercase tracking-widest mb-2">
-              🌐 Tavoli aperti ({openGames.length})
+              🌐 Tavoli aperti ({openGames.filter(g => !hiddenIds.has(g.id)).length})
             </h2>
             <div className="space-y-2">
-              {openGames.map((g) => <TableRow key={g.id} game={g} />)}
+              {openGames.filter(g => !hiddenIds.has(g.id)).map((g) => <TableRow key={g.id} game={g} />)}
+              {openGames.filter(g => !hiddenIds.has(g.id)).length === 0 && (
+                <p className="text-xs font-mono text-[#334455] italic px-1">Nessun tavolo aperto visibile.</p>
+              )}
             </div>
           </section>
         )}
@@ -573,8 +624,32 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
               Le tue partite recenti
             </h2>
             <div className="space-y-2">
-              {recentGames.map((g) => <TableRow key={g.id} game={g} />)}
+              {recentGames.filter(g => !hiddenIds.has(g.id)).map((g) => <TableRow key={g.id} game={g} />)}
+              {recentGames.filter(g => !hiddenIds.has(g.id)).length === 0 && (
+                <p className="text-xs font-mono text-[#334455] italic px-1">Nessuna partita recente visibile.</p>
+              )}
             </div>
+
+            {/* Toggle mostra/nascondi partite nascoste */}
+            {hiddenIds.size > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setShowHidden(v => !v)}
+                  className="text-[10px] font-mono text-[#445566] hover:text-[#8899aa] transition-colors underline underline-offset-2">
+                  {showHidden
+                    ? `▲ Nascondi partite archiviate (${hiddenIds.size})`
+                    : `▼ Mostra partite nascoste (${hiddenIds.size})`}
+                </button>
+                {showHidden && (
+                  <div className="mt-2 space-y-2 opacity-60">
+                    {[...openGames, ...recentGames]
+                      .filter((g, i, arr) => arr.findIndex(x => x.id === g.id) === i) // dedup
+                      .filter(g => hiddenIds.has(g.id))
+                      .map(g => <TableRow key={g.id} game={g} isHiddenView />)}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
         )}
 
