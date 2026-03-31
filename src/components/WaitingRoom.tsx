@@ -195,8 +195,8 @@ export default function WaitingRoom({
         .eq('faction', faction)
         .eq('is_bot', true);
 
-      // Step 4 — inserisci la mia nuova scelta
-      const { error: insErr } = await supabase
+      // Step 4 — inserisci la mia nuova scelta (supabaseAdmin bypassa RLS)
+      const { error: insErr } = await supabaseAdmin
         .from('game_players')
         .insert({
           game_id: gameId,
@@ -208,9 +208,14 @@ export default function WaitingRoom({
           is_ready: true,
         });
 
-      if (insErr && insErr.code !== '23505') {
-        console.error('[chooseFaction] insert error:', insErr.code, insErr.message);
-        throw insErr;
+      if (insErr) {
+        // Se duplicate key (23505): la riga esiste già, va bene
+        if (insErr.code === '23505') {
+          console.warn('[chooseFaction] riga già esistente, ignorato');
+        } else {
+          console.error('[chooseFaction] insert error:', insErr.code, insErr.message, insErr.details);
+          throw insErr;
+        }
       }
 
     } catch (err: unknown) {
