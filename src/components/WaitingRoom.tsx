@@ -158,16 +158,39 @@ export default function WaitingRoom({
           .eq('player_id', profile.id);
         if (delErr) {
           // Fallback: RPC SECURITY DEFINER che bypassa RLS
+          // Nota: l'RPC potrebbe non esistere — in quel caso ignoriamo l'errore
+          // perché supabaseAdmin (service_role) ha già tentato la DELETE diretta.
           const { error: rpcErr } = await supabase.rpc('elimina_mia_fazione', { p_game_id: gameId });
-          if (rpcErr) throw rpcErr;
+          if (rpcErr) {
+            // Se la RPC non esiste (PGRST202 / 42883) o l'utente non è auth,
+            // proviamo una seconda DELETE con supabaseAdmin filtrando anche sulla fazione
+            const { error: del2Err } = await supabaseAdmin
+              .from('game_players')
+              .delete()
+              .eq('game_id', gameId)
+              .eq('faction', faction);
+            if (del2Err) {
+              console.error('[chooseFaction deselect] Tutti i fallback falliti:', {
+                delErr,
+                rpcErr,
+                del2Err,
+                faction,
+                gameId,
+                playerId: profile.id,
+              });
+              throw del2Err;
+            }
+          }
         }
         // Delete confermato dal DB: ora forza la lettura dello stato corretto
         await loadPlayers();
-      } catch {
+      } catch (e: unknown) {
         // Rollback UI se il delete fallisce
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        console.error('[chooseFaction deselect] ERRORE COMPLETO:', e);
         setMyFaction(faction);
         myFactionRef.current = faction;
-        setError('Errore nella deselezione');
+        setError('Errore nella deselezione: ' + msg);
       } finally {
         pendingOps.current -= 1;        // sblocca loadPlayers
         setLoading(false);
