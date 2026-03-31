@@ -154,12 +154,20 @@ export default function WaitingRoom({
       setMyFaction(null);
       myFactionRef.current = null;
       try {
-        // Elimina TUTTE le mie righe per player_id (gestisce duplicati)
+        // DELETE 1: per player_id (rimuove le mie righe)
         await supabaseAdmin
           .from('game_players')
           .delete()
           .eq('game_id', gameId)
           .eq('player_id', profile.id);
+        // DELETE 2: per faction (rimuove la riga anche se player_id non corrisponde)
+        // Sicuro perché siamo nel ramo "currentFaction === faction" = è certamente mia
+        await supabaseAdmin
+          .from('game_players')
+          .delete()
+          .eq('game_id', gameId)
+          .eq('faction', faction)
+          .eq('is_bot', false);
         await loadPlayers();
       } catch (e) {
         console.error('[deselect]', e);
@@ -190,12 +198,22 @@ export default function WaitingRoom({
     setMyFaction(faction);
     myFactionRef.current = faction;
     try {
-      // 1. Elimina TUTTE le mie righe precedenti (gestisce duplicati)
+      // 1a. Elimina le mie righe per player_id
       await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
         .eq('player_id', profile.id);
+
+      // 1b. Elimina anche la mia fazione precedente per nome (gestisce righe con player_id sbagliato)
+      if (prevFaction) {
+        await supabaseAdmin
+          .from('game_players')
+          .delete()
+          .eq('game_id', gameId)
+          .eq('faction', prevFaction)
+          .eq('is_bot', false);
+      }
 
       // 2. Pulisce slot stale della fazione target (bot o righe orfane)
       await supabaseAdmin
