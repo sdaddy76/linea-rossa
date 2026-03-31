@@ -4,7 +4,7 @@
 // e che fazione ha scelto. Una fazione per giocatore.
 // =============================================
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, supabaseAdmin } from '@/integrations/supabase/client';
 import type { Profile } from '@/types/game';
 
 type Faction = 'Iran' | 'Coalizione' | 'Russia' | 'Cina' | 'Europa';
@@ -99,7 +99,7 @@ export default function WaitingRoom({
     if (isHost) {
       await supabase.from('games').delete().eq('id', gameId);
     } else {
-      await supabase
+      await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
@@ -151,7 +151,7 @@ export default function WaitingRoom({
       setMyFaction(null);               // aggiornamento ottimistico immediato
       myFactionRef.current = null;
       try {
-        const { error: delErr } = await supabase
+        const { error: delErr } = await supabaseAdmin
           .from('game_players')
           .delete()
           .eq('game_id', gameId)
@@ -185,8 +185,8 @@ export default function WaitingRoom({
     setMyFaction(faction);              // aggiornamento ottimistico immediato
     myFactionRef.current = faction;
     try {
-      // 1. Rimuove la scelta precedente del giocatore
-      const { error: del1Err } = await supabase
+      // 1. Rimuove la scelta precedente del giocatore (supabaseAdmin bypassa RLS)
+      const { error: del1Err } = await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
@@ -197,7 +197,7 @@ export default function WaitingRoom({
       }
 
       // 2. Pulisce righe stale della fazione target (bot/placeholder/chi ha lasciato)
-      await supabase
+      await supabaseAdmin
         .from('game_players')
         .delete()
         .eq('game_id', gameId)
