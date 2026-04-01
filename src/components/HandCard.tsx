@@ -3,15 +3,32 @@
 // Click sulla carta → apre CardPeek (pannello espanso dal basso)
 // Dal peek si può selezionare e giocare la carta.
 // =============================================
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { DeckCard } from '@/types/game';
 import type { GameCard } from '@/data/mazzi';
+import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } from '@/data/mazzi';
 import type { GameState } from '@/types/game';
 import {
   FACTION_COLORS, FACTION_FLAGS, CARD_TYPE_COLORS, CARD_TYPE_ICONS,
 } from '@/lib/factionColors';
 import CardVisual, { FACTION_COLOR, CARD_TYPE_BORDER } from './CardVisual';
 import CardPeek from './CardPeek';
+
+// ── Lookup globale tutte le carte (costruito una volta sola al caricamento del modulo) ──
+// Usato da UnifiedHandCard per arricchire le DeckCard con il campo `effects`
+const TUTTE_LE_CARTE_DEFINIZIONI: GameCard[] = [
+  ...Object.values(MAZZI_PER_FAZIONE).flat(),
+  ...Object.values(MAZZI_SPECIALI).flat(),
+  ...MAZZO_NEUTRALE,
+];
+
+/** Dato un DeckCard (senza effects), restituisce la GameCard completa con effects, se trovata */
+function enrichDeckCard(dc: DeckCard): DeckCard | GameCard {
+  const def = TUTTE_LE_CARTE_DEFINIZIONI.find(c => c.card_id === dc.card_id);
+  if (!def) return dc;
+  // Merge: i campi del DB (card_id, card_name, op_points…) restano, effects viene aggiunto
+  return { ...def, ...dc, effects: def.effects } as unknown as GameCard;
+}
 
 export { FACTION_COLORS, FACTION_FLAGS, CARD_TYPE_COLORS, CARD_TYPE_ICONS };
 
@@ -85,6 +102,10 @@ export function UnifiedHandCard({ dc, myFaction, selected, disabled, onToggle }:
   const isMyOwn      = ownerFaction === myFaction;
   const ownerColor   = FACTION_COLOR[ownerFaction] ?? '#8899aa';
 
+  // FIX: arricchisce il DeckCard (privo di `effects`) con la definizione completa
+  // da mazzi.ts, così CardPeek può mostrare i modificatori dei tracciati.
+  const richCard = useMemo(() => enrichDeckCard(dc), [dc]);
+
   return (
     <>
       <div className="relative flex flex-col items-center select-none">
@@ -123,7 +144,7 @@ export function UnifiedHandCard({ dc, myFaction, selected, disabled, onToggle }:
 
       {peekOpen && (
         <CardPeek
-          card={dc}
+          card={richCard}
           myFaction={myFaction}
           disabled={disabled}
           onClose={() => setPeekOpen(false)}
