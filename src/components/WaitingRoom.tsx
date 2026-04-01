@@ -427,28 +427,28 @@ export default function WaitingRoom({
       // - 'solo'     → 'active' (tutti i posti sono coperti da umani/bot)
       // - 'pubblico' → 'active' con allow_join:true — posti vuoti restano liberi per nuovi entranti
       const newStatus = 'active';
-      const gameUpdatePayload: Record<string, unknown> = {
-        status: newStatus,
-        started_at: new Date().toISOString(),
-      };
-      if (mode === 'pubblico') {
-        // allow_join segnala che il tavolo accetta ancora giocatori
-        try { (gameUpdatePayload as Record<string, unknown>)['allow_join'] = true; } catch { /* colonna opzionale */ }
-      }
+      // Step 5a — update garantito: solo colonne presenti nel schema base
       const { error: gameErr } = await supabase
         .from('games')
-        .update(gameUpdatePayload)
+        .update({ status: newStatus, started_at: new Date().toISOString() })
         .eq('id', gameId);
       if (gameErr) throw gameErr;
 
-      // Prova a salvare game_mode (richiede migration add_unified_deck_columns.sql)
-      // Non blocca l'avvio se la colonna non esiste ancora
+      // Step 5b — colonne opzionali: allow_join, game_mode, special_mode, max_turns
+      // Ogni update è separato: se la colonna non esiste (400 / 42703) viene ignorato
+      if (mode === 'pubblico') {
+        try {
+          const { error: e } = await supabase.from('games').update({ allow_join: true }).eq('id', gameId);
+          if (e && e.code !== '42703' && e.code !== 'PGRST204') console.warn('[startGame] allow_join warn:', e);
+        } catch { /* colonna opzionale */ }
+      }
       try {
-        await supabase.from('games').update({
+        const { error: e } = await supabase.from('games').update({
           game_mode: gameMode,
           special_mode: specialMode,
         }).eq('id', gameId);
-      } catch { /* colonna game_mode non presente — la migration non è stata eseguita */ }
+        if (e && e.code !== '42703' && e.code !== 'PGRST204') console.warn('[startGame] game_mode warn:', e);
+      } catch { /* colonne opzionali — migration non eseguita */ }
 
       // Se modalità "speciali separate": ricrea i mazzi senza le carte speciali,
       // e inserisce le speciali come status='special_locked' (mazzo separato in DB)
