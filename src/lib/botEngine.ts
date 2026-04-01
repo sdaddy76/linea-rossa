@@ -454,7 +454,7 @@ export function applyCardEffects(
 
   const newState: Partial<GameState> = {
     nucleare:  Math.max(1, Math.min(15, curNucleare + dNucleare)),
-    sanzioni:  Math.max(1, Math.min(10, curSanzioni + dSanzioni)),
+    sanzioni:  Math.max(1, Math.min(20, curSanzioni + dSanzioni)),
     opinione:  Math.max(-10, Math.min(10, curOpinione + dOpinione)),
     defcon:    Math.max(1, Math.min(10, curDefcon + dDefcon)),
     [risorseKey]:  Math.max(1, Math.min(10, curRisorse + dRisorse)),
@@ -480,8 +480,8 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout',
       message: '☢️ Iran ha raggiunto la capacità nucleare! Breakout completato.' };
   }
-  // Coalizione vince: sanzioni raggiungono 10 (collasso regime)
-  if (state.sanzioni >= 10) {
+  // Coalizione vince: sanzioni crollano a 4 o meno (collasso regime)
+  if (state.sanzioni <= 4) {
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'collasso',
       message: '🏴 Il regime iraniano è collassato sotto le sanzioni!' };
   }

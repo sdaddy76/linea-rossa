@@ -95,6 +95,39 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   const [showBotLibrary, setShowBotLibrary]   = useState(false);
   const [showEventLibrary, setShowEventLibrary] = useState(false);
   const [showObjectiveLibrary, setShowObjectiveLibrary] = useState(false);
+  const [showStats, setShowStats]             = useState(false);
+  const [playerStats, setPlayerStats]         = useState<{giocate:number;inCorso:number;vinte:number}|null>(null);
+
+  // Carica statistiche personali
+  const loadPlayerStats = async () => {
+    if (!profile?.id) return;
+    const [played, active, won] = await Promise.all([
+      supabase.from('game_players').select('game_id', { count: 'exact', head: true }).eq('player_id', profile.id),
+      supabase.from('game_players').select('game_id', { count: 'exact', head: true }).eq('player_id', profile.id)
+        .in('game_id', (await supabase.from('games').select('id').eq('status', 'active')).data?.map(g=>g.id) ?? []),
+      supabase.from('games').select('id', { count: 'exact', head: true })
+        .eq('status', 'finished').eq('winner_faction',
+          (await supabase.from('game_players').select('faction,game_id').eq('player_id', profile.id).limit(100)).data
+            ?.map(r=>r.faction)[0] ?? ''),
+    ]);
+    // Approccio semplificato: conta partite vinte dove il giocatore era nella fazione vincente
+    const myGames = await supabase.from('game_players').select('game_id,faction').eq('player_id', profile.id);
+    const gameIds = myGames.data?.map(r=>r.game_id) ?? [];
+    let vinte = 0;
+    if (gameIds.length > 0) {
+      const wonGames = await supabase.from('games').select('id,winner_faction').eq('status','finished').in('id', gameIds);
+      for (const g of wonGames.data ?? []) {
+        const myRow = myGames.data?.find(r => r.game_id === g.id);
+        if (myRow && myRow.faction === g.winner_faction) vinte++;
+      }
+    }
+    setPlayerStats({
+      giocate: played.count ?? 0,
+      inCorso: active.count ?? 0,
+      vinte,
+    });
+    void played; void active; void won;
+  };
 
   // ─── Carica lista tavoli ─────────────────────────────────────────────────
   const loadGames = useCallback(async () => {
@@ -439,6 +472,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                 text-[#8899aa] hover:text-[#8b5cf6] rounded-lg font-mono text-xs transition-colors">
               🎯 Obiettivi
             </button>
+            <button onClick={() => { setShowStats(true); loadPlayerStats(); }}
+              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#22c55e]
+                text-[#8899aa] hover:text-[#22c55e] rounded-lg font-mono text-xs transition-colors">
+              📊 Statistiche
+            </button>
             <button onClick={onAdmin}
               className="text-[#8899aa] hover:text-[#00ff88] font-mono text-xs
                 border border-[#334455] rounded px-2 py-1">
@@ -659,6 +697,53 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       {showLibrary    && <CardLibraryManager   onClose={() => setShowLibrary(false)} />}
       {showEventLibrary && <EventLibraryManager onClose={() => setShowEventLibrary(false)} />}
       {showObjectiveLibrary && <ObjectiveLibraryManager onClose={() => setShowObjectiveLibrary(false)} />}
+
+      {/* Modal Statistiche personali */}
+      {showStats && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setShowStats(false)}>
+          <div className="bg-[#080e1a] border border-[#1e3a5f] rounded-2xl p-6 w-full max-w-sm"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-sm font-black font-mono tracking-widest text-[#00ff88]">
+                📊 STATISTICHE
+              </h2>
+              <button onClick={() => setShowStats(false)}
+                className="text-[#445566] hover:text-white font-mono text-sm">✕</button>
+            </div>
+            <p className="text-xs font-mono text-[#445566] mb-5">
+              Giocatore: <span className="text-[#8899aa] font-bold">{profile.username}</span>
+            </p>
+            {playerStats === null ? (
+              <p className="text-xs font-mono text-[#445566] text-center py-4">Caricamento...</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Partite\ngiocate',  value: playerStats.giocate,  color: '#3b82f6', icon: '🎮' },
+                  { label: 'Partite\nin corso',  value: playerStats.inCorso,  color: '#f59e0b', icon: '⚔️' },
+                  { label: 'Partite\nvinte',     value: playerStats.vinte,    color: '#22c55e', icon: '🏆' },
+                ].map(({ label, value, color, icon }) => (
+                  <div key={label} className="flex flex-col items-center gap-1 p-3 rounded-xl"
+                    style={{ background: '#0a0e1a', border: `1px solid ${color}44` }}>
+                    <span className="text-xl">{icon}</span>
+                    <span className="text-2xl font-black font-mono" style={{ color }}>{value}</span>
+                    <span className="text-[10px] font-mono text-center leading-tight whitespace-pre-line"
+                      style={{ color: '#445566' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {playerStats && playerStats.giocate > 0 && (
+              <p className="text-xs font-mono text-center mt-4" style={{ color: '#445566' }}>
+                Win rate:{' '}
+                <span className="font-bold" style={{ color: '#22c55e' }}>
+                  {Math.round((playerStats.vinte / playerStats.giocate) * 100)}%
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       {showBotLibrary && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">

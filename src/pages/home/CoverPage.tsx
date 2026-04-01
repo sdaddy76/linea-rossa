@@ -3,8 +3,48 @@
 // Prima schermata: titolo, ambientazione, accesso
 // =============================================
 
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+
 interface Props {
   onPlay: () => void;
+}
+
+interface LiveStats {
+  partiteInCorso: number;
+  partiteTerminate: number;
+  giocatoriRegistrati: number;
+  giocatoriOnline: number;
+}
+
+function useLiveStats(): LiveStats {
+  const [stats, setStats] = useState<LiveStats>({
+    partiteInCorso: 0, partiteTerminate: 0,
+    giocatoriRegistrati: 0, giocatoriOnline: 0,
+  });
+
+  useEffect(() => {
+    async function load() {
+      const [active, finished, profiles, online] = await Promise.all([
+        supabase.from('games').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('games').select('id', { count: 'exact', head: true }).eq('status', 'finished'),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true })
+          .gte('updated_at', new Date(Date.now() - 15 * 60 * 1000).toISOString()),
+      ]);
+      setStats({
+        partiteInCorso:      active.count    ?? 0,
+        partiteTerminate:    finished.count  ?? 0,
+        giocatoriRegistrati: profiles.count  ?? 0,
+        giocatoriOnline:     online.count    ?? 0,
+      });
+    }
+    load();
+    const timer = setInterval(load, 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return stats;
 }
 
 // ── Bandiera Coalizione: metà israeliana + metà americana ─────────────
@@ -94,6 +134,7 @@ const FACTION_FLAGS = [
 ];
 
 export default function CoverPage({ onPlay }: Props) {
+  const stats = useLiveStats();
   return (
     <div
       className="min-h-screen w-full flex flex-col relative overflow-hidden"
@@ -216,6 +257,24 @@ export default function CoverPage({ onPlay }: Props) {
         <p className="mt-4 text-xs font-mono" style={{ color: '#334155' }}>
           Multiplayer online · fino a 5 fazioni
         </p>
+
+        {/* ── CONTATORI LIVE ── */}
+        <div className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-lg">
+          {[
+            { label: 'Partite in corso',    value: stats.partiteInCorso,      icon: '⚔️',  color: '#ef4444' },
+            { label: 'Partite terminate',   value: stats.partiteTerminate,    icon: '🏁',  color: '#64748b' },
+            { label: 'Giocatori registrati',value: stats.giocatoriRegistrati, icon: '👤',  color: '#3b82f6' },
+            { label: 'Online ora',          value: stats.giocatoriOnline,     icon: '🟢',  color: '#22c55e' },
+          ].map(({ label, value, icon, color }) => (
+            <div key={label}
+              className="flex flex-col items-center gap-1 p-3 rounded-xl"
+              style={{ background: '#0a0e1a', border: `1px solid ${color}33` }}>
+              <span className="text-lg">{icon}</span>
+              <span className="text-xl font-black font-mono" style={{ color }}>{value}</span>
+              <span className="text-[10px] font-mono text-center leading-tight" style={{ color: '#475569' }}>{label}</span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── Info versione ── */}
