@@ -855,11 +855,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const isMyCard = ownerFaction === myFaction;
 
       // 2. Recupera definizione carta con effetti
-      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } = await import('@/data/mazzi');
-      const ownerDeck = [
-        ...(MAZZI_PER_FAZIONE[ownerFaction] ?? []),
-        ...(MAZZI_SPECIALI[ownerFaction] ?? []),
-      ];
+      // FIX: includi MAZZO_NEUTRALE per carte con ownerFaction === 'Neutrale'
+      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } = await import('@/data/mazzi');
+      const ownerDeck =
+        ownerFaction === ('Neutrale' as Faction)
+          ? [...MAZZO_NEUTRALE]
+          : [
+              ...(MAZZI_PER_FAZIONE[ownerFaction] ?? []),
+              ...(MAZZI_SPECIALI[ownerFaction] ?? []),
+            ];
       const cardDef = ownerDeck.find(c => c.card_id === deckCard.card_id) ?? {
         card_id: deckCard.card_id,
         card_name: deckCard.card_name,
@@ -867,14 +871,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       };
 
       // 3. Calcola effetti in base alla modalità di gioco
-      //    - mode='event'  → applica gli effetti della carta (chi è proprietario)
-      //    - mode='ops'    → usa solo i punti OP (nessun effetto tracciato)
-      //    - carta altrui  → SEMPRE: prima OP, poi evento automatico al termine
+      //    - mode='event' + carta propria o neutrale → applica effetti meccanici
+      //    - mode='ops'                              → solo OP, nessun effetto tracciato
+      //    - mode='event' + carta altrui (non neutrale) → nessun effetto (regola fazione)
       let newState = { ...gameState };
       let deltas = {};
 
-      if (mode === 'event' && isMyCard) {
-        // Gioca come evento: applica gli effetti meccanici
+      // Carta "propria" = appartiene alla mia fazione OPPURE è neutrale
+      // (le carte neutrali giocate come evento applicano sempre i loro effetti)
+      const isOwnOrNeutral = isMyCard || ownerFaction === ('Neutrale' as Faction);
+
+      if (mode === 'event' && isOwnOrNeutral) {
+        // Gioca come evento: applica gli effetti meccanici al game_state
         const result = applyCardEffects(
           cardDef as Parameters<typeof applyCardEffects>[0],
           gameState,
@@ -882,12 +890,13 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         );
         newState = { ...gameState, ...result.newState };
         deltas = result.deltas;
-      } else if (!isMyCard) {
-        // Carta altrui: usa come OP (nessun effetto ora)
-        // Dopo questa funzione, il chiamante deve applicare l'evento della carta
-        // (lo fa UnifiedCardPlayModal mostrando EventoModal della carta)
+        console.log('[playCardUnified] effetti applicati:', deltas, '| isMyCard:', isMyCard, '| ownerFaction:', ownerFaction);
+      } else if (mode === 'event' && !isOwnOrNeutral) {
+        // Carta altrui (non neutrale) giocata come evento: nessun modificatore tracciati
+        // La UI (UnifiedCardPlayModal) mostra l'EventoModal della carta per informazione
+        console.log('[playCardUnified] carta fazione diversa giocata come evento — nessun modificatore tracciati');
       }
-      // mode='ops' e isMyCard → nessun effetto tracciato, solo OP spesi
+      // mode='ops' → nessun effetto tracciato, solo OP spesi
 
       // 4. Passa il turno
       const winCheck = checkWinCondition(newState as GameState, game.current_turn, game.max_turns);
