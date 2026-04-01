@@ -79,14 +79,24 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   stabilita: { icon: '🏛️', label: 'Stab', posGood: true  },
 };
 
-// ─── Calcola delta effetti a valore medio 5 ──
+// Valori medi realistici usati per la preview dei badge
+const DEFAULT_VALS: Record<string, number> = {
+  nucleare:  5,   // scala 0-15, valore medio
+  sanzioni:  10,  // scala 1-20, valore medio
+  opinione:  0,   // scala -10..+10, neutro
+  defcon:    7,   // scala 1-10, tensione latente
+  risorse:   5,   // scala 0-10, valore medio
+  stabilita: 5,   // scala 0-10, valore medio
+};
+
+// ─── Calcola delta effetti con valori medi realistici ──
 function getEffectDeltas(card: GameCard | DeckCard) {
   if (!('effects' in card) || !card.effects) return [];
   const e = card.effects as Record<string, ((v: number) => number) | undefined>;
   return Object.entries(e)
     .map(([key, fn]) => {
       if (!fn) return null;
-      const ref = key === 'defcon' ? 6 : key === 'opinione' ? 0 : 5;
+      const ref = DEFAULT_VALS[key] ?? 5;
       const result = fn(ref);
       const delta = result - ref;
       if (delta === 0) return null;
