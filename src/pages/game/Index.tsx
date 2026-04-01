@@ -52,13 +52,13 @@ const TRACKS: TrackDef[] = [
   },
   {
     id: 'sanzioni', label: 'Sanzioni / Stabilità', icon: '💰', min: 1, max: 20, color: '#3b82f6',
-    getValue: s => s.sanzioni, winLabel: 'COLLASSO', winValue: 4, winDir: 'down',
+    getValue: s => s.sanzioni, winLabel: 'COLLASSO', winValue: 20, winDir: 'up',
     zones: [
-      { from: 1,  to: 4,  color: '#ef4444', bg: '#ef444433', label: 'Collasso' },
-      { from: 5,  to: 8,  color: '#f97316', bg: '#f9731622', label: 'Pressione' },
-      { from: 9,  to: 12, color: '#f59e0b', bg: '#f59e0b22', label: 'Equilibrio' },
-      { from: 13, to: 16, color: '#22c55e', bg: '#22c55e22', label: 'Ripresa' },
-      { from: 17, to: 20, color: '#10b981', bg: '#10b98122', label: 'Fiorente' },
+      { from: 1,  to: 4,  color: '#22c55e', bg: '#22c55e22', label: 'Lievi' },
+      { from: 5,  to: 8,  color: '#84cc16', bg: '#84cc1622', label: 'Moderate' },
+      { from: 9,  to: 12, color: '#f59e0b', bg: '#f59e0b22', label: 'Gravi' },
+      { from: 13, to: 16, color: '#f97316', bg: '#f9731622', label: 'Severe' },
+      { from: 17, to: 20, color: '#ef4444', bg: '#ef444433', label: 'Totali' },
     ],
   },
   {
