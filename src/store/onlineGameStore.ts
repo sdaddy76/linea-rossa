@@ -1128,7 +1128,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   deployUnit: async (territory, unitType, qty) => {
     const { game, gameState, myFaction } = get();
     if (!game || !gameState || !myFaction) return;
-    set({ loading: true });
+    set({ loading: true, error: null });
     try {
       const unitsKey = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
       const pool = (gameState[unitsKey] as Record<string, number>) ?? {};
@@ -1173,10 +1173,13 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         ? prevUnits.map(u => u === existing ? { ...u, quantity: u.quantity + qty } : u)
         : [...prevUnits, { id: crypto.randomUUID(), game_id: game.id, faction: myFaction, territory, unit_type: unitType, quantity: qty, updated_at: new Date().toISOString() }];
 
-      set({ gameState: updatedGameState, militaryUnits: newUnits, loading: false,
+      set({ gameState: updatedGameState, militaryUnits: newUnits,
         notification: `🪖 ${myFaction}: ${qty}× ${unitType} schierato/i in ${territory}` });
     } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : 'Errore schieramento', loading: false });
+      set({ error: err instanceof Error ? err.message : 'Errore schieramento' });
+      console.error('[deployUnit]', err);
+    } finally {
+      set({ loading: false }); // SEMPRE eseguito
     }
   },
 
@@ -1213,7 +1216,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }, { onConflict: 'game_id,territory' });
 
       // 2. Aggiorna DEFCON e stabilità interna
-      const newDefcon   = Math.max(1, Math.min(5, gameState.defcon + defconChange));
+      const newDefcon   = Math.max(1, Math.min(10, gameState.defcon + defconChange));
       const stabKey     = `stabilita_${myFaction.toLowerCase()}` as keyof typeof gameState;
       const newStab     = Math.max(1, ((gameState[stabKey] as number) ?? 5) + stabilityChange);
 
@@ -1275,9 +1278,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         gameState: updatedGs,
         territories: updTerr,
         combatLog: [{ ...logEntry, id: crypto.randomUUID(), created_at: new Date().toISOString() } as import('@/types/game').CombatLogRecord, ...get().combatLog].slice(0, 20),
-        loading: false,
         notification: `⚔️ ${result.toUpperCase().replace('_', ' ')}: ${myFaction} attacca ${territory} — ${description}`,
-      });
+      }); // loading: false → gestito dal finally
 
       // Controlla DEFCON 1 → game over immediato, NON passare il turno
       if (newDefcon <= 1) {
@@ -1304,7 +1306,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         setTimeout(() => get().runBotTurn(), 2000);
       }
     } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : 'Errore combattimento', loading: false });
+      set({ error: err instanceof Error ? err.message : 'Errore combattimento' });
+      console.error('[attackTerritory]', err);
+    } finally {
+      set({ loading: false }); // SEMPRE eseguito anche in caso di errore
     }
   },
 
@@ -1365,8 +1370,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           infChangeAtk, infChangeDef, defconChange, description,
           attackerUnitsLost, stabilityChange,
         });
-        // attackTerritory gestisce già il passaggio di turno → esci senza chiamare playCardUnified
-        set({ loading: false });
+        // attackTerritory gestisce già il passaggio di turno.
+        // Segniamo solo la carta come giocata (senza secondo turno-advance).
+        await supabase.from('cards_deck').update({
+          status: 'played',
+          played_at_turn: get().game?.current_turn ?? null,
+          held_by_faction: null,
+          play_mode: 'ops',
+        }).eq('id', cardId);
+        set(s => ({
+          deckCards: s.deckCards.filter(dc => dc.id !== cardId),
+          loading: false,
+        }));
         return;
       }
 
