@@ -62,14 +62,14 @@ const TRACKS: TrackDef[] = [
     ],
   },
   {
-    id: 'defcon', label: 'DEFCON', icon: '🎯', min: 1, max: 10, color: '#8b5cf6',
+    id: 'defcon', label: 'DEFCON', icon: '⚔️', min: 1, max: 10, color: '#ef4444',
     getValue: s => s.defcon, winLabel: 'GUERRA', winValue: 1, winDir: 'down',
     zones: [
-      { from: 8,  to: 10, color: '#22c55e', bg: '#22c55e22', label: 'Pace' },
-      { from: 6,  to: 7,  color: '#84cc16', bg: '#84cc1622', label: 'Attenzione' },
-      { from: 4,  to: 5,  color: '#f59e0b', bg: '#f59e0b22', label: 'Tensione' },
-      { from: 2,  to: 3,  color: '#f97316', bg: '#f9731622', label: 'Allerta' },
-      { from: 1,  to: 1,  color: '#ef4444', bg: '#ef444433', label: 'Guerra' },
+      { from: 1,  to: 2,  color: '#ef4444', bg: '#ef444433', label: 'Guerra' },
+      { from: 3,  to: 4,  color: '#f97316', bg: '#f9731622', label: 'Crisi' },
+      { from: 5,  to: 6,  color: '#f59e0b', bg: '#f59e0b22', label: 'Tensione' },
+      { from: 7,  to: 8,  color: '#84cc16', bg: '#84cc1622', label: 'Allerta' },
+      { from: 9,  to: 10, color: '#22c55e', bg: '#22c55e22', label: 'Pace' },
     ],
   },
   {
@@ -244,6 +244,13 @@ function FullTrack({
 
       {/* Segmenti numerati */}
       <div className="flex flex-wrap gap-1 items-center">
+        {/* Indicatore vittoria a SINISTRA per winDir='down' (il pericolo è il valore minimo) */}
+        {track.winLabel && track.winDir === 'down' && (
+          <div className="mr-1 flex items-center gap-1">
+            <span className="text-[10px] font-mono text-[#ef4444] font-bold">{track.winLabel}</span>
+            <span className="text-[#ef4444] text-xs">←</span>
+          </div>
+        )}
         {range.map(n => {
           const z = getZone(n);
           return (
@@ -253,8 +260,8 @@ function FullTrack({
               isPulse={isPulse} />
           );
         })}
-        {/* Indicatore vittoria */}
-        {track.winLabel && (
+        {/* Indicatore vittoria a DESTRA per winDir='up' (il pericolo è il valore massimo) */}
+        {track.winLabel && track.winDir !== 'down' && (
           <div className="ml-1 flex items-center gap-1">
             <span className="text-[#ef4444] text-xs">→</span>
             <span className="text-[10px] font-mono text-[#ef4444] font-bold">{track.winLabel}</span>
