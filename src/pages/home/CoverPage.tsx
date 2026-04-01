@@ -25,18 +25,27 @@ function useLiveStats(): LiveStats {
 
   useEffect(() => {
     async function load() {
-      const [active, finished, profiles, online] = await Promise.all([
+      const [active, finished, profiles] = await Promise.all([
         supabase.from('games').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('games').select('id', { count: 'exact', head: true }).eq('status', 'finished'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('profiles').select('id', { count: 'exact', head: true })
-          .gte('updated_at', new Date(Date.now() - 15 * 60 * 1000).toISOString()),
       ]);
+
+      // updated_at potrebbe non essere accessibile via RLS → fallback silenzioso a 0
+      let onlineCount = 0;
+      try {
+        const { count, error } = await supabase
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .gte('updated_at', new Date(Date.now() - 15 * 60 * 1000).toISOString());
+        if (!error) onlineCount = count ?? 0;
+      } catch { /* colonna updated_at non accessibile — ignora */ }
+
       setStats({
         partiteInCorso:      active.count    ?? 0,
         partiteTerminate:    finished.count  ?? 0,
         giocatoriRegistrati: profiles.count  ?? 0,
-        giocatoriOnline:     online.count    ?? 0,
+        giocatoriOnline:     onlineCount,
       });
     }
     load();

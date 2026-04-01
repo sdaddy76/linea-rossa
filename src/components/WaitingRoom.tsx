@@ -485,7 +485,10 @@ export default function WaitingRoom({
           }
         }
         if (specialRows.length > 0) {
-          await supabase.from('cards_deck').insert(specialRows);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { error: specErr } = await (supabase.from('cards_deck') as any)
+            .upsert(specialRows, { onConflict: 'game_id,card_id', ignoreDuplicates: true });
+          if (specErr) console.warn('[startGame] specialRows upsert warn:', specErr);
         }
       }
 
@@ -523,7 +526,10 @@ export default function WaitingRoom({
             status: 'available', held_by_faction: null, position: pos++,
           });
         }
-        await supabase.from('cards_deck').insert(unifiedRows);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: unifiedErr } = await (supabase.from('cards_deck') as any)
+          .upsert(unifiedRows, { onConflict: 'game_id,card_id', ignoreDuplicates: false });
+        if (unifiedErr) { console.error('[startGame] unifiedRows upsert err:', unifiedErr); throw unifiedErr; }
       }
 
       // L'host viene notificato tramite real-time come tutti gli altri
