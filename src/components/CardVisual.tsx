@@ -74,8 +74,8 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   nucleare:  { icon: '☢️', label: 'Nuc',  posGood: false },
   sanzioni:  { icon: '💰', label: 'San',  posGood: false },
   opinione:  { icon: '🌍', label: 'Op',   posGood: true  },
-  defcon:    { icon: '🎯', label: 'DEF',  posGood: false },
-  risorse:   { icon: '⚡', label: 'Ris',  posGood: true  },
+  defcon:    { icon: '⚔️', label: 'DEF',  posGood: false },
+  risorse:   { icon: '💵', label: 'Ris',  posGood: true  },
   stabilita: { icon: '🏛️', label: 'Stab', posGood: true  },
 };
 
