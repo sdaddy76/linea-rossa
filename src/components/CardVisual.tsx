@@ -76,7 +76,7 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   opinione:  { icon: '🌍', label: 'Op',   posGood: true  },
   defcon:    { icon: '🎯', label: 'DEF',  posGood: false },
   risorse:   { icon: '⚡', label: 'Ris',  posGood: true  },
-  stabilita: { icon: '🛡️', label: 'Stab', posGood: true  },
+  stabilita: { icon: '🏛️', label: 'Stab', posGood: true  },
 };
 
 // ─── Calcola delta effetti a valore medio 5 ──

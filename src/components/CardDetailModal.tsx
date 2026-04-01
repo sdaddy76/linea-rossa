@@ -27,7 +27,7 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   opinione:  { icon: '🌍', label: 'Opinione',  posGood: true  },
   defcon:    { icon: '🎯', label: 'DEFCON',    posGood: false },
   risorse:   { icon: '⚡', label: 'Risorse',   posGood: true  },
-  stabilita: { icon: '🛡️', label: 'Stabilità', posGood: true  },
+  stabilita: { icon: '🏛️', label: 'Stabilità', posGood: true  },
 };
 
 function getDeltas(card: GameCard | DeckCard) {
