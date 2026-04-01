@@ -336,6 +336,8 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
             {deltas.map(d => {
               const positive = d.posGood ? d.delta > 0 : d.delta < 0;
               const color = positive ? '#22c55e' : '#ef4444';
+              const displayVal = Math.abs(d.delta);
+              const displaySign = positive ? '+' : '-';
               return (
                 <div
                   key={d.key}
@@ -351,7 +353,7 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
                   }}
                 >
                   <span>{d.icon}</span>
-                  <span style={{ fontSize: fs(6.5) }}>{d.delta > 0 ? '+' : ''}{d.delta}</span>
+                  <span style={{ fontSize: fs(6.5) }}>{displaySign}{displayVal}</span>
                 </div>
               );
             })}

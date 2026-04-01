@@ -150,6 +150,9 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
                     {deltas.map(d => {
                       const positive = d.posGood ? d.delta > 0 : d.delta < 0;
                       const color = positive ? '#22c55e' : '#ef4444';
+                      // Mostra sempre +N se benefico, -N se dannoso (indipendente dal segno grezzo)
+                      const displayVal = Math.abs(d.delta);
+                      const displaySign = positive ? '+' : '-';
                       return (
                         <div
                           key={d.key}
@@ -157,7 +160,7 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
                           style={{ backgroundColor: `${color}12`, borderColor: `${color}33`, color }}
                         >
                           <span>{d.icon}</span>
-                          <span>{d.delta > 0 ? '+' : ''}{d.delta}</span>
+                          <span>{displaySign}{displayVal}</span>
                           <span className="text-[10px]">{positive ? '▲' : '▼'}</span>
                         </div>
                       );
