@@ -31,15 +31,8 @@ function useLiveStats(): LiveStats {
         supabase.from('profiles').select('id', { count: 'exact', head: true }),
       ]);
 
-      // updated_at potrebbe non essere accessibile via RLS → fallback silenzioso a 0
-      let onlineCount = 0;
-      try {
-        const { count, error } = await supabase
-          .from('profiles')
-          .select('id', { count: 'exact', head: true })
-          .gte('updated_at', new Date(Date.now() - 15 * 60 * 1000).toISOString());
-        if (!error) onlineCount = count ?? 0;
-      } catch { /* colonna updated_at non accessibile — ignora */ }
+      // "Online ora" non disponibile senza colonna updated_at accessibile → non mostrare
+      const onlineCount = 0;
 
       setStats({
         partiteInCorso:      active.count    ?? 0,
