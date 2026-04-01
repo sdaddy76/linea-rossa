@@ -51,13 +51,14 @@ const TRACKS: TrackDef[] = [
     ],
   },
   {
-    id: 'sanzioni', label: 'Sanzioni / Stabilità', icon: '💰', min: 1, max: 10, color: '#3b82f6',
-    getValue: s => s.sanzioni, winLabel: 'COLLASSO', winValue: 10, winDir: 'up',
+    id: 'sanzioni', label: 'Sanzioni / Stabilità', icon: '💰', min: 1, max: 20, color: '#3b82f6',
+    getValue: s => s.sanzioni, winLabel: 'COLLASSO', winValue: 4, winDir: 'down',
     zones: [
-      { from: 1,  to: 3,  color: '#22c55e', bg: '#22c55e22', label: 'Lievi' },
-      { from: 4,  to: 6,  color: '#f59e0b', bg: '#f59e0b22', label: 'Moderate' },
-      { from: 7,  to: 8,  color: '#f97316', bg: '#f9731622', label: 'Gravi' },
-      { from: 9,  to: 10, color: '#ef4444', bg: '#ef444433', label: 'Collasso' },
+      { from: 1,  to: 4,  color: '#ef4444', bg: '#ef444433', label: 'Collasso' },
+      { from: 5,  to: 8,  color: '#f97316', bg: '#f9731622', label: 'Pressione' },
+      { from: 9,  to: 12, color: '#f59e0b', bg: '#f59e0b22', label: 'Equilibrio' },
+      { from: 13, to: 16, color: '#22c55e', bg: '#22c55e22', label: 'Ripresa' },
+      { from: 17, to: 20, color: '#10b981', bg: '#10b98122', label: 'Fiorente' },
     ],
   },
   {
@@ -472,7 +473,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
         last_event_id:   evento.event_id,
       };
       if (ef.delta_nucleare)           updates.nucleare           = clamp((gs.nucleare           ?? 1) + ef.delta_nucleare,           1, 15);
-      if (ef.delta_sanzioni)           updates.sanzioni           = clamp((gs.sanzioni           ?? 5) + ef.delta_sanzioni,           1, 10);
+      if (ef.delta_sanzioni)           updates.sanzioni           = clamp((gs.sanzioni           ?? 4) + ef.delta_sanzioni,           1, 20);
       if (ef.delta_opinione)           updates.opinione           = clamp((gs.opinione           ?? 0) + ef.delta_opinione,          -10, 10);
       if (ef.delta_defcon)             updates.defcon             = clamp((gs.defcon             ?? 10) + ef.delta_defcon,            1, 10);
       if (ef.delta_risorse_iran)       updates.risorse_iran       = clamp((gs.risorse_iran       ?? 5) + ef.delta_risorse_iran,       1, 15);
