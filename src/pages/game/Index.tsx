@@ -586,6 +586,11 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     ? deckCards.filter(dc => dc.status === 'available' && !dc.held_by_faction).length
     : deckCards.filter(dc => dc.faction === myFaction && dc.status === 'available' && !dc.held_by_faction).length;
 
+  // Contatore mazzo speciali rimasti (modalità speciali separate)
+  const specialLocked = myFaction
+    ? deckCards.filter(dc => dc.status === 'special_locked' && dc.faction === myFaction).length
+    : 0;
+
   const getRisorse = (f: string) =>
     (gameState[`risorse_${f.toLowerCase()}` as keyof GameState] as number) ?? 5;
   const getStabilita = (f: string) =>
@@ -955,6 +960,12 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           : 'text-[#8899aa] bg-[#ffffff10]'}`}>
                         🗂 {deckRemaining} nel mazzo
                       </span>
+                      {specialLocked > 0 && (
+                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded font-bold"
+                          style={{color:'#a855f7', background:'#a855f720', border:'1px solid #a855f744'}}>
+                          ✦ {specialLocked} speciali
+                        </span>
+                      )}
                     </div>
                     <span className="text-[#8899aa] font-mono text-xs">{showHand ? '▲' : '▼'}</span>
                   </button>

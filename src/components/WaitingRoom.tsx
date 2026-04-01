@@ -58,6 +58,7 @@ export default function WaitingRoom({
   const [copied, setCopied] = useState(false);
   // Modalità mazzo: 'classic' (un mazzo per fazione) o 'unified' (mazzo unico)
   const [gameMode, setGameMode] = useState<'classic' | 'unified'>('classic');
+  const [specialMode, setSpecialMode] = useState<'mixed' | 'separate'>('mixed');
   // Modalità setup iniziale territori
   const [setupMode, setSetupMode] = useState<'base' | 'avanzata'>('base');
 
@@ -443,8 +444,50 @@ export default function WaitingRoom({
       // Prova a salvare game_mode (richiede migration add_unified_deck_columns.sql)
       // Non blocca l'avvio se la colonna non esiste ancora
       try {
-        await supabase.from('games').update({ game_mode: gameMode }).eq('id', gameId);
+        await supabase.from('games').update({
+          game_mode: gameMode,
+          special_mode: specialMode,
+        }).eq('id', gameId);
       } catch { /* colonna game_mode non presente — la migration non è stata eseguita */ }
+
+      // Se modalità "speciali separate": ricrea i mazzi senza le carte speciali,
+      // e inserisce le speciali come status='special_locked' (mazzo separato in DB)
+      if (specialMode === 'separate') {
+        // Rimuovi le speciali già inserite nel mazzo normale
+        await supabase.from('cards_deck')
+          .delete()
+          .eq('game_id', gameId)
+          .eq('deck_type', 'speciale');
+
+        // Reinserisci le speciali come special_locked (mazzo separato, non pescabile)
+        const { MAZZI_SPECIALI } = await import('@/data/mazzi');
+        const specialRows: object[] = [];
+        const activeFactions = players
+          .filter(p => p.player_id || p.is_bot)
+          .map(p => p.faction) as Faction[];
+        let specPos = 1000; // posizioni alte per non confondersi col mazzo normale
+        for (const faction of activeFactions) {
+          const specCards = MAZZI_SPECIALI[faction] ?? [];
+          for (const card of specCards) {
+            specialRows.push({
+              game_id: gameId,
+              faction: card.faction,
+              owner_faction: faction,
+              card_id: card.card_id,
+              card_name: card.card_name,
+              card_type: card.card_type,
+              op_points: card.op_points,
+              deck_type: 'speciale_locked',
+              status: 'special_locked',
+              held_by_faction: null,
+              position: specPos++,
+            });
+          }
+        }
+        if (specialRows.length > 0) {
+          await supabase.from('cards_deck').insert(specialRows);
+        }
+      }
 
       // Se mazzo unificato: costruisci mazzo unico al posto dei mazzi separati
       if (gameMode === 'unified') {
@@ -751,6 +794,49 @@ export default function WaitingRoom({
                 <p className="text-[10px] font-mono text-[#f97316] mt-2 leading-relaxed">
                   ✦ Carte altrui: usa come OP → evento si attiva auto<br/>
                   ✦ Carte tue: scegli evento <em>oppure</em> OP
+                </p>
+              )}
+            </div>
+
+            {/* Toggle speciali separate */}
+            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
+              <p className="text-xs font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
+                ✦ Carte Speciali
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setSpecialMode('mixed')}
+                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: specialMode === 'mixed' ? '#22c55e20' : 'transparent',
+                    border: `1px solid ${specialMode === 'mixed' ? '#22c55e' : '#1e3a5f'}`,
+                    color: specialMode === 'mixed' ? '#22c55e' : '#556677',
+                  }}>
+                  🃏 Nel mazzo
+                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                    Mischiate con le base
+                  </span>
+                </button>
+                <button
+                  onClick={() => setSpecialMode('separate')}
+                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                  style={{
+                    backgroundColor: specialMode === 'separate' ? '#a855f720' : 'transparent',
+                    border: `1px solid ${specialMode === 'separate' ? '#a855f7' : '#1e3a5f'}`,
+                    color: specialMode === 'separate' ? '#a855f7' : '#556677',
+                  }}>
+                  ✦ Mazzo separato
+                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                    Sbloccate da eventi
+                  </span>
+                </button>
+              </div>
+              {specialMode === 'separate' && (
+                <p className="text-[10px] font-mono text-[#a855f7] mt-2 leading-relaxed">
+                  ✦ Le carte speciali (SE_) formano un mazzo a parte<br/>
+                  ✦ Gioca come evento una carta con <strong>✦</strong> per pescarne 1<br/>
+                  ✦ Trigger Iran: Centrifughe Avanzate, Sito Segreto, Soglia Zero<br/>
+                  ✦ Trigger Coal: Stuxnet 2.0, Strike Chirurgico, Op. Freedom
                 </p>
               )}
             </div>

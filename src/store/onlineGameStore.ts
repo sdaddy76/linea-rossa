@@ -458,6 +458,38 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         } : null,
       }));
 
+      // ── 5b. Sblocco carta speciale (se modalità speciali separate) ───
+      // Se la carta ha unlocks_special e viene giocata come evento dalla propria fazione,
+      // pesca la prima carta dal mazzo speciali_locked e la mette in mano.
+      if ((cardDef as { unlocks_special?: boolean }).unlocks_special) {
+        try {
+          const { data: lockedCard } = await supabase
+            .from('cards_deck')
+            .select('*')
+            .eq('game_id', game.id)
+            .eq('deck_type', 'speciale_locked')
+            .eq('status', 'special_locked')
+            .eq('faction', myFaction)
+            .order('position', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          if (lockedCard) {
+            await supabase.from('cards_deck').update({
+              status: 'in_hand',
+              held_by_faction: myFaction,
+            }).eq('id', lockedCard.id);
+
+            set(s => ({
+              deckCards: [...s.deckCards, { ...lockedCard, status: 'in_hand', held_by_faction: myFaction }],
+              notification: `✦ ${myFaction}: carta speciale sbloccata — "${lockedCard.card_name}"!`,
+            }));
+          }
+        } catch (e) {
+          console.warn('[playCard] sblocco speciale non riuscito (silenzioso):', e);
+        }
+      }
+
       // ── 6. Log mossa (non bloccante — non influenza il flusso) ───────
       const { profile } = get();
       supabase.from('moves_log').insert({

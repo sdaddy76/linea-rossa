@@ -54,7 +54,8 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
   const flag         = FACTION_FLAG[faction] ?? '🌐';
   const artUrl       = CARD_ART[faction] ?? CARD_ART['Neutrale'];
   const description  = 'description' in card ? (card as GameCard).description : undefined;
-  const isSpecial    = 'deck_type' in card && card.deck_type === 'speciale';
+  const isSpecial    = 'deck_type' in card && (card.deck_type === 'speciale' || card.deck_type === 'speciale_locked');
+  const unlocksSpec   = 'unlocks_special' in card && (card as {unlocks_special?:boolean}).unlocks_special === true;
   const deltas       = getDeltas(card);
   const ownerFaction = 'owner_faction' in card ? (card.owner_faction ?? card.faction) as string : faction;
   const isMyOwn      = !myFaction || ownerFaction === myFaction;
@@ -113,8 +114,12 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
                     style={{ backgroundColor: `${factionColor}14`, borderColor: `${factionColor}44`, color: factionColor }}
                   >{flag} {faction}</span>
                   {isSpecial && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold
-                      bg-[#f59e0b14] border border-[#f59e0b44] text-[#f59e0b]">★ SPEC</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold"
+                      style={{background:'#f59e0b14',border:'1px solid #f59e0b44',color:'#f59e0b'}}>★ SPEC</span>
+                  )}
+                  {unlocksSpec && (
+                    <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold"
+                      style={{background:'#a855f720',border:'1px solid #a855f766',color:'#a855f7'}}>✦ SBLOCCA SPECIALE</span>
                   )}
                   {!isMyOwn && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-mono font-bold

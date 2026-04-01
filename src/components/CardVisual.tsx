@@ -102,8 +102,11 @@ function getPrerequisites(card: GameCard | DeckCard) {
   const prereqs: string[] = [];
   prereqs.push(`Faz: ${(card.faction as string).slice(0, 3)}`);
   prereqs.push(`OP: ${card.op_points}`);
-  if ('deck_type' in card && card.deck_type === 'speciale') {
+  if ('deck_type' in card && (card.deck_type === 'speciale' || card.deck_type === 'speciale_locked')) {
     prereqs.push('★ SPEC');
+  }
+  if ('unlocks_special' in card && (card as {unlocks_special?:boolean}).unlocks_special) {
+    prereqs.push('✦ SBLOCCA');
   }
   // Condizioni implicite dagli effetti
   if ('effects' in card && card.effects) {
@@ -150,7 +153,8 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
   const description = 'description' in card ? (card as GameCard).description : undefined;
   const deltas     = getEffectDeltas(card);
   const prereqs    = getPrerequisites(card);
-  const isSpecial  = 'deck_type' in card && card.deck_type === 'speciale';
+  const isSpecial  = 'deck_type' in card && (card.deck_type === 'speciale' || card.deck_type === 'speciale_locked');
+  const unlocksSpec = 'unlocks_special' in card && (card as {unlocks_special?:boolean}).unlocks_special === true;
 
   // Base font/spacing scaled to card size
   const fs = (base: number) => Math.max(6, Math.round(base * scale));
@@ -287,10 +291,14 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
               {typeIcon} {cardType}
             </span>
             {isSpecial && (
-              <span
-                className="ml-auto font-mono font-bold"
-                style={{ fontSize: fs(6.5), color: '#f59e0b' }}
+              <span className="absolute top-1 right-1 text-[7px] px-1 py-0.5 rounded font-mono font-bold"
+                style={{ background: '#f59e0b22', border: '1px solid #f59e0b55', color: '#f59e0b' }}
               >★ SPEC</span>
+            )}
+            {unlocksSpec && (
+              <span className="absolute top-1 left-1 text-[7px] px-1 py-0.5 rounded font-mono font-bold"
+                style={{ background: '#a855f722', border: '1px solid #a855f755', color: '#a855f7' }}
+              >✦</span>
             )}
           </div>
         </div>

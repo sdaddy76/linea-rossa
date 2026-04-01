@@ -31,7 +31,7 @@ export const MAZZO_IRAN: GameCard[] = [
     effects:{ nucleare:(v)=>v>=11?2:1, defcon:(v)=>v<=4?-1:0, opinione:(v)=>v>=5?-2:0, risorse:(v)=>-1 }},
   { card_id:'C031', card_name:'Propaganda Press TV', faction:'Iran', card_type:'Media', op_points:2, deck_type:'base', description:'Campagna mediatica internazionale',
     effects:{ opinione:(v)=>v<=-5?2:1, stabilita:(v)=>1 }},
-  { card_id:'C032', card_name:'Centrifughe Avanzate', faction:'Iran', card_type:'Militare', op_points:4, deck_type:'base', description:'Installazione di centrifughe IR-6',
+  { card_id:'C032', card_name:'Centrifughe Avanzate', faction:'Iran', card_type:'Militare', op_points:4, deck_type:'base', description:'Installazione di centrifughe IR-6', unlocks_special:true,
     effects:{ nucleare:(v)=>v<=5?3:v<=10?2:1, defcon:(v)=>v<=4?-1:0, risorse:(v)=>-2 }},
   { card_id:'C033', card_name:'Negoziato JCPOA', faction:'Iran', card_type:'Diplomatico', op_points:3, deck_type:'base', description:'Ritorno al tavolo dei negoziati',
     effects:{ sanzioni:(v)=>2, defcon:(v)=>v<=6?1:0, risorse:(v)=>2 }},
@@ -57,7 +57,7 @@ export const MAZZO_IRAN: GameCard[] = [
     effects:{ defcon:(v)=>-1, opinione:(v)=>v<=-3?1:0, risorse:(v)=>-1, stabilita:(v)=>1 }},
   { card_id:'C044', card_name:'Propaganda Anti-USA', faction:'Iran', card_type:'Media', op_points:2, deck_type:'base', description:'Campagna Grande Satana',
     effects:{ opinione:(v)=>v<=-5?2:1, stabilita:(v)=>1 }},
-  { card_id:'C045', card_name:'Sito Nucleare Segreto', faction:'Iran', card_type:'Segreto', op_points:3, deck_type:'base', description:'Costruzione di impianto sotterraneo',
+  { card_id:'C045', card_name:'Sito Nucleare Segreto', faction:'Iran', card_type:'Segreto', op_points:3, deck_type:'base', description:'Costruzione di impianto sotterraneo', unlocks_special:true,
     effects:{ nucleare:(v)=>2, stabilita:(v)=>1 }},
   { card_id:'C046', card_name:'Accordo Baghdad', faction:'Iran', card_type:'Diplomatico', op_points:2, deck_type:'base', description:'Riavvicinamento con Arabia Saudita',
     effects:{ sanzioni:(v)=>-1, opinione:(v)=>v<=0?2:1, defcon:(v)=>v<=4?1:0 }},
@@ -133,7 +133,7 @@ export const MAZZO_IRAN: GameCard[] = [
     effects:{opinione:(v)=>-1, stabilita:(v)=>1} },
   { card_id:'NI33', card_name:'Accordo Oman-Mediazione', faction:'Iran', card_type:'Diplomatico', op_points:2, deck_type:'base', description:'Canale backroom Muscat',
     effects:{sanzioni:(v)=>1, opinione:(v)=>1, defcon:(v)=>1} },
-  { card_id:'NI34', card_name:'Dichiarazione Soglia Zero', faction:'Iran', card_type:'Militare', op_points:4, deck_type:'base', description:'Tehran dichiara deterrenza nucleare',
+  { card_id:'NI34', card_name:'Dichiarazione Soglia Zero', faction:'Iran', card_type:'Militare', op_points:4, deck_type:'base', description:'Tehran dichiara deterrenza nucleare', unlocks_special:true,
     effects:{nucleare:(v)=>2, opinione:(v)=>-1, defcon:(v)=>-2} },
   { card_id:'NI35', card_name:'Accordo Qatar-Gas', faction:'Iran', card_type:'Economico', op_points:2, deck_type:'base', description:'Fornitura aggiuntiva a Doha',
     effects:{risorse:(v)=>2} },
@@ -159,11 +159,11 @@ export const MAZZO_COALIZIONE: GameCard[] = [
     effects:{ sanzioni:(v)=>v<=3?3:v<=7?2:1 }},
   { card_id:'C003', card_name:'Diplomazia Shuttle', faction:'Coalizione', card_type:'Diplomatico', op_points:2, deck_type:'base', description:'Missione diplomatica intensiva nella regione',
     effects:{ sanzioni:(v)=>1, opinione:(v)=>1, defcon:(v)=>v<=6?1:0 }},
-  { card_id:'C004', card_name:'Cyber Attack Stuxnet 2.0', faction:'Coalizione', card_type:'Segreto', op_points:3, deck_type:'base', description:'Sabotaggio informatico delle centrifughe iraniane',
+  { card_id:'C004', card_name:'Cyber Attack Stuxnet 2.0', faction:'Coalizione', card_type:'Segreto', op_points:3, deck_type:'base', description:'Sabotaggio informatico delle centrifughe iraniane', unlocks_special:true,
     effects:{ nucleare:(v)=>v<=5?-2:v<=10?-1:0, defcon:(v)=>v<=4?-1:0, sanzioni:(v)=>1 }},
   { card_id:'C005', card_name:'Accordo Abraham Plus', faction:'Coalizione', card_type:'Diplomatico', op_points:4, deck_type:'base', description:'Estensione degli accordi di normalizzazione',
     effects:{ opinione:(v)=>v>=5?2:1, sanzioni:(v)=>1, defcon:(v)=>v<=4?1:0 }},
-  { card_id:'C006', card_name:'Strike Chirurgico', faction:'Coalizione', card_type:'Militare', op_points:4, deck_type:'base', description:'Attacco mirato su installazioni nucleari',
+  { card_id:'C006', card_name:'Strike Chirurgico', faction:'Coalizione', card_type:'Militare', op_points:4, deck_type:'base', description:'Attacco mirato su installazioni nucleari', unlocks_special:true,
     effects:{ nucleare:(v)=>v>=8?-2:v>=13?-3:-1, defcon:(v)=>-2, risorse:(v)=>-2, sanzioni:(v)=>2 }},
   { card_id:'C007', card_name:'Pressione Mediatica CNN', faction:'Coalizione', card_type:'Media', op_points:2, deck_type:'base', description:'Campagna mediatica contro il regime iraniano',
     effects:{ opinione:(v)=>v>=-4?2:1, stabilita:(v)=>v>=6?1:0 }},
@@ -181,7 +181,7 @@ export const MAZZO_COALIZIONE: GameCard[] = [
     effects:{ sanzioni:(v)=>v<=5?2:1, opinione:(v)=>v>=1?2:0 }},
   { card_id:'C014', card_name:'Difesa Missilistica THAAD', faction:'Coalizione', card_type:'Militare', op_points:3, deck_type:'base', description:'Dispiegamento sistemi antimissile nella regione',
     effects:{ defcon:(v)=>v<=4?1:0, sanzioni:(v)=>v>=6?2:1, risorse:(v)=>-1, stabilita:(v)=>1 }},
-  { card_id:'C015', card_name:'Operazione Freedom', faction:'Coalizione', card_type:'Militare', op_points:4, deck_type:'base', description:'Operazione militare su larga scala',
+  { card_id:'C015', card_name:'Operazione Freedom', faction:'Coalizione', card_type:'Militare', op_points:4, deck_type:'base', description:'Operazione militare su larga scala', unlocks_special:true,
     effects:{ nucleare:(v)=>v>=8?-2:0, defcon:(v)=>-2, risorse:(v)=>-3, sanzioni:(v)=>2 }},
   { card_id:'C016', card_name:'Sanzioni Secondarie', faction:'Coalizione', card_type:'Economico', op_points:3, deck_type:'base', description:'Sanzioni contro chi commercia con l\'Iran',
     effects:{ sanzioni:(v)=>v<=3?2:1, opinione:(v)=>v>=-3?0:-1 }},
@@ -787,7 +787,12 @@ export function shuffleDeck<T>(deck: T[]): T[] {
   return arr;
 }
 
-// Ottieni tutte le carte di una fazione (base + eventuale speciale)
+// Ottieni solo le carte BASE (senza speciali) — usato in modalità speciali separate
+export function getBaseDeck(faction: Faction): GameCard[] {
+  return shuffleDeck([...(MAZZI_PER_FAZIONE[faction] ?? [])]);
+}
+
+// Ottieni tutte le carte di una fazione (base + eventuale speciale) — modalità classica
 export function getFullDeck(faction: Faction): GameCard[] {
   const base = MAZZI_PER_FAZIONE[faction] ?? [];
   const special = MAZZI_SPECIALI[faction] ?? [];

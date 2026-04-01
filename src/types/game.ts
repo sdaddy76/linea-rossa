@@ -4,9 +4,9 @@
 
 export type Faction = 'Iran' | 'Coalizione' | 'Russia' | 'Cina' | 'Europa';
 export type CardType = 'Militare' | 'Diplomatico' | 'Economico' | 'Segreto' | 'Media' | 'Evento' | 'Politico';
-export type DeckType = 'base' | 'speciale';
+export type DeckType = 'base' | 'speciale' | 'speciale_locked';
 export type GameStatus = 'lobby' | 'active' | 'finished';
-export type CardStatus = 'available' | 'in_hand' | 'played' | 'discarded';
+export type CardStatus = 'available' | 'in_hand' | 'played' | 'discarded' | 'special_locked';
 export type BotDifficulty = 'easy' | 'normal' | 'hard';
 export type WinCondition = 'breakout' | 'collasso' | 'defcon' | 'turni' | 'diplomazia';
 
@@ -21,6 +21,8 @@ export interface GameCard {
   description?: string;
   // Effetti sui tracciati
   effects: CardEffects;
+  /** Se presente, giocare questa carta come evento sblocca 1 carta dal mazzo speciali della fazione */
+  unlocks_special?: true;
 }
 
 // Effetti di una carta sui tracciati (funzione del valore corrente)
