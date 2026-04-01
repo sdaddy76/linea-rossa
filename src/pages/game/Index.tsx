@@ -1193,8 +1193,16 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       // Apri OpsActionModal per scegliere l'azione
                       setShowOpsModal(true);
                     } else {
-                      await playCardUnified(unifiedCardToPlay.id, mode);
-                      setSelectedUnifiedCard(null);
+                      // FIX: salva l'id prima di qualsiasi await; chiudi sempre il modal
+                      const cardIdToPlay = unifiedCardToPlay.id;
+                      console.log('[onPlay evento] mode:', mode, 'cardId:', cardIdToPlay);
+                      try {
+                        await playCardUnified(cardIdToPlay, mode);
+                      } catch (err) {
+                        console.error('[onPlay evento] errore non gestito:', err);
+                      } finally {
+                        setSelectedUnifiedCard(null);
+                      }
                     }
                   }}
                 />

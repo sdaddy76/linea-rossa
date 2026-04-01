@@ -866,8 +866,13 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   playCardUnified: async (cardDbId: string, mode: 'event' | 'ops') => {
     const { game, gameState, myFaction, players } = get();
-    if (!game || !gameState || !myFaction) return;
+    console.log('[playCardUnified] chiamata — cardDbId:', cardDbId, 'mode:', mode, 'game:', game?.id, 'gameState:', !!gameState, 'myFaction:', myFaction, 'active_faction:', gameState?.active_faction);
+    if (!game || !gameState || !myFaction) {
+      console.warn('[playCardUnified] EARLY RETURN — guard fallita: game:', !!game, 'gameState:', !!gameState, 'myFaction:', myFaction);
+      return;
+    }
     if (gameState.active_faction !== myFaction) {
+      console.warn('[playCardUnified] EARLY RETURN — non è il tuo turno. active_faction:', gameState.active_faction, 'myFaction:', myFaction);
       set({ error: 'Non è il tuo turno!' }); return;
     }
 
@@ -1019,7 +1024,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }).then(() => {});
 
     } catch (err: unknown) {
-      set({ error: err instanceof Error ? err.message : 'Errore', loading: false });
+      console.error('[playCardUnified] ERRORE COMPLETO:', err);
+      set({ error: err instanceof Error ? err.message : 'Errore sconosciuto in playCardUnified', loading: false });
     }
   },
 
