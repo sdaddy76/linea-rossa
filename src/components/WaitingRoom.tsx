@@ -290,7 +290,7 @@ export default function WaitingRoom({
         stabilita_iran: 5, stabilita_coalizione: 5, stabilita_russia: 5,
         stabilita_cina: 5, stabilita_europa: 5,
         active_faction: 'Iran',
-        turno_corrente: 1,
+        // turno_corrente RIMOSSO dal baseState — colonna opzionale, gestita in tryUpdate
       };
       const { data: existingState } = await supabase
         .from('game_state').select('game_id').eq('game_id', gameId).maybeSingle();
@@ -309,9 +309,11 @@ export default function WaitingRoom({
       // error.code='42703' — lo ignoriamo, non blocchiamo l'avvio.
       const tryUpdate = async (data: Record<string, unknown>) => {
         const { error: e } = await supabase.from('game_state').update(data).eq('game_id', gameId);
-        // ignora: 42703 = colonna mancante, 23514 = constraint check (defcon range)
-        if (e && e.code !== '42703' && e.code !== '23514') console.warn('[startGame] optional update warn:', e);
+        // ignora: 42703 = colonna mancante, PGRST204 = colonna assente schema cache, 23514 = constraint check
+        if (e && e.code !== '42703' && e.code !== 'PGRST204' && e.code !== '23514') console.warn('[startGame] optional update warn:', e);
       };
+      await tryUpdate({ turno_corrente: 1 }); // opzionale — ignorato se colonna assente (PGRST204/42703)
+      await tryUpdate({ current_turn: 1 });   // alias alternativo — ignorato se colonna assente
       await tryUpdate({ defcon: 10 });
       await tryUpdate({ opinione: 0 });
       await tryUpdate({ forze_militari_iran: 5, forze_militari_coalizione: 5 });
