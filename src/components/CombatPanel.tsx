@@ -223,7 +223,7 @@ export default function CombatPanel({
             className={`flex-1 py-2 text-[10px] font-mono font-bold transition-all
               ${mode === m ? 'text-white' : 'bg-[#0a0e1a] text-[#8899aa] hover:text-white'}`}
             style={mode === m ? { background: factionColor + '33', borderBottom: `2px solid ${factionColor}` } : {}}>
-            {m === 'roster' ? '📋 UNITÀ' : m === 'deploy' ? '🪖 SCHIERA' : '🎯 ATTACCA'}
+            {m === 'roster' ? '📋 UNITÀ' : m === 'deploy' ? '🪖 SCHIERA' : '🚨 ATTACCA'}
           </button>
         ))}
       </div>
@@ -375,7 +375,7 @@ export default function CombatPanel({
 
           {/* Territorio bersaglio */}
           <div>
-            <label className="text-[10px] font-mono text-[#8899aa] block mb-1">🎯 Territorio Bersaglio</label>
+            <label className="text-[10px] font-mono text-[#8899aa] block mb-1">🚨 Territorio Bersaglio</label>
             <select
               value={atkTerritory ?? ''}
               onChange={e => { setAtkTerritory(e.target.value as TerritoryId || null); setLastOutcome(null); setAtkUnits([]); }}

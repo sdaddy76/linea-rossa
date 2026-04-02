@@ -227,7 +227,7 @@ export default function ObjectiveLibraryManager({ onClose }: Props) {
         <div className="flex items-center justify-between px-6 py-4
           border-b border-[#1e3a5f] bg-[#0a0e1a]">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🎯</span>
+            <span className="text-2xl">🚨</span>
             <div>
               <h2 className="font-mono font-bold text-white text-lg">Obiettivi Segreti</h2>
               <p className="font-mono text-[#8899aa] text-xs">
@@ -322,7 +322,7 @@ export default function ObjectiveLibraryManager({ onClose }: Props) {
                   onClick={() => fileRef.current?.click()}>
                   <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
-                  <p className="text-4xl mb-3">🎯</p>
+                  <p className="text-4xl mb-3">🚨</p>
                   <p className="font-mono text-white text-sm font-bold">
                     Trascina il file Excel o clicca per selezionarlo
                   </p>

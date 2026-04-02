@@ -33,7 +33,7 @@ export default function ObjectivesModal({ myFaction, gameState, myObjectives = [
 
   const faction = myFaction as ObjFazione;
   const fColor = OBJ_FACTION_COLORS[faction] ?? '#8b5cf6';
-  const fFlag  = OBJ_FACTION_FLAGS[faction]  ?? '🎯';
+  const fFlag  = OBJ_FACTION_FLAGS[faction]  ?? '🚨';
 
   // Usa gli obiettivi già assegnati dallo store; se vuoti mostra tutti quelli della fazione
   const miei = myObjectives.length > 0
@@ -121,7 +121,7 @@ export default function ObjectivesModal({ myFaction, gameState, myObjectives = [
           {/* I miei obiettivi */}
           <div>
             <p className="font-mono text-[10px] text-[#8899aa] font-bold uppercase tracking-widest mb-2">
-              🎯 I tuoi {miei.length} obiettivi segreti (pool: 15 per fazione)
+              🚨 I tuoi {miei.length} obiettivi segreti (pool: 15 per fazione)
             </p>
             {miei.length === 0 ? (
               <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-4 text-center">

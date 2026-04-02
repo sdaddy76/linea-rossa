@@ -277,7 +277,7 @@ function buildExtraEffects(
 
   // ForzeSpeciali: +1 influenza aggiuntiva in vittoria
   if (flags.forzeSpecialiUsed && won) {
-    effects.push('🎯 Forze Speciali: +1 influenza aggiuntiva per precisione');
+    effects.push('🚨 Forze Speciali: +1 influenza aggiuntiva per precisione');
   }
 
   // GuerraIbrida Russia: -1 stabilità difensore in vittoria

@@ -49,7 +49,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Immagini satellitari rivelano un sito nucleare segreto non dichiarato. La comunità internazionale chiede spiegazioni.',
     flavor_text: '"Le prove sono inconfutabili." — Direttore AIEA',
     effects: { delta_nucleare: +2, delta_sanzioni: +2, delta_opinione: -1, delta_defcon: -1, delta_stabilita_iran: -1 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 🌍 Opinione -1 · 🎯 DEFCON -1 · 🏛️ Stab. Iran -1',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 📣 Opinione -1 · 🚨 DEFCON -1 · ⚖️ Stab. Iran -1',
   },
   {
     event_id: 'E02', event_name: 'Test Nucleare Sotterraneo',
@@ -57,7 +57,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Terremoto artificiale di magnitudo 4.8 rilevato vicino a Semnan. L\'Iran ha condotto un test nucleare clandestino.',
     flavor_text: '"Il mondo è cambiato stanotte." — Analista CIA',
     effects: { delta_nucleare: +3, delta_sanzioni: +3, delta_opinione: -3, delta_defcon: -2 },
-    effects_description: '☢️ Nucleare +3 · 💰 Sanzioni +3 · 🌍 Opinione -3 · 🎯 DEFCON -2',
+    effects_description: '☢️ Nucleare +3 · 💰 Sanzioni +3 · 📣 Opinione -3 · 🚨 DEFCON -2',
   },
   {
     event_id: 'E03', event_name: 'Fuga Scienziato Nucleare',
@@ -65,7 +65,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Un fisico nucleare di primo piano defeziona verso l\'Occidente portando con sé documenti classificati.',
     flavor_text: '"Portava una chiavetta USB con dentro tutto il programma." — fonte anonima',
     effects: { delta_nucleare: -1, delta_stabilita_iran: -2 },
-    effects_description: '☢️ Nucleare -1 · 🏛️ Stab. Iran -2',
+    effects_description: '☢️ Nucleare -1 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E04', event_name: 'Sabotaggio Impianto Natanz',
@@ -73,7 +73,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Un\'esplosione misteriosa danneggia l\'impianto di arricchimento di Natanz. Iran accusa i servizi segreti stranieri.',
     flavor_text: '"Non siamo stati noi." — Portavoce CIA (in forma anonima)',
     effects: { delta_nucleare: -2, delta_defcon: -1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
-    effects_description: '☢️ Nucleare -2 · 🎯 DEFCON -1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -1',
+    effects_description: '☢️ Nucleare -2 · 🚨 DEFCON -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
   },
   {
     event_id: 'E05', event_name: 'Ispezione AIEA Bloccata',
@@ -81,7 +81,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Tehran blocca l\'accesso degli ispettori AIEA a tre siti chiave. La Guida Suprema invoca la "sovranità nazionale".',
     flavor_text: '"Senza accesso non possiamo garantire nulla." — Ispettore AIEA',
     effects: { delta_nucleare: +1, delta_sanzioni: +2, delta_defcon: -1 },
-    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 🎯 DEFCON -1',
+    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E06', event_name: 'Rapporto AIEA Allarmante',
@@ -89,7 +89,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Il rapporto trimestrale dell\'AIEA riporta tracce di uranio arricchito al 84% non dichiarate. Allarme internazionale.',
     flavor_text: '"È la soglia del weapons-grade." — Esperto proliferazione nucleare',
     effects: { delta_sanzioni: +2, delta_opinione: -2, delta_defcon: -1 },
-    effects_description: '💰 Sanzioni +2 · 🌍 Opinione -2 · 🎯 DEFCON -1',
+    effects_description: '💰 Sanzioni +2 · 📣 Opinione -2 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E07', event_name: 'Breakout Nucleare Imminente',
@@ -97,7 +97,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Gli analisti americani stimano che l\'Iran sia a settimane dal completare la prima bomba atomica. Conto alla rovescia.',
     flavor_text: '"Non settimane. Giorni." — Funzionario Pentagono',
     effects: { delta_nucleare: +2, delta_sanzioni: +3, delta_opinione: -2, delta_defcon: -2 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 🌍 Opinione -2 · 🎯 DEFCON -2',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 📣 Opinione -2 · 🚨 DEFCON -2',
   },
   {
     event_id: 'E08', event_name: 'Accordo Nucleare Last Minute',
@@ -105,7 +105,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Negoziatori trovano un\'intesa all\'ultimo secondo: Iran congela l\'arricchimento in cambio di allentamento sanzioni.',
     flavor_text: '"La diplomazia ha vinto stanotte." — Segretario di Stato USA',
     effects: { delta_nucleare: -2, delta_opinione: +2, delta_defcon: +2, delta_risorse_iran: +3, delta_stabilita_iran: +2 },
-    effects_description: '☢️ Nucleare -2 · 🌍 Opinione +2 · 🎯 DEFCON +2 · 📦 Risorse Iran +3',
+    effects_description: '☢️ Nucleare -2 · 📣 Opinione +2 · 🚨 DEFCON +2 · 💵 Risorse Iran +3',
   },
   {
     event_id: 'E09', event_name: 'Trasferimento Tecnologia',
@@ -113,7 +113,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Intelligence rivela trasferimento tecnologia nucleare da un paese terzo verso l\'Iran. Forte sospetto su Russia o Corea del Nord.',
     flavor_text: '"Il fornitore non è un paese amico dell\'Occidente." — Fonte NATO',
     effects: { delta_nucleare: +2, delta_sanzioni: +1, delta_defcon: -1 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 🎯 DEFCON -1',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E10', event_name: 'Centrifughe Avanzate IR-9',
@@ -121,7 +121,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'L\'Iran annuncia il dispiegamento di 3.000 centrifughe IR-9, dieci volte più efficienti dei modelli precedenti.',
     flavor_text: '"L\'arricchimento accelera esponenzialmente." — IAEA Director General',
     effects: { delta_nucleare: +2, delta_sanzioni: +2, delta_defcon: -1, delta_risorse_iran: -2 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 🎯 DEFCON -1 · 📦 Risorse Iran -2',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 🚨 DEFCON -1 · 💵 Risorse Iran -2',
   },
   {
     event_id: 'E11', event_name: 'Uranio Arricchito 90%',
@@ -129,7 +129,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Conferma ufficiale: l\'Iran ha prodotto uranio arricchito al 90%, grado weapons. Il Rubicone è attraversato.',
     flavor_text: '"Quello che temevamo si è avverato." — Presidente USA',
     effects: { delta_nucleare: +3, delta_sanzioni: +3, delta_opinione: -2, delta_defcon: -2 },
-    effects_description: '☢️ Nucleare +3 · 💰 Sanzioni +3 · 🌍 Opinione -2 · 🎯 DEFCON -2',
+    effects_description: '☢️ Nucleare +3 · 💰 Sanzioni +3 · 📣 Opinione -2 · 🚨 DEFCON -2',
   },
   {
     event_id: 'E12', event_name: 'Plutonio Weapons-Grade',
@@ -137,7 +137,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Via alternativa: il reattore di Arak produce plutonio militare. L\'Iran apre un secondo fronte nel programma nucleare.',
     flavor_text: '"Avevamo monitorato l\'uranio, ma non il plutonio." — Analista OSINT',
     effects: { delta_nucleare: +2, delta_sanzioni: +3, delta_opinione: -2, delta_defcon: -2, delta_risorse_iran: -3 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 🌍 Opinione -2 · 🎯 DEFCON -2 · 📦 Risorse Iran -3',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 📣 Opinione -2 · 🚨 DEFCON -2 · 💵 Risorse Iran -3',
   },
   {
     event_id: 'E13', event_name: 'Missile Nucleare Testato',
@@ -145,7 +145,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'L\'Iran testa con successo un missile balistico in grado di portare una testata nucleare. Portata: 2.500 km.',
     flavor_text: '"Tel Aviv e Riyadh sono nel raggio." — Generale IDF',
     effects: { delta_nucleare: +2, delta_sanzioni: +3, delta_opinione: -3, delta_defcon: -3 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 🌍 Opinione -3 · 🎯 DEFCON -3',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 📣 Opinione -3 · 🚨 DEFCON -3',
   },
   {
     event_id: 'E14', event_name: 'Deterrenza Nucleare Dichiarata',
@@ -153,7 +153,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'La Guida Suprema dichiara ufficialmente che l\'Iran possiede capacità nucleare a scopo deterrente. Cambio di paradigma.',
     flavor_text: '"Ora il mondo ci rispetta." — Khamenei',
     effects: { delta_opinione: -2, delta_defcon: -2, delta_stabilita_iran: +2 },
-    effects_description: '🌍 Opinione -2 · 🎯 DEFCON -2 · 🏛️ Stab. Iran +2',
+    effects_description: '📣 Opinione -2 · 🚨 DEFCON -2 · ⚖️ Stab. Iran +2',
   },
   {
     event_id: 'E15', event_name: 'Smantellamento Volontario',
@@ -161,7 +161,7 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     description: 'Accordo storico: l\'Iran accetta di smantellare le centrifughe sotto supervisione AIEA in cambio di integrazione economica.',
     flavor_text: '"Come la Libia nel 2003, ma stavolta funziona." — Ministro Esteri UE',
     effects: { delta_nucleare: -3, delta_opinione: +3, delta_defcon: +2, delta_risorse_iran: +4, delta_stabilita_iran: +2 },
-    effects_description: '☢️ Nucleare -3 · 🌍 Opinione +3 · 🎯 DEFCON +2 · 📦 Risorse Iran +4',
+    effects_description: '☢️ Nucleare -3 · 📣 Opinione +3 · 🚨 DEFCON +2 · 💵 Risorse Iran +4',
   },
 ];
 
@@ -173,7 +173,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Caccia F-35 israeliani colpiscono tre impianti nucleari iraniani in un attacco coordinato denominato "Operazione Alba".',
     flavor_text: '"Abbiamo fatto quello che dovevamo fare." — PM Israele',
     effects: { delta_nucleare: -2, delta_opinione: +2, delta_defcon: -2, delta_risorse_coalizione: -2 },
-    effects_description: '☢️ Nucleare -2 · 🌍 Opinione +2 · 🎯 DEFCON -2 · 📦 Risorse Coalizione -2',
+    effects_description: '☢️ Nucleare -2 · 📣 Opinione +2 · 🚨 DEFCON -2 · 💵 Risorse Coalizione -2',
   },
   {
     event_id: 'E17', event_name: 'Risposta Missilistica Iran',
@@ -181,7 +181,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Iran lancia 120 missili balistici contro basi USA in Iraq. Le difese Patriot abbattono la maggior parte ma non tutti.',
     flavor_text: '"Questo è solo l\'inizio." — Comandante IRGC',
     effects: { delta_defcon: -2, delta_risorse_iran: -2, delta_stabilita_iran: +1 },
-    effects_description: '🎯 DEFCON -2 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran +1',
+    effects_description: '🚨 DEFCON -2 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran +1',
   },
   {
     event_id: 'E18', event_name: 'Scontro Navale Hormuz',
@@ -189,7 +189,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Motovedette IRGC speronano una fregata americana nello Stretto di Hormuz. Un marinaio ferito. Tensione alle stelle.',
     flavor_text: '"Lo stretto è nostro." — Ammiraglio marina iraniana',
     effects: { delta_defcon: -2, delta_risorse_iran: -1, delta_risorse_coalizione: -1, delta_risorse_russia: -1, delta_risorse_cina: -1 },
-    effects_description: '🎯 DEFCON -2 · 📦 Risorse tutte le fazioni -1',
+    effects_description: '🚨 DEFCON -2 · 💵 Risorse tutte le fazioni -1',
   },
   {
     event_id: 'E19', event_name: 'Abbattimento Drone USA',
@@ -197,7 +197,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Missile terra-aria iraniano abbatte un drone RQ-4 Global Hawk da 130 milioni di dollari sopra il Golfo Persico.',
     flavor_text: '"Era in acque internazionali." — Pentagono / "Era nel nostro spazio aereo." — Tehran',
     effects: { delta_defcon: -1, delta_stabilita_iran: +1 },
-    effects_description: '🎯 DEFCON -1 · 🏛️ Stab. Iran +1',
+    effects_description: '🚨 DEFCON -1 · ⚖️ Stab. Iran +1',
   },
   {
     event_id: 'E20', event_name: 'Attacco Base USA Iraq',
@@ -205,7 +205,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Milizie filo-iraniane lanciano razzi contro la base di Al-Assad in Iraq. Dodici soldati USA feriti. Il Pentagono risponde.',
     flavor_text: '"Li considerano proxy espandibili." — Analista Brookings',
     effects: { delta_sanzioni: +2, delta_opinione: -2, delta_defcon: -2, delta_risorse_iran: -1 },
-    effects_description: '💰 Sanzioni +2 · 🌍 Opinione -2 · 🎯 DEFCON -2 · 📦 Risorse Iran -1',
+    effects_description: '💰 Sanzioni +2 · 📣 Opinione -2 · 🚨 DEFCON -2 · 💵 Risorse Iran -1',
   },
   {
     event_id: 'E21', event_name: 'Assassinio Generale IRGC',
@@ -213,7 +213,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Un alto generale delle Guardie della Rivoluzione viene assassinato a Baghdad. L\'Iran giura "vendetta senza limiti".',
     flavor_text: '"Soleimani era un santo martire." — Guida Suprema',
     effects: { delta_defcon: -2, delta_opinione: +2, delta_stabilita_iran: +2 },
-    effects_description: '🎯 DEFCON -2 · 🌍 Opinione Iran +2 · 🏛️ Stab. Iran +2',
+    effects_description: '🚨 DEFCON -2 · 📣 Opinione Iran +2 · ⚖️ Stab. Iran +2',
   },
   {
     event_id: 'E22', event_name: 'Operazione Speciale Fallita',
@@ -221,7 +221,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Operazione speciale per recuperare un agente viene scoperta. Tre agenti occidentali arrestati a Tehran.',
     flavor_text: '"Umiliazione dei servizi segreti." — Der Spiegel',
     effects: { delta_opinione: -1, delta_defcon: -1, delta_risorse_coalizione: -1 },
-    effects_description: '🌍 Opinione Coalizione -1 · 🎯 DEFCON -1 · 📦 Risorse Coalizione -1',
+    effects_description: '📣 Opinione Coalizione -1 · 🚨 DEFCON -1 · 💵 Risorse Coalizione -1',
   },
   {
     event_id: 'E23', event_name: 'Escalation Regionale',
@@ -229,7 +229,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'La crisi si espande: Hezbollah lancia razzi su Israele, gli Houthi bloccano il Mar Rosso. Tutta la regione brucia.',
     flavor_text: '"È la guerra dei sei fronti." — Times of Israel',
     effects: { delta_nucleare: +1, delta_sanzioni: +1, delta_opinione: -1, delta_defcon: -2, delta_risorse_iran: -2, delta_risorse_coalizione: -2, delta_risorse_russia: -1, delta_risorse_cina: -1, delta_risorse_europa: -1 },
-    effects_description: '☢️ Nucleare +1 · 🎯 DEFCON -2 · 📦 Risorse tutte le fazioni -1/2',
+    effects_description: '☢️ Nucleare +1 · 🚨 DEFCON -2 · 💵 Risorse tutte le fazioni -1/2',
   },
   {
     event_id: 'E24', event_name: 'Mobilitazione Generale',
@@ -237,7 +237,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Il Parlamento iraniano approva la mobilitazione di 500.000 riservisti. Le strade di Tehran si riempiono di divise.',
     flavor_text: '"Ogni cittadino è un soldato della rivoluzione." — Speaker Parlamento',
     effects: { delta_defcon: -1, delta_risorse_iran: -3, delta_stabilita_iran: +2 },
-    effects_description: '🎯 DEFCON -1 · 📦 Risorse Iran -3 · 🏛️ Stab. Iran +2',
+    effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran +2',
   },
   {
     event_id: 'E25', event_name: 'Attacco Cyber Massivo',
@@ -245,7 +245,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Cyberattacco sofisticato colpisce le infrastrutture critiche iraniane: raffinerie, centrali, comunicazioni militari.',
     flavor_text: '"È peggio di Stuxnet." — Esperto CyberSec',
     effects: { delta_nucleare: -1, delta_defcon: -1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
-    effects_description: '☢️ Nucleare -1 · 🎯 DEFCON -1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -1',
+    effects_description: '☢️ Nucleare -1 · 🚨 DEFCON -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
   },
   {
     event_id: 'E26', event_name: 'Blackout Infrastrutture',
@@ -253,7 +253,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Vasta area del nord Iran senza elettricità per 48 ore dopo attacco alle centrali. Ospedali funzionano a generatori.',
     flavor_text: '"La vita quotidiana si è fermata." — Reuters',
     effects: { delta_defcon: -1, delta_risorse_iran: -3, delta_stabilita_iran: -2 },
-    effects_description: '🎯 DEFCON -1 · 📦 Risorse Iran -3 · 🏛️ Stab. Iran -2',
+    effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E27', event_name: 'Attacco Petroliere',
@@ -261,7 +261,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Due petroliere cariche di greggio vengono attaccate nel Golfo Persico. Il prezzo del petrolio schizza del 12%.',
     flavor_text: '"Nessuno rivendica. Tutti sanno." — Analista geopolitica',
     effects: { delta_defcon: -1, delta_risorse_iran: -1, delta_risorse_coalizione: -1, delta_risorse_europa: -1 },
-    effects_description: '🎯 DEFCON -1 · 📦 Risorse Iran/Coalizione/Europa -1',
+    effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran/Coalizione/Europa -1',
   },
   {
     event_id: 'E28', event_name: 'Sequestro Nave Commerciale',
@@ -269,7 +269,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'La marina iraniana sequestra una nave cargo con bandiera britannica. L\'equipaggio di 24 marinai è tenuto in ostaggio.',
     flavor_text: '"Liberate i nostri connazionali o ci saranno conseguenze." — FM Londra',
     effects: { delta_defcon: -1, delta_opinione: -1, delta_risorse_iran: +1 },
-    effects_description: '🎯 DEFCON -1 · 🌍 Opinione Iran -1 · 📦 Risorse Iran +1 (riscatto)',
+    effects_description: '🚨 DEFCON -1 · 📣 Opinione Iran -1 · 💵 Risorse Iran +1 (riscatto)',
   },
   {
     event_id: 'E29', event_name: 'Incidente Friendly Fire',
@@ -277,7 +277,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Un aereo militare abbattuto per errore: si scopre essere civile. Il paese responsabile è in imbarazzo internazionale.',
     flavor_text: '"Un errore umano tragico." — Comunicato ufficiale',
     effects: { delta_opinione: -2, delta_defcon: +1 },
-    effects_description: '🌍 Opinione -2 · 🎯 DEFCON +1',
+    effects_description: '📣 Opinione -2 · 🚨 DEFCON +1',
   },
   {
     event_id: 'E30', event_name: 'Evacuazione Civili',
@@ -285,7 +285,7 @@ const EVENTI_MILITARI: EventoCard[] = [
     description: 'Le ambasciate occidentali iniziano l\'evacuazione del personale non essenziale dall\'Iran. Segnale preoccupante.',
     flavor_text: '"Quando partono le famiglie dei diplomatici, è il momento di preoccuparsi." — Esperto diplomatico',
     effects: { delta_defcon: -1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
-    effects_description: '🎯 DEFCON -1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -1',
+    effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
   },
 ];
 
@@ -297,7 +297,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'I colloqui di Vienna si concludono senza accordo dopo tre settimane. L\'Iran abbandona il tavolo accusando l\'Occidente di "mala fede".',
     flavor_text: '"Non c\'è accordo senza garanzie." — Delegato iraniano',
     effects: { delta_nucleare: +1, delta_sanzioni: +1, delta_opinione: -1, delta_defcon: -1 },
-    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +1 · 🌍 Opinione -1 · 🎯 DEFCON -1',
+    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +1 · 📣 Opinione -1 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E32', event_name: 'Rottura Negoziati',
@@ -305,7 +305,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Iran rompe i negoziati e espelle il mediatore europeo. La crisi diplomatica apre un vuoto pericoloso.',
     flavor_text: '"Dialogo impossibile con chi non rispetta i patti." — FM Iran',
     effects: { delta_nucleare: +1, delta_sanzioni: +2, delta_opinione: -1, delta_defcon: -1, delta_risorse_iran: -1 },
-    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 🌍 Opinione -1 · 🎯 DEFCON -1',
+    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 📣 Opinione -1 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E33', event_name: 'Nuove Sanzioni ONU',
@@ -313,7 +313,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Il Consiglio di Sicurezza approva un nuovo pacchetto di sanzioni contro l\'Iran con 12 voti favorevoli.',
     flavor_text: '"La pressione internazionale funziona." — Ambasciatore USA all\'ONU',
     effects: { delta_sanzioni: +3, delta_opinione: +1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
-    effects_description: '💰 Sanzioni +3 · 🌍 Opinione Coalizione +1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -1',
+    effects_description: '💰 Sanzioni +3 · 📣 Opinione Coalizione +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
   },
   {
     event_id: 'E34', event_name: 'Veto Russia-Cina',
@@ -321,7 +321,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Russia e Cina pongono il veto alla risoluzione ONU anti-Iran. Tehran esulta, l\'Occidente è infuriato.',
     flavor_text: '"Il sistema internazionale è rotto." — FM Francia',
     effects: { delta_sanzioni: -2, delta_opinione: +1 },
-    effects_description: '💰 Sanzioni -2 · 🌍 Opinione Iran +1',
+    effects_description: '💰 Sanzioni -2 · 📣 Opinione Iran +1',
   },
   {
     event_id: 'E35', event_name: 'Risoluzione Condanna',
@@ -329,7 +329,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'L\'Assemblea Generale ONU approva una risoluzione non vincolante di condanna dell\'Iran con 127 voti favorevoli.',
     flavor_text: '"È solo carta. Senza denti." — Analista diritto internazionale',
     effects: { delta_sanzioni: +1, delta_opinione: +1 },
-    effects_description: '💰 Sanzioni +1 · 🌍 Opinione Coalizione +1',
+    effects_description: '💰 Sanzioni +1 · 📣 Opinione Coalizione +1',
   },
   {
     event_id: 'E36', event_name: 'Espulsione Diplomatici',
@@ -337,7 +337,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Iran espelle dieci diplomatici occidentali accusati di spionaggio. Rappresaglia immediata dell\'Occidente.',
     flavor_text: '"Espelliamo i vostri, voi espellete i nostri. La diplomazia regredisce." — Opinionista BBC',
     effects: { delta_opinione: -1, delta_defcon: -1 },
-    effects_description: '🌍 Opinione -1 · 🎯 DEFCON -1',
+    effects_description: '📣 Opinione -1 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E37', event_name: 'Canale Segreto Aperto',
@@ -345,7 +345,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Back-channel segreto aperto tra Washington e Tehran tramite intermediari omaniti. Segnale positivo.',
     flavor_text: '"Muscat è la Svizzera del Golfo." — Diplomatico anonimo',
     effects: { delta_defcon: +1, delta_stabilita_iran: +1 },
-    effects_description: '🎯 DEFCON +1 · 🏛️ Stab. Iran +1',
+    effects_description: '🚨 DEFCON +1 · ⚖️ Stab. Iran +1',
   },
   {
     event_id: 'E38', event_name: 'Mediazione Oman',
@@ -353,7 +353,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'L\'Oman propone un piano di mediazione: congelamento nucleare in cambio di sblocco di 6 miliardi in asset congelati.',
     flavor_text: '"L\'Oman ha sempre trovato la strada giusta nel Golfo." — Ambasciatore emiratino',
     effects: { delta_defcon: +1, delta_stabilita_iran: +1 },
-    effects_description: '🎯 DEFCON +1 · 🏛️ Stab. Iran +1',
+    effects_description: '🚨 DEFCON +1 · ⚖️ Stab. Iran +1',
   },
   {
     event_id: 'E39', event_name: 'Proposta Pace Sorpresa',
@@ -361,7 +361,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Il Presidente iraniano fa una proposta di pace inattesa: moratoria nucleare di 6 mesi in cambio di garanzie di sicurezza.',
     flavor_text: '"Non l\'ho visto arrivare." — Consigliere sicurezza nazionale USA',
     effects: { delta_nucleare: -1, delta_defcon: +2, delta_risorse_iran: 0, delta_stabilita_iran: +2 },
-    effects_description: '☢️ Nucleare -1 · 🎯 DEFCON +2 · 🏛️ Stab. Iran +2',
+    effects_description: '☢️ Nucleare -1 · 🚨 DEFCON +2 · ⚖️ Stab. Iran +2',
   },
   {
     event_id: 'E40', event_name: 'Accordo Preliminare',
@@ -369,7 +369,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Firmato un accordo di principio: entrambe le parti concordano su un framework per negoziati più dettagliati.',
     flavor_text: '"È un inizio, non una fine." — Portavoce Dipartimento di Stato',
     effects: { delta_defcon: +1, delta_risorse_iran: +1, delta_stabilita_iran: +1 },
-    effects_description: '🎯 DEFCON +1 · 📦 Risorse Iran +1 · 🏛️ Stab. Iran +1',
+    effects_description: '🚨 DEFCON +1 · 💵 Risorse Iran +1 · ⚖️ Stab. Iran +1',
   },
   {
     event_id: 'E41', event_name: 'Firma Trattato',
@@ -377,7 +377,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Firma del trattato di non proliferazione aggiornato. Iran riduce scorte di uranio arricchito, Occidente toglie sanzioni.',
     flavor_text: '"Come JCPOA, ma stavolta con più garanzie." — Analista Carnegie',
     effects: { delta_nucleare: -2, delta_opinione: +2, delta_defcon: +2, delta_risorse_iran: +3, delta_stabilita_iran: +1 },
-    effects_description: '☢️ Nucleare -2 · 🌍 Opinione +2 · 🎯 DEFCON +2 · 📦 Risorse Iran +3',
+    effects_description: '☢️ Nucleare -2 · 📣 Opinione +2 · 🚨 DEFCON +2 · 💵 Risorse Iran +3',
   },
   {
     event_id: 'E42', event_name: 'Violazione Accordo',
@@ -385,7 +385,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'AIEA conferma: l\'Iran ha violato i termini dell\'accordo installando centrifughe aggiuntive in sito dichiarato "civile".',
     flavor_text: '"La fiducia è stata tradita." — Cancelliere tedesco',
     effects: { delta_nucleare: +2, delta_sanzioni: +2, delta_opinione: -2, delta_defcon: -1 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 🌍 Opinione -2 · 🎯 DEFCON -1',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 📣 Opinione -2 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E43', event_name: 'Ritiro USA da Trattato',
@@ -393,7 +393,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Gli USA si ritirano unilateralmente dall\'accordo nucleare, come nel 2018. Alleati europei scioccati.',
     flavor_text: '"Lo rompono sempre loro." — FM Iran',
     effects: { delta_nucleare: +1, delta_sanzioni: +2, delta_opinione: -1, delta_defcon: -1, delta_risorse_iran: -2 },
-    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 🌍 Opinione -1 · 🎯 DEFCON -1',
+    effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 📣 Opinione -1 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E44', event_name: 'Sanzioni Secondarie UE',
@@ -401,7 +401,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'L\'UE applica sanzioni secondarie: le aziende europee che commerciano con l\'Iran vengono escluse dal mercato americano.',
     flavor_text: '"Siamo costretti a scegliere tra Washington e Tehran." — Imprenditore tedesco',
     effects: { delta_sanzioni: +2, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
-    effects_description: '💰 Sanzioni +2 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -1',
+    effects_description: '💰 Sanzioni +2 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
   },
   {
     event_id: 'E45', event_name: 'Coalizione Anti-Iran',
@@ -409,7 +409,7 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     description: 'Formata una coalizione di 15 paesi per coordinare pressione diplomatica sull\'Iran. Include Golfo, Europa e Giappone.',
     flavor_text: '"L\'isolamento di Tehran è quasi completo." — Bloomberg',
     effects: { delta_sanzioni: +2, delta_opinione: +1, delta_risorse_coalizione: +1 },
-    effects_description: '💰 Sanzioni +2 · 🌍 Opinione Coalizione +1 · 📦 Risorse Coalizione +1',
+    effects_description: '💰 Sanzioni +2 · 📣 Opinione Coalizione +1 · 💵 Risorse Coalizione +1',
   },
 ];
 
@@ -421,7 +421,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Il petrolio crolla a 42$/barile. L\'Arabia Saudita apre i rubinetti per affossare l\'economia iraniana.',
     flavor_text: '"Il petrolio è la nostra arma economica." — Ministro energia Arabia Saudita',
     effects: { delta_sanzioni: +2, delta_risorse_iran: -3, delta_risorse_russia: -2, delta_stabilita_iran: -2 },
-    effects_description: '💰 Sanzioni +2 · 📦 Risorse Iran -3 · Risorse Russia -2 · 🏛️ Stab. Iran -2',
+    effects_description: '💰 Sanzioni +2 · 💵 Risorse Iran -3 · Risorse Russia -2 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E47', event_name: 'Spike Prezzo Petrolio',
@@ -429,7 +429,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'La tensione nel Golfo spinge il Brent a 140$/barile. Iran e Russia incassano, Occidente soffre.',
     flavor_text: '"Ogni missile sparato vicino a Hormuz vale 10 dollari per barile." — Trader materie prime',
     effects: { delta_sanzioni: -2, delta_opinione: +1, delta_defcon: -1, delta_risorse_iran: +3, delta_risorse_russia: +2 },
-    effects_description: '💰 Sanzioni -2 · 🌍 Opinione Iran +1 · 📦 Risorse Iran +3 · Risorse Russia +2',
+    effects_description: '💰 Sanzioni -2 · 📣 Opinione Iran +1 · 💵 Risorse Iran +3 · Risorse Russia +2',
   },
   {
     event_id: 'E48', event_name: 'Sanzioni SWIFT Totali',
@@ -437,7 +437,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Iran completamente escluso dal sistema SWIFT. Le transazioni internazionali sono impossibili. Economia paralizzata.',
     flavor_text: '"È come un embargo economico totale." — Governatore Banca Centrale Iran',
     effects: { delta_sanzioni: +4, delta_risorse_iran: -4, delta_stabilita_iran: -2 },
-    effects_description: '💰 Sanzioni +4 · 📦 Risorse Iran -4 · 🏛️ Stab. Iran -2',
+    effects_description: '💰 Sanzioni +4 · 💵 Risorse Iran -4 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E49', event_name: 'Collasso Rial Iraniano',
@@ -445,7 +445,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Il Rial perde il 60% del valore in tre settimane. Iperinflazione. Le famiglie iraniane non possono comprare cibo.',
     flavor_text: '"Un milione di rial per un chilo di pane." — Testimonianza da Tehran',
     effects: { delta_sanzioni: +2, delta_risorse_iran: -5, delta_stabilita_iran: -3 },
-    effects_description: '💰 Sanzioni +2 · 📦 Risorse Iran -5 · 🏛️ Stab. Iran -3',
+    effects_description: '💰 Sanzioni +2 · 💵 Risorse Iran -5 · ⚖️ Stab. Iran -3',
   },
   {
     event_id: 'E50', event_name: 'Contrabbando Massiccio',
@@ -453,7 +453,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Rete di contrabbando attraverso Iraq e Afghanistan porta 3 miliardi di dollari in beni all\'Iran. Sanzioni aggirate.',
     flavor_text: '"Dove c\'è proibizione, c\'è contrabbando." — Economista',
     effects: { delta_sanzioni: -2, delta_risorse_iran: +3 },
-    effects_description: '💰 Sanzioni -2 · 📦 Risorse Iran +3',
+    effects_description: '💰 Sanzioni -2 · 💵 Risorse Iran +3',
   },
   {
     event_id: 'E51', event_name: 'Accordo Petrolio Yuan',
@@ -461,7 +461,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Iran firma accordo per vendere petrolio in yuan cinesi, bypassando il dollaro e le sanzioni USA.',
     flavor_text: '"La de-dollarizzazione avanza." — Global Times',
     effects: { delta_sanzioni: -3, delta_opinione: +1, delta_risorse_iran: +3, delta_risorse_cina: +2 },
-    effects_description: '💰 Sanzioni -3 · 📦 Risorse Iran +3 · Risorse Cina +2',
+    effects_description: '💰 Sanzioni -3 · 💵 Risorse Iran +3 · Risorse Cina +2',
   },
   {
     event_id: 'E52', event_name: 'Crisi Energetica Europa',
@@ -469,7 +469,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'L\'Europa soffre una grave crisi energetica. Il gas russo manca, il GNL americano è caro. Inverno difficile.',
     flavor_text: '"Berlino sta freddo." — Bild',
     effects: { delta_sanzioni: -1, delta_risorse_europa: -3, delta_stabilita_europa: -2 },
-    effects_description: '💰 Sanzioni -1 · 📦 Risorse Europa -3 · 🏛️ Stab. Europa -2',
+    effects_description: '💰 Sanzioni -1 · 💵 Risorse Europa -3 · ⚖️ Stab. Europa -2',
   },
   {
     event_id: 'E53', event_name: 'Recessione Globale',
@@ -477,7 +477,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'La crisi del Golfo innesca una recessione globale. PIL mondiale -2.3%. La crisi economica riduce la pressione militare.',
     flavor_text: '"Quando l\'economia cade, le guerre restano incompiute." — Stiglitz',
     effects: { delta_sanzioni: +1, delta_defcon: +1, delta_risorse_iran: -3, delta_risorse_coalizione: -3, delta_risorse_russia: -2, delta_risorse_cina: -2, delta_risorse_europa: -2 },
-    effects_description: '💰 Sanzioni +1 · 🎯 DEFCON +1 · 📦 Risorse tutte le fazioni -2/3',
+    effects_description: '💰 Sanzioni +1 · 🚨 DEFCON +1 · 💵 Risorse tutte le fazioni -2/3',
   },
   {
     event_id: 'E54', event_name: 'Fuga Capitali Golfo',
@@ -485,7 +485,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'I capitali dei paesi del Golfo fuggono verso l\'Europa e l\'Asia per paura della guerra. Il supporto alla Coalizione si riduce.',
     flavor_text: '"Il denaro non ha nazionalità, solo interessi." — Banchiere di Dubai',
     effects: { delta_risorse_coalizione: -3, delta_stabilita_coalizione: -1 },
-    effects_description: '📦 Risorse Coalizione -3 · 🏛️ Stab. Coalizione -1',
+    effects_description: '💵 Risorse Coalizione -3 · ⚖️ Stab. Coalizione -1',
   },
   {
     event_id: 'E55', event_name: 'Investimenti Cina Bloccati',
@@ -493,7 +493,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Gli USA minacciano di tagliare l\'accesso alla tecnologia americana alle aziende cinesi che investono in Iran.',
     flavor_text: '"Il costo di sostenere Iran è troppo alto anche per Pechino." — WSJ',
     effects: { delta_sanzioni: +1, delta_risorse_iran: -2, delta_risorse_cina: -1, delta_stabilita_iran: -1 },
-    effects_description: '💰 Sanzioni +1 · 📦 Risorse Iran -2 · Risorse Cina -1',
+    effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran -2 · Risorse Cina -1',
   },
   {
     event_id: 'E56', event_name: 'Aiuti Umanitari Bloccati',
@@ -501,7 +501,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Le sanzioni bloccano anche medicinali e aiuti umanitari. La popolazione civile soffre. Critiche internazionali.',
     flavor_text: '"Le sanzioni non distinguono tra bombe e insulina." — MSF',
     effects: { delta_opinione: +1, delta_stabilita_iran: -1 },
-    effects_description: '🌍 Opinione Iran +1 (vittima) · 🏛️ Stab. Iran -1',
+    effects_description: '📣 Opinione Iran +1 (vittima) · ⚖️ Stab. Iran -1',
   },
   {
     event_id: 'E57', event_name: 'Mercato Nero Fiorente',
@@ -509,7 +509,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Le sanzioni hanno creato un mercato nero enorme. I pasdaran controllano il contrabbando e si arricchiscono.',
     flavor_text: '"Le sanzioni hanno creato una elite criminale, non abbattuto il regime." — Think tank RAND',
     effects: { delta_sanzioni: -1, delta_risorse_iran: +2, delta_stabilita_iran: -1 },
-    effects_description: '💰 Sanzioni -1 · 📦 Risorse Iran +2 · 🏛️ Stab. Iran -1 (corruzione)',
+    effects_description: '💰 Sanzioni -1 · 💵 Risorse Iran +2 · ⚖️ Stab. Iran -1 (corruzione)',
   },
   {
     event_id: 'E58', event_name: 'Inflazione Galoppante Iran',
@@ -517,7 +517,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'L\'inflazione in Iran raggiunge il 47% mensile. I prezzi raddoppiano ogni settimana. Scioperi selvaggi ovunque.',
     flavor_text: '"Il governo ha perso il controllo dell\'economia." — Economist',
     effects: { delta_sanzioni: +1, delta_risorse_iran: -3, delta_stabilita_iran: -2 },
-    effects_description: '💰 Sanzioni +1 · 📦 Risorse Iran -3 · 🏛️ Stab. Iran -2',
+    effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E59', event_name: 'Proteste Economiche',
@@ -525,7 +525,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Migliaia di persone scendono in piazza in 15 città iraniane contro l\'austerità e la corruzione del governo.',
     flavor_text: '"Non abbiamo pane, non abbiamo lavoro, non abbiamo futuro." — Manifestante',
     effects: { delta_sanzioni: +1, delta_opinione: -1, delta_risorse_iran: -1, delta_stabilita_iran: -2 },
-    effects_description: '💰 Sanzioni +1 · 🌍 Opinione Iran -1 · 📦 Risorse Iran -1 · 🏛️ Stab. Iran -2',
+    effects_description: '💰 Sanzioni +1 · 📣 Opinione Iran -1 · 💵 Risorse Iran -1 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E60', event_name: 'Razionamento Carburante',
@@ -533,7 +533,7 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     description: 'Il governo introduce il razionamento del carburante. Code di ore alle pompe di benzina. Frustrazione popolare.',
     flavor_text: '"Paese esportatore di petrolio in fila per la benzina. Paradosso." — BBC Persia',
     effects: { delta_sanzioni: +1, delta_risorse_iran: +1, delta_stabilita_iran: -2 },
-    effects_description: '💰 Sanzioni +1 · 📦 Risorse Iran +1 (risparmio) · 🏛️ Stab. Iran -2',
+    effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran +1 (risparmio) · ⚖️ Stab. Iran -2',
   },
 ];
 
@@ -545,7 +545,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Una nuova ondata di proteste travolge l\'Iran dopo l\'uccisione di una giovane curda da parte della polizia morale.',
     flavor_text: '"Donna, vita, libertà." — Slogan delle proteste',
     effects: { delta_sanzioni: +1, delta_opinione: +1, delta_risorse_iran: -1, delta_stabilita_iran: -4 },
-    effects_description: '💰 Sanzioni +1 · 🌍 Opinione Coalizione +1 · 📦 Risorse Iran -1 · 🏛️ Stab. Iran -4',
+    effects_description: '💰 Sanzioni +1 · 📣 Opinione Coalizione +1 · 💵 Risorse Iran -1 · ⚖️ Stab. Iran -4',
   },
   {
     event_id: 'E62', event_name: 'Repressione Violenta',
@@ -553,7 +553,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Il regime risponde alle proteste con una repressione brutale: centinaia di arresti, decine di morti.',
     flavor_text: '"Il sangue per terra è il prezzo del controllo." — Analista diritti umani',
     effects: { delta_sanzioni: +2, delta_opinione: -2, delta_stabilita_iran: +2 },
-    effects_description: '💰 Sanzioni +2 · 🌍 Opinione Iran -2 · 🏛️ Stab. Iran +2 (controllo breve)',
+    effects_description: '💰 Sanzioni +2 · 📣 Opinione Iran -2 · ⚖️ Stab. Iran +2 (controllo breve)',
   },
   {
     event_id: 'E63', event_name: 'Sciopero Generale',
@@ -561,7 +561,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Sciopero generale nazionale paralizza il paese per cinque giorni. Trasporti, scuole, industrie: tutto fermo.',
     flavor_text: '"Cinque giorni senza lavoratori equivalgono a settimane di sanzioni." — Sindacalista',
     effects: { delta_sanzioni: +1, delta_opinione: -1, delta_risorse_iran: -3, delta_stabilita_iran: -3 },
-    effects_description: '💰 Sanzioni +1 · 📦 Risorse Iran -3 · 🏛️ Stab. Iran -3',
+    effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran -3',
   },
   {
     event_id: 'E64', event_name: 'Defezione Militare',
@@ -569,7 +569,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Un alto ufficiale IRGC defeziona portando con sé i piani del programma nucleare. Colpo devastante al regime.',
     flavor_text: '"Vale più di cento missioni di sabotaggio." — Direttore CIA',
     effects: { delta_nucleare: -1, delta_opinione: +1, delta_stabilita_iran: -3 },
-    effects_description: '☢️ Nucleare -1 · 🌍 Opinione Coalizione +1 · 🏛️ Stab. Iran -3',
+    effects_description: '☢️ Nucleare -1 · 📣 Opinione Coalizione +1 · ⚖️ Stab. Iran -3',
   },
   {
     event_id: 'E65', event_name: 'Colpo di Stato Fallito',
@@ -577,7 +577,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Un tentato golpe da parte di fazioni moderate dell\'esercito viene soffocato. Epurazioni di massa nell\'IRGC seguono.',
     flavor_text: '"Chi fallisce un colpo di stato deve fuggire o morire." — Machiavelli',
     effects: { delta_defcon: +1, delta_risorse_iran: -2, delta_stabilita_iran: -2 },
-    effects_description: '🎯 DEFCON +1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -2',
+    effects_description: '🚨 DEFCON +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E66', event_name: 'Riforma Interna Sorpresa',
@@ -585,7 +585,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Il governo annuncia riforme economiche e apertura al dialogo. Gesto inatteso che sorprende la comunità internazionale.',
     flavor_text: '"Non si cambia così in fretta, ma il gesto conta." — Al Jazeera English',
     effects: { delta_sanzioni: -1, delta_opinione: +2, delta_defcon: +1, delta_stabilita_iran: +2 },
-    effects_description: '💰 Sanzioni -1 · 🌍 Opinione Iran +2 · 🎯 DEFCON +1 · 🏛️ Stab. Iran +2',
+    effects_description: '💰 Sanzioni -1 · 📣 Opinione Iran +2 · 🚨 DEFCON +1 · ⚖️ Stab. Iran +2',
   },
   {
     event_id: 'E67', event_name: 'Elezioni Truccate',
@@ -593,7 +593,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Osservatori internazionali denunciano brogli massivi nelle elezioni parlamentari. L\'opposizione non viene candidata.',
     flavor_text: '"Non sono elezioni, sono selezioni." — Opposizione iraniana in esilio',
     effects: { delta_sanzioni: +1, delta_opinione: -2, delta_stabilita_iran: -2 },
-    effects_description: '💰 Sanzioni +1 · 🌍 Opinione Iran -2 · 🏛️ Stab. Iran -2',
+    effects_description: '💰 Sanzioni +1 · 📣 Opinione Iran -2 · ⚖️ Stab. Iran -2',
   },
   {
     event_id: 'E68', event_name: 'Nuovo Leader Supremo',
@@ -601,7 +601,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Khamenei muore. La successione è incerta: tre fazioni si contendono il potere. Momento di svolta storico.',
     flavor_text: '"Chi sarà il prossimo? Il figlio, il generale, o il tecnocrate?" — Le Monde',
     effects: { delta_nucleare: +2, delta_sanzioni: +1, delta_defcon: +1, delta_stabilita_iran: -3 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 🎯 DEFCON +1 · 🏛️ Stab. Iran -3',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 🚨 DEFCON +1 · ⚖️ Stab. Iran -3',
   },
   {
     event_id: 'E69', event_name: 'Fazione Moderata al Potere',
@@ -609,7 +609,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'I moderati prendono il controllo del governo. Il nuovo Presidente apre al dialogo con l\'Occidente.',
     flavor_text: '"Rouhani insegna: la moderazione può vincere le elezioni ma non il potere reale." — Expert',
     effects: { delta_nucleare: -1, delta_defcon: +1, delta_opinione: +2, delta_risorse_iran: +1, delta_stabilita_iran: +1 },
-    effects_description: '☢️ Nucleare -1 · 🎯 DEFCON +1 · 🌍 Opinione Iran +2 · 🏛️ Stab. Iran +1',
+    effects_description: '☢️ Nucleare -1 · 🚨 DEFCON +1 · 📣 Opinione Iran +2 · ⚖️ Stab. Iran +1',
   },
   {
     event_id: 'E70', event_name: 'Fazione Hardliner al Potere',
@@ -617,7 +617,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Le elezioni portano al potere la fazione più radicale dell\'IRGC. Fine del dialogo, accelerazione nucleare.',
     flavor_text: '"Abbiamo scelto la resistenza." — Presidente eletto Iran',
     effects: { delta_nucleare: +2, delta_sanzioni: +1, delta_opinione: -1, delta_defcon: -1, delta_stabilita_iran: +1 },
-    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 🌍 Opinione Iran -1 · 🎯 DEFCON -1',
+    effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 📣 Opinione Iran -1 · 🚨 DEFCON -1',
   },
   {
     event_id: 'E71', event_name: 'Crisi Successione',
@@ -625,7 +625,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'La lotta per la successione alla Guida Suprema paralizza il governo. Il programma nucleare rallenta per l\'incertezza.',
     flavor_text: '"Mentre i potenti si fanno la guerra, il paese affonda." — Analista iraniano',
     effects: { delta_defcon: +1, delta_risorse_iran: -2, delta_stabilita_iran: -4, blocca_avanzamento: true },
-    effects_description: '🎯 DEFCON +1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -4 · ⏸ Blocca avanzamento',
+    effects_description: '🚨 DEFCON +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -4 · ⏸ Blocca avanzamento',
   },
   {
     event_id: 'E72', event_name: 'Frammentazione IRGC',
@@ -633,7 +633,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Profonde divisioni interne all\'IRGC emergono pubblicamente. Alcuni generali si oppongono alla linea nucleare.',
     flavor_text: '"Quando l\'IRGC si divide, il regime trema." — IISS Report',
     effects: { delta_nucleare: -1, delta_defcon: +1, delta_risorse_iran: -2, delta_stabilita_iran: -3 },
-    effects_description: '☢️ Nucleare -1 · 🎯 DEFCON +1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -3',
+    effects_description: '☢️ Nucleare -1 · 🚨 DEFCON +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -3',
   },
   {
     event_id: 'E73', event_name: 'Rivolta Etnica',
@@ -641,7 +641,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'La minoranza curda nel Khuzestan insorge chiedendo autonomia. Il governo invia i pasdaran.',
     flavor_text: '"L\'Iran è una prigione di popoli." — Dichiarazione partiti curdi',
     effects: { delta_opinione: -1, delta_risorse_iran: -2, delta_stabilita_iran: -3 },
-    effects_description: '🌍 Opinione Iran -1 · 📦 Risorse Iran -2 · 🏛️ Stab. Iran -3',
+    effects_description: '📣 Opinione Iran -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -3',
   },
   {
     event_id: 'E74', event_name: 'Attentato Leader',
@@ -649,7 +649,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Un attentato colpisce un alto funzionario iraniano. Sopravvive ma è ferito. L\'Iran promette "terribile vendetta".',
     flavor_text: '"Il sangue chiama sangue." — Khamenei',
     effects: { delta_defcon: -1, delta_opinione: +2, delta_stabilita_iran: -3, blocca_avanzamento: true },
-    effects_description: '🎯 DEFCON -1 · 🌍 Opinione Iran +2 · 🏛️ Stab. Iran -3 · ⏸ Blocca avanzamento',
+    effects_description: '🚨 DEFCON -1 · 📣 Opinione Iran +2 · ⚖️ Stab. Iran -3 · ⏸ Blocca avanzamento',
   },
   {
     event_id: 'E75', event_name: 'Unità Nazionale Emergenza',
@@ -657,7 +657,7 @@ const EVENTI_POLITICI: EventoCard[] = [
     description: 'Di fronte alla crisi, l\'Iran si compatta: fazioni rivali dichiarano tregua, il popolo si stringe attorno al regime.',
     flavor_text: '"La pressione esterna ha fatto quello che la propaganda non riusciva: unire gli iraniani." — Osservatore',
     effects: { delta_nucleare: +1, delta_opinione: +1, delta_risorse_iran: +1, delta_stabilita_iran: +3 },
-    effects_description: '☢️ Nucleare +1 · 🌍 Opinione Iran +1 · 📦 Risorse Iran +1 · 🏛️ Stab. Iran +3',
+    effects_description: '☢️ Nucleare +1 · 📣 Opinione Iran +1 · 💵 Risorse Iran +1 · ⚖️ Stab. Iran +3',
   },
 ];
 
@@ -697,7 +697,7 @@ export const CATEGORY_ICONS: Record<EventCategory, string> = {
   Militare:    '⚔️',
   Diplomatico: '🤝',
   Economico:   '💰',
-  Politico:    '🏛️',
+  Politico:    '⚖️',
 };
 
 // Colori per severity

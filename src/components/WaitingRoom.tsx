@@ -753,7 +753,7 @@ export default function WaitingRoom({
                       : 'bg-transparent border-[#1e3a5f] text-[#445566] hover:border-[#2a4a7f]'
                   }`}
                 >
-                  🌍 AVANZATA
+                  📣 AVANZATA
                   <p className="text-[10px] font-normal mt-0.5 text-[#667788]">+7 cubi iniziali</p>
                 </button>
               </div>

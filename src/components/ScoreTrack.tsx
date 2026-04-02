@@ -233,7 +233,7 @@ export const ScoreTrack: React.FC<Props> = ({ gameId, factions }) => {
                   🗺️ Territori controllati:{' '}
                   <span className="text-[#8899aa]">{s.puntiTerritorio} pt</span>
                 </span>
-                <span className="text-[#334455] italic">🎯 Obiettivi: segreti</span>
+                <span className="text-[#334455] italic">🚨 Obiettivi: segreti</span>
               </div>
             </div>
           ))}

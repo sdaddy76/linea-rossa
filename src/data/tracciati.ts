@@ -153,7 +153,7 @@ export const TUTTI_TRACCIATI: Tracciato[] = [
     ],
   },
   {
-    id: 'TOG', nome: 'Opinione Globale', sigla: 'TOG', icona: '🌍',
+    id: 'TOG', nome: 'Opinione Globale', sigla: 'TOG', icona: '📣',
     descrizione: 'Consenso internazionale. Negativo = pro-Iran, Positivo = pro-Coalizione',
     min: -10, max: 10, defaultVal: 0, invertito: false,
     direzioneIran: 'Verso –10 → Iran favorito diplomaticamente',
@@ -299,7 +299,7 @@ export const TUTTI_TRACCIATI: Tracciato[] = [
     ],
   },
   {
-    id: 'SI', nome: 'Stabilità Interna', sigla: 'SI', icona: '🏛️',
+    id: 'SI', nome: 'Stabilità Interna', sigla: 'SI', icona: '⚖️',
     descrizione: 'Solidità del regime interno per ogni fazione',
     min: 1, max: 10, defaultVal: 6, invertito: false,
     direzioneIran: 'Mantenere a 7-10 → Regime blindato',

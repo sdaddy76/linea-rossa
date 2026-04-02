@@ -73,7 +73,7 @@ const TRACKS: TrackDef[] = [
     ],
   },
   {
-    id: 'opinione', label: 'Opinione Globale', icon: '🌍', min: -10, max: 10, color: '#ec4899',
+    id: 'opinione', label: 'Opinione Globale', icon: '📣', min: -10, max: 10, color: '#ec4899',
     getValue: s => s.opinione,
     zones: [
       { from: -10, to: -6, color: '#22c55e', bg: '#22c55e22', label: 'Pro-Iran' },
@@ -141,7 +141,7 @@ const FACTION_TRACKS: Record<string, FactionTrackDef[]> = {
     { id: 'risorse_iran',             label: 'Risorse Economiche', icon: '💰', min: 1, max: 10, color: '#f59e0b', zones: ZONE_STANDARD,       isPO: true },
     { id: 'forze_militari_iran',      label: 'Forze Militari',     icon: '⚔️', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
     { id: 'tecnologia_nucleare_iran', label: 'Tecnologia Nucleare',icon: '☢️', min: 1, max: 10, color: '#22c55e', zones: ZONE_NUCLEARE_IRAN },
-    { id: 'stabilita_iran',           label: 'Stabilità Interna',  icon: '🏛️', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STABILITA,      isIndicator: true },
+    { id: 'stabilita_iran',           label: 'Stabilità Interna',  icon: '⚖️', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STABILITA,      isIndicator: true },
   ],
   Coalizione: [
     { id: 'risorse_coalizione',               label: 'Risorse Militari',      icon: '🪖', min: 1, max: 15, color: '#3b82f6', zones: ZONE_MILITARI_15, isPO: true },
@@ -152,7 +152,7 @@ const FACTION_TRACKS: Record<string, FactionTrackDef[]> = {
   Russia: [
     { id: 'risorse_russia',           label: 'Energia / Risorse',  icon: '⛽', min: 1, max: 10, color: '#f97316', zones: ZONE_STANDARD,  isPO: true },
     { id: 'influenza_militare_russia',label: 'Influenza Militare', icon: '🪖', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
-    { id: 'veto_onu_russia',          label: 'Veto ONU',           icon: '🏛️', min: 0, max: 3,  color: '#fbbf24', zones: ZONE_VETO },
+    { id: 'veto_onu_russia',          label: 'Veto ONU',           icon: '⚖️', min: 0, max: 3,  color: '#fbbf24', zones: ZONE_VETO },
     { id: 'stabilita_economica_russia',label:'Stabilità Economica',icon: '💹', min: 1, max: 10, color: '#a3e635', zones: ZONE_STABILITA, isIndicator: true },
   ],
   Cina: [
@@ -732,7 +732,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   border border-[#8b5cf640] hover:border-[#8b5cf6] rounded px-2 py-1
                   transition-colors bg-[#8b5cf608]"
                 title="Visualizza i tuoi obiettivi segreti">
-                🎯 OBJ
+                🚨 OBJ
               </button>
             )}
           </div>
@@ -1343,17 +1343,17 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                         )}
                         {move.delta_defcon !== 0 && (
                           <span className={`text-[10px] font-mono px-1 rounded ${move.delta_defcon < 0 ? 'text-[#ef4444] bg-[#ef444420]' : 'text-[#22c55e] bg-[#22c55e20]'}`}>
-                            🎯{move.delta_defcon > 0 ? '+' : ''}{move.delta_defcon}
+                            🚨{move.delta_defcon > 0 ? '+' : ''}{move.delta_defcon}
                           </span>
                         )}
                         {move.delta_opinione !== 0 && (
                           <span className={`text-[10px] font-mono px-1 rounded text-[#ec4899] bg-[#ec489920]`}>
-                            🌍{move.delta_opinione > 0 ? '+' : ''}{move.delta_opinione}
+                            📣{move.delta_opinione > 0 ? '+' : ''}{move.delta_opinione}
                           </span>
                         )}
                         {move.delta_risorse !== 0 && (
                           <span className={`text-[10px] font-mono px-1 rounded ${move.delta_risorse > 0 ? 'text-[#f59e0b] bg-[#f59e0b20]' : 'text-[#8899aa] bg-[#8899aa20]'}`}>
-                            📦{move.delta_risorse > 0 ? '+' : ''}{move.delta_risorse}
+                            💵{move.delta_risorse > 0 ? '+' : ''}{move.delta_risorse}
                           </span>
                         )}
                       </div>

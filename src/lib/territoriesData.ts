@@ -137,7 +137,7 @@ export const UNITS: UnitDef[] = [
   {
     type: 'ForzeSpeciali',
     label: 'Forze Speciali (JSOC/SAS)',
-    icon: '🎯',
+    icon: '🚨',
     faction: 'Coalizione',
     attackBonus: 3, defenseBonus: 1,
     cost: 3,

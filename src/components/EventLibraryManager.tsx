@@ -290,7 +290,7 @@ export default function EventLibraryManager({ onClose }: { onClose: () => void }
               <div className="p-4 rounded-xl border border-[#22c55e] bg-[#22c55e08] space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-mono font-bold text-[#22c55e]">📦 Usa eventi built-in</p>
+                    <p className="text-sm font-mono font-bold text-[#22c55e]">💵 Usa eventi built-in</p>
                     <p className="text-[11px] text-[#8899aa] font-mono mt-0.5">
                       75 eventi già codificati dal regolamento ufficiale
                     </p>

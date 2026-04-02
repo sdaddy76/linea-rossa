@@ -42,7 +42,7 @@ function normalizeFaction(raw: string): string {
 }
 
 // ─── Riconosce righe separatore (non sono carte) ─────────────────────────────
-const SEP_REGEX = /^(🇮🇷|🇺🇸|🇪🇺|🇷🇺|🇨🇳|🇮🇱|📦|\s*(IRAN|COALIZIONE|EUROPA|RUSSIA|CINA|ISRAELE))/i;
+const SEP_REGEX = /^(🇮🇷|🇺🇸|🇪🇺|🇷🇺|🇨🇳|🇮🇱|💵|\s*(IRAN|COALIZIONE|EUROPA|RUSSIA|CINA|ISRAELE))/i;
 // ID_REGEX allargato: accetta qualsiasi stringa alfanumerica con trattini, anche corta
 const ID_REGEX  = /^[A-Za-z0-9][A-Za-z0-9_\-]{1,30}$/;
 
@@ -122,7 +122,7 @@ export function parseBotCardsExcel(file: File): Promise<BotCardParseResult> {
           const rawId = String(row[idx.id] ?? '').trim();
 
           if (!rawId) continue;
-          if (SEP_REGEX.test(rawId) || rawId.startsWith('⬆') || rawId.startsWith('📦')) continue;
+          if (SEP_REGEX.test(rawId) || rawId.startsWith('⬆') || rawId.startsWith('💵')) continue;
           if (!ID_REGEX.test(rawId)) {
             warnings.push(`Riga ${r + 1}: ID "${rawId}" non valido — saltato.`);
             continue;

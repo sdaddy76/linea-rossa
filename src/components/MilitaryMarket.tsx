@@ -163,7 +163,7 @@ export default function MilitaryMarket({ faction, gameState, carteOpDisponibili,
             {/* DEFCON */}
             <div className="bg-[#111827] rounded-xl p-3 border border-[#1e3a5f] space-y-2">
               <div className="flex items-center gap-1.5">
-                <span className="text-base">🎯</span>
+                <span className="text-base">🚨</span>
                 <span className="text-[10px] text-gray-400 font-mono">DEFCON</span>
               </div>
               <div className="text-center">

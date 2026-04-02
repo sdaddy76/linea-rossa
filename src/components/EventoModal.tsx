@@ -49,14 +49,14 @@ export default function EventoModal({ evento, onConfirm, isMyTurn, currentFactio
   const deltas: { icon: string; label: string; value: number }[] = [
     { icon: '☢️',  label: 'Nucleare',  value: ef.delta_nucleare ?? 0 },
     { icon: '💰',  label: 'Sanzioni',  value: ef.delta_sanzioni ?? 0 },
-    { icon: '🌍',  label: 'Opinione',  value: ef.delta_opinione ?? 0 },
-    { icon: '🎯',  label: 'DEFCON',    value: ef.delta_defcon ?? 0 },
+    { icon: '📣',  label: 'Opinione',  value: ef.delta_opinione ?? 0 },
+    { icon: '🚨',  label: 'DEFCON',    value: ef.delta_defcon ?? 0 },
     { icon: '🇮🇷',  label: 'Ris. Iran', value: ef.delta_risorse_iran ?? 0 },
     { icon: '🏳️',  label: 'Ris. Coal.', value: ef.delta_risorse_coalizione ?? 0 },
     { icon: '🇷🇺',  label: 'Ris. Russia', value: ef.delta_risorse_russia ?? 0 },
     { icon: '🇨🇳',  label: 'Ris. Cina', value: ef.delta_risorse_cina ?? 0 },
     { icon: '🇪🇺',  label: 'Ris. Europa', value: ef.delta_risorse_europa ?? 0 },
-    { icon: '🏛️',  label: 'Stab. Iran', value: ef.delta_stabilita_iran ?? 0 },
+    { icon: '⚖️',  label: 'Stab. Iran', value: ef.delta_stabilita_iran ?? 0 },
   ].filter(d => d.value !== 0);
 
   return (

@@ -4,7 +4,7 @@
 //
 // STEP 0 — Scegli azione:
 //   🏭 Acquista Unità Militari
-//   🌍 Influenza Territorio
+//   📣 Influenza Territorio
 //   ⚔️  Attacca Territorio
 //
 // STEP 1a — Acquista Unità: seleziona tipo unità (max OP)
@@ -216,7 +216,7 @@ export default function OpsActionModal({
         {[
           { id: 'buy'       as OpsAction, icon: '🏭', label: 'Acquista Unità Militari',
             desc: `Spendi OP per schierare nuove unità nel tuo pool` },
-          { id: 'influence' as OpsAction, icon: '🌍', label: 'Influenza Territorio',
+          { id: 'influence' as OpsAction, icon: '📣', label: 'Influenza Territorio',
             desc: `+1 influenza per OP speso in un territorio (max ${opPoints})` },
           { id: 'attack'    as OpsAction, icon: '⚔️',  label: 'Attacca Territorio',
             desc: `Usa ${opPoints} OP + forza unità per attaccare, risolvi con i dadi` },
@@ -329,7 +329,7 @@ export default function OpsActionModal({
   // ─────────────────────────────────────────────────────────────────
   if (step === 'influence') return (
     <Wrapper onCancel={onCancel} fColor={fColor}>
-      <Header title="🌍 Influenza Territorio" sub={`Spendi OP per guadagnare influenza`} />
+      <Header title="📣 Influenza Territorio" sub={`Spendi OP per guadagnare influenza`} />
       <div className="px-5 py-4 space-y-2 max-h-[50vh] overflow-y-auto">
         {TERRITORIES.map(t => {
           const rec = territories.find(r => r.territory === t.id);
@@ -392,7 +392,7 @@ export default function OpsActionModal({
           className="w-full py-3 rounded-xl font-black font-mono text-sm transition-all
             disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ backgroundColor: infTerritory ? fColor : '#334455', color: '#0a0e1a' }}>
-          {loading ? '⏳ Elaborazione…' : `🌍 CONFERMA +${infOp} INFLUENZA`}
+          {loading ? '⏳ Elaborazione…' : `📣 CONFERMA +${infOp} INFLUENZA`}
         </button>
         <BackBtn onBack={() => setStep('choose')} />
       </div>

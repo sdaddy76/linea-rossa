@@ -11,5 +11,5 @@ export const CARD_TYPE_COLORS: Record<string, string> = {
 };
 export const CARD_TYPE_ICONS: Record<string, string> = {
   Militare: '⚔️', Diplomatico: '🤝', Economico: '💰',
-  Segreto: '🕵️', Media: '📡', Evento: '⚡', Politico: '🏛️',
+  Segreto: '🕵️', Media: '📡', Evento: '⚡', Politico: '⚖️',
 };

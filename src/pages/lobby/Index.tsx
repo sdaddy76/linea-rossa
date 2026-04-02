@@ -470,7 +470,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
             <button onClick={() => setShowObjectiveLibrary(true)}
               className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#8b5cf6]
                 text-[#8899aa] hover:text-[#8b5cf6] rounded-lg font-mono text-xs transition-colors">
-              🎯 Obiettivi
+              🚨 Obiettivi
             </button>
             <button onClick={() => { setShowStats(true); loadPlayerStats(); }}
               className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#22c55e]

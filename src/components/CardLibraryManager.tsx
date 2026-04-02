@@ -658,7 +658,7 @@ export default function CardLibraryManager({ onClose }: Props) {
                   <table className="w-full text-[10px] font-mono">
                     <thead className="sticky top-0 bg-[#0d1421]">
                       <tr className="border-b border-[#1e3a5f]">
-                        {['#','Codice','Nome','Fazione','Tipo','Mazzo','OP','Δ☢️','Δ💰','Δ🎯','Δ🌍','Δ📦','Δ🛡','Collegata','Descrizione'].map(h => (
+                        {['#','Codice','Nome','Fazione','Tipo','Mazzo','OP','Δ☢️','Δ💰','Δ🚨','Δ📣','Δ💵','Δ🛡','Collegata','Descrizione'].map(h => (
                           <th key={h} className="px-2 py-2 text-left text-[#8899aa] font-bold whitespace-nowrap">
                             {h}
                           </th>

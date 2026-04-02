@@ -88,7 +88,7 @@ const TRACK_OPTIONS: Record<Faction, { key: string; label: string; icon: string 
   Iran: [
     { key: 'nucleare',             label: 'Nucleare',          icon: '☢️' },
     { key: 'risorse_iran',         label: 'Risorse',           icon: '💰' },
-    { key: 'stabilita_iran',       label: 'Stabilità Interna', icon: '🏛️' },
+    { key: 'stabilita_iran',       label: 'Stabilità Interna', icon: '⚖️' },
     { key: 'forze_militari_iran',  label: 'Forze Militari',    icon: '⚔️' },
     { key: 'tecnologia_nucleare_iran', label: 'Tecnologia Nuc.', icon: '🔬' },
   ],
@@ -103,7 +103,7 @@ const TRACK_OPTIONS: Record<Faction, { key: string; label: string; icon: string 
     { key: 'risorse_russia',              label: 'Energia/Risorse',       icon: '⚡' },
     { key: 'influenza_militare_russia',   label: 'Influenza Militare',    icon: '🪖' },
     { key: 'forze_militari_russia',       label: 'Forze Militari',        icon: '⚔️' },
-    { key: 'stabilita_russia',            label: 'Stabilità Economica',   icon: '🏛️' },
+    { key: 'stabilita_russia',            label: 'Stabilità Economica',   icon: '⚖️' },
   ],
   Cina: [
     { key: 'risorse_cina',              label: 'Potenza Economica',      icon: '💹' },
@@ -164,7 +164,7 @@ export default function PlayerActionPanel({
     const mods: string[] = [];
     // Stabilità propria alta aiuta
     const myStab = (state as Record<string, number>)[`stabilita_${myFaction.toLowerCase()}`] ?? 5;
-    if (myStab >= 7) { thr -= 1; mods.push(`🏛️ Stabilità ${myFaction} ≥ 7: -1 soglia`); }
+    if (myStab >= 7) { thr -= 1; mods.push(`⚖️ Stabilità ${myFaction} ≥ 7: -1 soglia`); }
     // Opinione favorevole
     if (state.opinione > 2) { thr -= 1; mods.push(`📣 Opinione +${state.opinione}: -1 soglia`); }
     // DEFCON basso complica la diplomazia

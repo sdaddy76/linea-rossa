@@ -194,7 +194,7 @@ export function ObjectivesSection({ myFaction, myObjectives, gameState, onMarkCo
         onClick={() => setCollapsed(c => !c)}
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm">🎯</span>
+          <span className="text-sm">🚨</span>
           <span
             className="font-mono text-[10px] font-bold uppercase tracking-widest"
             style={{ color: fColor }}
