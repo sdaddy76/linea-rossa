@@ -46,7 +46,7 @@ function getDeltas(card: GameCard | DeckCard) {
     .map(([key, fn]) => {
       if (!fn) return null;
       const ref = DEFAULT_VALS[key] ?? 5;
-      const delta = fn(ref) - ref;
+      const delta = fn(ref);  // fn restituisce già il delta (es. -2), non il nuovo valore
       if (delta === 0) return null;
       const info = TRACK_INFO[key];
       if (!info) return null;
