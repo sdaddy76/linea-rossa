@@ -837,7 +837,7 @@ export function getUnifiedDeck(): UnifiedCard[] {
  * Dimensione mano iniziale per fazione nel mazzo unificato.
  * Default: 4 carte a testa. Può essere configurata.
  */
-export const UNIFIED_HAND_SIZE = 4;
+export const UNIFIED_HAND_SIZE = 5;
 /** Quante carte si pesca per turno in modalità unificata. */
 export const UNIFIED_DRAW_PER_TURN = 1;
 
