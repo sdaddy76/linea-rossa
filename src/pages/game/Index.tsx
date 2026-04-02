@@ -1223,7 +1223,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       setShowOpsModal(true);
                     } else {
                       // FIX: salva l'id prima di qualsiasi await; chiudi sempre il modal
-                      const cardIdToPlay = unifiedCardToPlay.id;
+                      const cardIdToPlay = unifiedCardToPlay.card_id;
                       console.log('[onPlay evento] mode:', mode, 'cardId:', cardIdToPlay);
                       try {
                         await playCardUnified(cardIdToPlay, mode);
@@ -1248,15 +1248,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   loading={loading}
                   onCancel={() => { setShowOpsModal(false); setSelectedUnifiedCard(null); }}
                   onBuyUnits={async (unitType, qty, _opSpent) => {
-                    await playCardOps(unifiedCardToPlay.id, 'buy', { unitType, qty });
+                    await playCardOps(unifiedCardToPlay.card_id, 'buy', { unitType, qty });
                     setShowOpsModal(false); setSelectedUnifiedCard(null);
                   }}
                   onInfluence={async (territory, opSpent) => {
-                    await playCardOps(unifiedCardToPlay.id, 'influence', { territory, opSpent });
+                    await playCardOps(unifiedCardToPlay.card_id, 'influence', { territory, opSpent });
                     setShowOpsModal(false); setSelectedUnifiedCard(null);
                   }}
                   onAttack={async (params) => {
-                    await playCardOps(unifiedCardToPlay.id, 'attack', {
+                    await playCardOps(unifiedCardToPlay.card_id, 'attack', {
                       territory: params.territory,
                       unitTypes: params.unitTypes,
                       attackForce: params.attackForce,

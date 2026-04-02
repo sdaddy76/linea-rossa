@@ -1446,9 +1446,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           played_at_turn: get().game?.current_turn ?? null,
           held_by_faction: null,
           play_mode: 'ops',
-        }).eq('id', cardId);
+        }).eq('card_id', cardId);
         set(s => ({
-          deckCards: s.deckCards.filter(dc => dc.id !== cardId),
+          deckCards: s.deckCards.filter(dc => dc.card_id !== cardId),
           loading: false,
         }));
         return;
