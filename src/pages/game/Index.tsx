@@ -543,6 +543,27 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     return () => clearTimeout(t);
   }, [gameState?.active_faction, isBotThinking, game?.status]);
 
+  // ── Reload automatico deckCards se mano vuota (timing issue) ────────────
+  useEffect(() => {
+    if (!game?.id || game.status !== 'active' || !myFaction) return;
+    // Se dopo 3s la mano è ancora vuota, ricarica il mazzo dal DB
+    const t = setTimeout(async () => {
+      const handCount = deckCards.filter(
+        dc => dc.status === 'in_hand' && dc.held_by_faction === myFaction
+      ).length;
+      if (handCount === 0) {
+        const { supabase } = await import('@/integrations/supabase/client');
+        const { data } = await supabase
+          .from('cards_deck').select('*').eq('game_id', game.id)
+          .in('status', ['available', 'in_hand', 'special_locked']).order('position');
+        if (data && data.length > 0) {
+          useOnlineGameStore.setState({ deckCards: data });
+        }
+      }
+    }, 3000);
+    return () => clearTimeout(t);
+  }, [game?.id, game?.status, myFaction, deckCards.length]);
+
   if (!game || !gameState) return (
     <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
       <div className="text-center space-y-2">

@@ -711,9 +711,24 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       })
       .subscribe();
 
-    // Real-time: carte giocate (rimuove da deckCards quando status → 'played')
+    // Helper: ricarica TUTTO il mazzo dal DB (usato al primo load e su INSERT)
+    const reloadDeckCards = async () => {
+      const { data } = await supabase
+        .from('cards_deck').select('*').eq('game_id', gameId)
+        .in('status', ['available', 'in_hand', 'special_locked']).order('position');
+      if (data) set({ deckCards: data as DeckCard[] });
+    };
+
+    // Real-time: carte INSERT (primo popolamento mazzo) + UPDATE (played/in_hand)
     const deckSub = supabase
       .channel(`deck-${gameId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'cards_deck',
+        filter: `game_id=eq.${gameId}`,
+      }, () => {
+        // Nuovo batch inserito (es. avvio partita) → ricarica tutto
+        reloadDeckCards();
+      })
       .on('postgres_changes', {
         event: 'UPDATE', schema: 'public', table: 'cards_deck',
         filter: `game_id=eq.${gameId}`,
@@ -729,13 +744,16 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           set(s => {
             const exists = s.deckCards.some(dc => dc.id === updatedCard.id);
             if (exists) {
-              // Aggiorna lo status e held_by_faction
               return { deckCards: s.deckCards.map(dc => dc.id === updatedCard.id ? updatedCard : dc) };
             } else {
-              // Carta non ancora in lista (es. primo load) → aggiunge
               return { deckCards: [...s.deckCards, updatedCard] };
             }
           });
+        } else {
+          // Qualsiasi altro update (es. held_by_faction cambia) → aggiorna in lista
+          set(s => ({
+            deckCards: s.deckCards.map(dc => dc.id === updatedCard.id ? updatedCard : dc),
+          }));
         }
       })
       .subscribe();
