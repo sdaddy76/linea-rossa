@@ -364,7 +364,7 @@ export default function WaitingRoom({
       if (deckRows.length > 0) {
         const { error: deckErr } = await supabase
           .from('cards_deck')
-          .upsert(deckRows, { onConflict: 'game_id,card_id', ignoreDuplicates: true });
+          .upsert(deckRows, { onConflict: 'game_id,card_id', ignoreDuplicates: false });
         if (deckErr) { console.error('[startGame] deck upsert err:', deckErr); throw deckErr; }
       }
 
