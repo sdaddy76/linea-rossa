@@ -374,22 +374,20 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
     try {
       // ── 1. Trova la carta nel mazzo DB ──────────────────────────────
-      const { data: deckCard, error: deckErr } = await supabase
+      // Query permissiva: cerca per card_id + faction, qualsiasi status != 'played'
+      // Evita filtri su held_by_faction/status che causano falsi negativi per timing issues
+      const { data: deckCards_found, error: deckErr } = await supabase
         .from('cards_deck')
         .select('*')
         .eq('game_id', game.id)
         .eq('card_id', cardId)
-        .eq('faction', myFaction)          // filtra per fazione
-        .eq('held_by_faction', myFaction)  // deve essere in mano a me
-        .eq('status', 'in_hand')
-        .maybeSingle();
+        .eq('faction', myFaction)
+        .neq('status', 'played')
+        .order('position')
+        .limit(1);
 
-      // Fallback: se non trovata in_hand, cerca available (compatibilità partite precedenti)
-      const { data: deckCardFallback } = deckCard ? { data: null } : await supabase
-        .from('cards_deck').select('*').eq('game_id', game.id)
-        .eq('card_id', cardId).eq('faction', myFaction).eq('status', 'available').maybeSingle();
-      const resolvedCard = deckCard ?? deckCardFallback;
-      if (!resolvedCard) throw new Error(`Carta non trovata nel mazzo: ${deckErr?.message ?? 'nessun record'}`);
+      const resolvedCard = (deckCards_found ?? [])[0] ?? null;
+      if (!resolvedCard) throw new Error(`Carta ${cardId} non trovata nel mazzo: ${deckErr?.message ?? 'nessun record'}`);
 
       // (errore già gestito sopra con fallback)
 
@@ -896,7 +894,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      // 1. Trova la carta nel DB tramite id univoco
+      // 1. Trova la carta nel DB tramite id univoco (UUID)
+      // Prima per UUID, poi fallback per card_id se UUID non trovato
       const { data: deckCard, error: deckErr } = await supabase
         .from('cards_deck')
         .select('*')
@@ -904,10 +903,19 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .eq('game_id', game.id)
         .maybeSingle();
 
-      if (deckErr) throw new Error(`Carta non trovata: ${deckErr?.message}`);
-      if (!deckCard) throw new Error(`Carta ${cardDbId} non trovata in mano`);
+      // Fallback: cerca per card_id (nel caso in cui cardDbId sia il card_id stringa, non l'UUID)
+      const { data: deckCardByCardId } = !deckCard ? await supabase
+        .from('cards_deck').select('*').eq('game_id', game.id)
+        .eq('card_id', cardDbId).eq('held_by_faction', myFaction)
+        .neq('status', 'played').order('position').limit(1)
+        : { data: null };
 
-      const ownerFaction = (deckCard.owner_faction ?? deckCard.faction) as Faction;
+      const resolvedDeckCard = deckCard ?? (deckCardByCardId as DeckCard[] | null)?.[0] ?? null;
+
+      if (deckErr && !resolvedDeckCard) throw new Error(`Carta non trovata: ${deckErr?.message}`);
+      if (!resolvedDeckCard) throw new Error(`Carta ${cardDbId} non trovata in mano`);
+
+      const ownerFaction = (resolvedDeckCard.owner_faction ?? resolvedDeckCard.faction) as Faction;
       const isMyCard = ownerFaction === myFaction;
 
       // 2. Recupera definizione carta con effetti
@@ -920,9 +928,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
               ...(MAZZI_PER_FAZIONE[ownerFaction] ?? []),
               ...(MAZZI_SPECIALI[ownerFaction] ?? []),
             ];
-      const cardDef = ownerDeck.find(c => c.card_id === deckCard.card_id) ?? {
-        card_id: deckCard.card_id,
-        card_name: deckCard.card_name,
+      const cardDef = ownerDeck.find(c => c.card_id === resolvedDeckCard.card_id) ?? {
+        card_id: resolvedDeckCard.card_id,
+        card_name: resolvedDeckCard.card_name,
         effects: {},
       };
 
@@ -974,14 +982,14 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       const [stateRes, deckRes] = await Promise.all([
         supabase.from('game_state').update(stateUpdate).eq('game_id', game.id),
-        supabase.from('cards_deck').update(cardUpdate).eq('id', cardDbId),
+        supabase.from('cards_deck').update(cardUpdate).eq('id', resolvedDeckCard.id),
       ]);
 
       if (stateRes.error) throw new Error(`Stato: ${stateRes.error.message}`);
       if (deckRes.error)  throw new Error(`Carta: ${deckRes.error.message}`);
 
       // Salva play_mode separatamente — non bloccante se colonna mancante
-      supabase.from('cards_deck').update({ play_mode: mode }).eq('id', cardDbId).then(({ error }) => {
+      supabase.from('cards_deck').update({ play_mode: mode }).eq('id', resolvedDeckCard.id).then(({ error }) => {
         if (error && error.code !== 'PGRST204' && error.code !== '42703') {
           console.warn('[playCardUnified] play_mode update warn:', error);
         }
@@ -1006,11 +1014,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       set(s => ({
         gameState: { ...s.gameState!, ...stateUpdate },
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
-        deckCards: s.deckCards.filter(dc => dc.id !== cardDbId),
+        deckCards: s.deckCards.filter(dc => dc.id !== resolvedDeckCard.id),
         loading: false,
         notification: mode === 'event'
-          ? `🎴 ${myFaction}: "${deckCard.card_name}" giocata come EVENTO`
-          : `⚙️ ${myFaction}: "${deckCard.card_name}" usata come ${deckCard.op_points} OP`,
+          ? `🎴 ${myFaction}: "${resolvedDeckCard.card_name}" giocata come EVENTO`
+          : `⚙️ ${myFaction}: "${resolvedDeckCard.card_name}" usata come ${resolvedDeckCard.op_points} OP`,
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
           condition: winCheck.condition ?? '',
@@ -1026,9 +1034,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         faction: myFaction,
         player_id: profile?.id,
         is_bot_move: false,
-        card_id: deckCard.card_id,
-        card_name: deckCard.card_name,
-        card_type: deckCard.card_type,
+        card_id: resolvedDeckCard.card_id,
+        card_name: resolvedDeckCard.card_name,
+        card_type: resolvedDeckCard.card_type,
         // deltas semplificati (dal risultato applyCardEffects se mode=event)
         delta_nucleare: (deltas as Record<string, number>).nucleare ?? 0,
         delta_sanzioni: (deltas as Record<string, number>).sanzioni ?? 0,
