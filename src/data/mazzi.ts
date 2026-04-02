@@ -67,7 +67,7 @@ export const MAZZO_IRAN: GameCard[] = [
     effects:{ nucleare:(v)=>-1, sanzioni:(v)=>2, opinione:(v)=>-2, risorse:(v)=>2, defcon:(v)=>v<=6?1:0 }},
 
   // --- Nuove carte (da Excel 2026) ---
-{ {card_id:'NI01', card_name:'Morte di Khamenei', faction:'Iran', card_type:'Politico', op_points:4, deck_type:'base', description:'Vuoto di potere a Teheran',
+  { card_id:'NI01', card_name:'Morte di Khamenei', faction:'Iran', card_type:'Politico', op_points:4, deck_type:'base', description:'Vuoto di potere a Teheran',
     effects:{opinione:(v)=>1, stabilita:(v)=>-2, nucleare:(v)=>1} },
   { card_id:'NI02', card_name:'Nomina Mojtaba Khamenei', faction:'Iran', card_type:'Politico', op_points:3, deck_type:'base', description:'Figlio nominato nuova Guida Suprema',
     effects:{opinione:(v)=>1, stabilita:(v)=>1} },
