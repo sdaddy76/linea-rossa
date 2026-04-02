@@ -36,7 +36,7 @@ export const MAZZO_IRAN: GameCard[] = [
   { card_id:'C033', card_name:'Negoziato JCPOA', faction:'Iran', card_type:'Diplomatico', op_points:3, deck_type:'base', description:'Ritorno al tavolo dei negoziati',
     effects:{ sanzioni:(v)=>2, defcon:(v)=>v<=6?1:0, risorse:(v)=>2 }},
   { card_id:'C034', card_name:'Sequestro Petroliera', faction:'Iran', card_type:'Militare', op_points:2, deck_type:'base', description:'Fermo di nave straniera nello Stretto',
-    effects:{ defcon:(v)=>v<=6?-1:0, risorse:(v)=>1, opinione:(v)=>v<=-3?1:-1 }},
+    effects:{ defcon:(v)=>v<=6?-1:0, risorse:(v)=>1, opinione:(v)=>-1 }},
   { card_id:'C035', card_name:'Asse della Resistenza', faction:'Iran', card_type:'Militare', op_points:3, deck_type:'base', description:'Coordinamento con milizie regionali',
     effects:{ defcon:(v)=>v<=6?-1:0, stabilita:(v)=>1, risorse:(v)=>-1 }},
   { card_id:'C036', card_name:'Cyber Difesa', faction:'Iran', card_type:'Segreto', op_points:2, deck_type:'base', description:'Potenziamento sicurezza informatica',

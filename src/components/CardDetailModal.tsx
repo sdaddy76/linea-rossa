@@ -38,7 +38,7 @@ function getDeltas(card: GameCard | DeckCard) {
       if (!fn) return null;
       const ref = key === 'defcon' ? 6 : key === 'opinione' ? 0 : 5;
       const result = fn(ref);
-      const delta = result - ref;
+      const delta = result; // fn restituisce già il delta
       if (delta === 0) return null;
       const info = TRACK_INFO[key];
       if (!info) return null;
