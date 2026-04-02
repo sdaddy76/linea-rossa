@@ -382,12 +382,12 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .eq('faction', myFaction)          // filtra per fazione
         .eq('held_by_faction', myFaction)  // deve essere in mano a me
         .eq('status', 'in_hand')
-        .single();
+        .maybeSingle();
 
       // Fallback: se non trovata in_hand, cerca available (compatibilità partite precedenti)
       const { data: deckCardFallback } = deckCard ? { data: null } : await supabase
         .from('cards_deck').select('*').eq('game_id', game.id)
-        .eq('card_id', cardId).eq('faction', myFaction).eq('status', 'available').single();
+        .eq('card_id', cardId).eq('faction', myFaction).eq('status', 'available').maybeSingle();
       const resolvedCard = deckCard ?? deckCardFallback;
       if (!resolvedCard) throw new Error(`Carta non trovata nel mazzo: ${deckErr?.message ?? 'nessun record'}`);
 
@@ -884,9 +884,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .select('*')
         .eq('id', cardDbId)
         .eq('game_id', game.id)
-        .single();
+        .maybeSingle();
 
-      if (deckErr || !deckCard) throw new Error(`Carta non trovata: ${deckErr?.message}`);
+      if (deckErr) throw new Error(`Carta non trovata: ${deckErr?.message}`);
+      if (!deckCard) throw new Error(`Carta ${cardDbId} non trovata in mano`);
 
       const ownerFaction = (deckCard.owner_faction ?? deckCard.faction) as Faction;
       const isMyCard = ownerFaction === myFaction;
