@@ -373,7 +373,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
 
   // ── Mazzo unificato: carta selezionata per la scelta modale ─────────────────
-  // selectedUnifiedCard = DeckCard.id (UUID) della carta in mano selezionata
+  // selectedUnifiedCard = DeckCard.card_id (es. 'C025') — stabile, non UUID del DB
   const [selectedUnifiedCard, setSelectedUnifiedCard] = useState<string | null>(null);
   // Quando il giocatore sceglie "USA PUNTI OP" → mostra OpsActionModal
   const [showOpsModal, setShowOpsModal] = useState(false);
@@ -381,7 +381,8 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   // Mano corrente nel mazzo unificato (DeckCard con status='in_hand' e held_by_faction=me)
   const myHandCards = isUnified ? myHand() : [];
   // Carta selezionata per il modale
-  const unifiedCardToPlay = myHandCards.find(dc => dc.id === selectedUnifiedCard) ?? null;
+  // Cerca per card_id (stabile) non per UUID DB
+  const unifiedCardToPlay = myHandCards.find(dc => dc.card_id === selectedUnifiedCard) ?? null;
 
   // ── Sistema eventi ───────────────────────────────────────────────────────
   // Logica: all'inizio di OGNI turno (quando active_faction torna a 'Iran' con
@@ -1014,10 +1015,10 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                             <UnifiedHandCard
                               dc={dc}
                               myFaction={myFaction!}
-                              selected={selectedUnifiedCard === dc.id}
+                              selected={selectedUnifiedCard === dc.card_id}
                               disabled={!isMyTurn || isBotThinking}
                               onToggle={() => setSelectedUnifiedCard(
-                                selectedUnifiedCard === dc.id ? null : dc.id
+                                selectedUnifiedCard === dc.card_id ? null : dc.card_id
                               )}
                             />
                           </div>

@@ -894,26 +894,21 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      // 1. Trova la carta nel DB tramite id univoco (UUID)
-      // Prima per UUID, poi fallback per card_id se UUID non trovato
-      const { data: deckCard, error: deckErr } = await supabase
+      // 1. Trova la carta nel DB tramite card_id stabile (es. 'C025') — mai UUID
+      // Cerca tra le carte non ancora giocate assegnate a questa fazione
+      const { data: found, error: deckErr } = await supabase
         .from('cards_deck')
         .select('*')
-        .eq('id', cardDbId)
         .eq('game_id', game.id)
-        .maybeSingle();
+        .eq('card_id', cardDbId)
+        .neq('status', 'played')
+        .order('position')
+        .limit(1);
 
-      // Fallback: cerca per card_id (nel caso in cui cardDbId sia il card_id stringa, non l'UUID)
-      const { data: deckCardByCardId } = !deckCard ? await supabase
-        .from('cards_deck').select('*').eq('game_id', game.id)
-        .eq('card_id', cardDbId).eq('held_by_faction', myFaction)
-        .neq('status', 'played').order('position').limit(1)
-        : { data: null };
+      const resolvedDeckCard = (found ?? [])[0] ?? null;
 
-      const resolvedDeckCard = deckCard ?? (deckCardByCardId as DeckCard[] | null)?.[0] ?? null;
-
-      if (deckErr && !resolvedDeckCard) throw new Error(`Carta non trovata: ${deckErr?.message}`);
-      if (!resolvedDeckCard) throw new Error(`Carta ${cardDbId} non trovata in mano`);
+      if (deckErr) throw new Error(`Carta non trovata: ${deckErr?.message}`);
+      if (!resolvedDeckCard) throw new Error(`Carta ${cardDbId} non trovata nel mazzo`);
 
       const ownerFaction = (resolvedDeckCard.owner_faction ?? resolvedDeckCard.faction) as Faction;
       const isMyCard = ownerFaction === myFaction;
