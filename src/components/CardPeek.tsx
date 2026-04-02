@@ -21,22 +21,57 @@ interface CardPeekProps {
 
 // ─── Tracciati ────────────────────────────────
 const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean }> = {
+  // ─── Globali ───────────────────────────────────────────────────────────────
   nucleare:  { icon: '☢️', label: 'Nucleare',  posGood: false },
   sanzioni:  { icon: '🔒', label: 'Sanzioni',  posGood: false },
   opinione:  { icon: '📣', label: 'Opinione',  posGood: true  },
   defcon:    { icon: '🚨', label: 'DEFCON',    posGood: true  },
   risorse:   { icon: '💵', label: 'Risorse',   posGood: true  },
   stabilita: { icon: '⚖️', label: 'Stabilità', posGood: true  },
+  // ─── Iran 🇮🇷 ───────────────────────────────────────────────────────────────
+  risorse_iran:               { icon: '💵', label: '💵🇮🇷 Ris.',       posGood: true  },
+  forze_militari_iran:        { icon: '⚔️', label: '⚔️🇮🇷 Forze',     posGood: true  },
+  tecnologia_nucleare_iran:   { icon: '🔬', label: '🔬🇮🇷 Tecn.',      posGood: true  },
+  stabilita_iran:             { icon: '⚖️', label: '⚖️🇮🇷 Stab.',      posGood: true  },
+  // ─── Coalizione 🇺🇸 ─────────────────────────────────────────────────────────
+  risorse_coalizione:                  { icon: '💵', label: '💵🇺🇸 Ris.',      posGood: true  },
+  influenza_diplomatica_coalizione:    { icon: '🤝', label: '🤝🇺🇸 InfDip.',   posGood: true  },
+  tecnologia_avanzata_coalizione:      { icon: '💻', label: '💻🇺🇸 Tecn.',     posGood: true  },
+  supporto_pubblico_coalizione:        { icon: '📢', label: '📢🇺🇸 Supp.',     posGood: true  },
+  stabilita_coalizione:                { icon: '⚖️', label: '⚖️🇺🇸 Stab.',     posGood: true  },
+  // ─── Russia 🇷🇺 ──────────────────────────────────────────────────────────────
+  risorse_russia:             { icon: '💵', label: '💵🇷🇺 Ris.',       posGood: true  },
+  influenza_militare_russia:  { icon: '🎖️', label: '🎖️🇷🇺 InfMil.',   posGood: true  },
+  veto_onu_russia:            { icon: '🏛️', label: '🏛️🇷🇺 Veto',       posGood: true  },
+  stabilita_economica_russia: { icon: '📊', label: '📊🇷🇺 StabEc.',    posGood: true  },
+  stabilita_russia:           { icon: '⚖️', label: '⚖️🇷🇺 Stab.',      posGood: true  },
+  // ─── Cina 🇨🇳 ────────────────────────────────────────────────────────────────
+  risorse_cina:               { icon: '💵', label: '💵🇨🇳 Ris.',       posGood: true  },
+  influenza_commerciale_cina: { icon: '🏪', label: '🏪🇨🇳 InfCom.',   posGood: true  },
+  cyber_warfare_cina:         { icon: '🖥️', label: '🖥️🇨🇳 Cyber',     posGood: true  },
+  stabilita_rotte_cina:       { icon: '🚢', label: '🚢🇨🇳 Rotte',      posGood: true  },
+  stabilita_cina:             { icon: '⚖️', label: '⚖️🇨🇳 Stab.',      posGood: true  },
+  // ─── Europa 🇪🇺 ──────────────────────────────────────────────────────────────
+  risorse_europa:              { icon: '💵', label: '💵🇪🇺 Ris.',      posGood: true  },
+  influenza_diplomatica_europa:{ icon: '🕊️', label: '🕊️🇪🇺 InfDip.',  posGood: true  },
+  aiuti_umanitari_europa:      { icon: '❤️', label: '❤️🇪🇺 Aiuti',    posGood: true  },
+  coesione_ue_europa:          { icon: '🌐', label: '🌐🇪🇺 Coesione', posGood: true  },
+  stabilita_europa:            { icon: '⚖️', label: '⚖️🇪🇺 Stab.',     posGood: true  },
 };
 
 // Valori medi realistici usati per la preview dei badge
 const DEFAULT_VALS: Record<string, number> = {
-  nucleare:  5,   // scala 0-15, valore medio
-  sanzioni:  10,  // scala 1-20, valore medio
-  opinione:  0,   // scala -10..+10, neutro
-  defcon:    7,   // scala 1-10, tensione latente
-  risorse:   5,   // scala 0-10, valore medio
-  stabilita: 5,   // scala 0-10, valore medio
+  nucleare:  5,
+  sanzioni:  10,
+  opinione:  0,
+  defcon:    7,
+  risorse:   5,
+  stabilita: 5,
+  risorse_iran: 5, forze_militari_iran: 5, tecnologia_nucleare_iran: 5, stabilita_iran: 5,
+  risorse_coalizione: 5, influenza_diplomatica_coalizione: 5, tecnologia_avanzata_coalizione: 5, supporto_pubblico_coalizione: 5, stabilita_coalizione: 5,
+  risorse_russia: 5, influenza_militare_russia: 5, veto_onu_russia: 2, stabilita_economica_russia: 5, stabilita_russia: 5,
+  risorse_cina: 5, influenza_commerciale_cina: 5, cyber_warfare_cina: 5, stabilita_rotte_cina: 5, stabilita_cina: 5,
+  risorse_europa: 5, influenza_diplomatica_europa: 5, aiuti_umanitari_europa: 5, coesione_ue_europa: 5, stabilita_europa: 5,
 };
 
 function getDeltas(card: GameCard | DeckCard) {
