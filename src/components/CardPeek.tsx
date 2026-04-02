@@ -158,11 +158,12 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {deltas.map(d => {
-                      const positive = d.posGood ? d.delta > 0 : d.delta < 0;
-                      const color = positive ? '#22c55e' : '#ef4444';
-                      // Mostra sempre +N se benefico, -N se dannoso (indipendente dal segno grezzo)
+                      const isGood = d.posGood ? d.delta > 0 : d.delta < 0;
+                      const color = isGood ? '#22c55e' : '#ef4444';
+                      // Segno e freccia REALI sempre (rispecchiano il delta effettivo)
                       const displayVal = Math.abs(d.delta);
-                      const displaySign = positive ? '+' : '-';
+                      const sign = d.delta > 0 ? '+' : '-';
+                      const arrow = d.delta > 0 ? '▲' : '▼';
                       return (
                         <div
                           key={d.key}
@@ -170,8 +171,8 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
                           style={{ backgroundColor: `${color}12`, borderColor: `${color}33`, color }}
                         >
                           <span>{d.icon}</span>
-                          <span>{displaySign}{displayVal}</span>
-                          <span className="text-[10px]">{positive ? '▲' : '▼'}</span>
+                          <span>{sign}{displayVal}</span>
+                          <span className="text-[10px]">{arrow}</span>
                         </div>
                       );
                     })}

@@ -229,8 +229,9 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {deltas.map(d => {
-                  const positive = d.posGood ? d.delta > 0 : d.delta < 0;
-                  const color = positive ? '#22c55e' : '#ef4444';
+                  const isGood = d.posGood ? d.delta > 0 : d.delta < 0;
+                  const color = isGood ? '#22c55e' : '#ef4444';
+                  const arrow = d.delta > 0 ? '▲' : '▼';
                   return (
                     <div
                       key={d.key}
@@ -252,9 +253,9 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
                       </div>
                       <span
                         className="text-xs font-black"
-                        style={{ color: positive ? '#22c55e' : '#ef4444' }}
+                        style={{ color }}
                       >
-                        {positive ? '▲' : '▼'}
+                        {arrow}
                       </span>
                     </div>
                   );
