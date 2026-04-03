@@ -406,7 +406,29 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       };
 
       // ── 3. Applica effetti e calcola prossimo stato ──────────────────
-      const { newState, deltas } = applyCardEffects(cardDef as Parameters<typeof applyCardEffects>[0], gameState, myFaction);
+      const { newState: rawNewState, deltas } = applyCardEffects(cardDef as Parameters<typeof applyCardEffects>[0], gameState, myFaction);
+
+      // ── MECCANICA VETO RUSSIA ─────────────────────────────────────────
+      // Se le sanzioni aumentano AND Russia ha veti disponibili AND Russia è in gioco
+      let newState = rawNewState;
+      let vetoUsato = false;
+      const vetoDisponibili = gameState.veto_onu_russia ?? 0;
+      const russiaIsActive = players.some(p => p.faction === 'Russia');
+      if (
+        (rawNewState.sanzioni ?? gameState.sanzioni) > gameState.sanzioni &&
+        russiaIsActive &&
+        vetoDisponibili > 0 &&
+        myFaction !== 'Russia'
+      ) {
+        newState = {
+          ...rawNewState,
+          sanzioni: gameState.sanzioni,           // annulla aumento sanzioni
+          veto_onu_russia: vetoDisponibili - 1,   // consuma 1 veto
+        };
+        vetoUsato = true;
+      }
+      // ─────────────────────────────────────────────────────────────────
+
       const merged = { ...gameState, ...newState } as GameState;
       const winCheck = checkWinCondition(merged, game.current_turn, game.max_turns);
 
@@ -448,7 +470,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
         deckCards: s.deckCards.filter(dc => dc.id !== resolvedCard.id),
         loading: false,
-        notification: `✅ ${myFaction}: "${resolvedCard.card_name}" giocata — turno di ${nextFact}`,
+        notification: `✅ ${myFaction}: "${resolvedCard.card_name}" giocata — turno di ${nextFact}`
+          + (vetoUsato ? ` | 🏛️ Russia usa VETO ONU (${vetoDisponibili - 1} rimasti)` : ''),
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
           condition: winCheck.condition ?? '',
@@ -595,7 +618,29 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       await new Promise(r => setTimeout(r, 1200));
 
       // Applica la carta scelta
-      const { newState, deltas } = applyCardEffects(decision.card, gameState, botFaction);
+      const { newState: botRawState, deltas } = applyCardEffects(decision.card, gameState, botFaction);
+
+      // ── MECCANICA VETO RUSSIA (bot turn) ──────────────────────────────
+      let botNewState = botRawState;
+      let botVetoUsato = false;
+      const botVetoDisp = gameState.veto_onu_russia ?? 0;
+      const botRussiaActive = players.some(p => p.faction === 'Russia');
+      if (
+        (botRawState.sanzioni ?? gameState.sanzioni) > gameState.sanzioni &&
+        botRussiaActive &&
+        botVetoDisp > 0 &&
+        botFaction !== 'Russia'
+      ) {
+        botNewState = {
+          ...botRawState,
+          sanzioni: gameState.sanzioni,
+          veto_onu_russia: botVetoDisp - 1,
+        };
+        botVetoUsato = true;
+      }
+      // ─────────────────────────────────────────────────────────────────
+
+      const newState = botNewState;
       const merged = { ...gameState, ...newState } as GameState;
       const winCheck = checkWinCondition(merged, game.current_turn, game.max_turns);
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(botFaction);
@@ -638,7 +683,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         // Rimuove carta bot giocata dall'array locale
         deckCards: s.deckCards.filter(dc => dc.card_id !== decision.card.card_id || dc.faction !== botFaction),
         isBotThinking: false,
-        notification: `🤖 ${botFaction} ha giocato: ${decision.card.card_name}`,
+        notification: `🤖 ${botFaction} ha giocato: ${decision.card.card_name}`
+          + (botVetoUsato ? ` | 🏛️ Russia usa VETO ONU (${botVetoDisp - 1} rimasti)` : ''),
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
           condition: winCheck.condition ?? '',
@@ -852,6 +898,14 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
     const isUnified = game.game_mode === 'unified';
     const drawN = isUnified ? UNIFIED_DRAW_PER_TURN : CLASSIC_DRAW_PER_TURN;
+    const maxHand = isUnified ? UNIFIED_HAND_SIZE : CLASSIC_HAND_SIZE;
+
+    // Controlla quante carte ha già in mano — non superare il massimo
+    const cardsInHand = deckCards.filter(dc =>
+      dc.status === 'in_hand' && dc.held_by_faction === faction
+    ).length;
+    const canDraw = Math.max(0, Math.min(drawN, maxHand - cardsInHand));
+    if (canDraw === 0) return; // mano già piena
 
     // In modalità classica: pesca solo dal mazzo della propria fazione (faction === dc.faction)
     // In modalità unificata: pesca dal mazzo comune (qualsiasi fazione)
@@ -862,7 +916,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         (isUnified || dc.faction === faction)   // ← classico: solo carte proprie
       )
       .sort((a, b) => a.position - b.position)
-      .slice(0, drawN);
+      .slice(0, canDraw);
 
     if (available.length === 0) return; // mazzo esaurito
 
@@ -949,6 +1003,25 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         );
         newState = { ...gameState, ...result.newState };
         deltas = result.deltas;
+
+        // ── MECCANICA VETO RUSSIA (playCardUnified) ───────────────────
+        const unifiedVetoDisp = gameState.veto_onu_russia ?? 0;
+        const unifiedRussiaActive = players.some(p => p.faction === 'Russia');
+        if (
+          (newState.sanzioni ?? gameState.sanzioni) > gameState.sanzioni &&
+          unifiedRussiaActive &&
+          unifiedVetoDisp > 0 &&
+          myFaction !== 'Russia'
+        ) {
+          newState = {
+            ...newState,
+            sanzioni: gameState.sanzioni,
+            veto_onu_russia: unifiedVetoDisp - 1,
+          };
+          (deltas as Record<string, number>).sanzioni = 0;
+          console.log('[playCardUnified] VETO RUSSIA applicato — sanzioni bloccate, veti rimasti:', unifiedVetoDisp - 1);
+        }
+        // ─────────────────────────────────────────────────────────────
         console.log('[playCardUnified] effetti applicati:', deltas, '| isMyCard:', isMyCard, '| ownerFaction:', ownerFaction);
       } else if (mode === 'event' && !isOwnOrNeutral) {
         // Carta altrui (non neutrale) giocata come evento: nessun modificatore tracciati
