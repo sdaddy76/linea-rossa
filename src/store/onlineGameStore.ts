@@ -33,6 +33,7 @@ interface OnlineGameStore {
   isBotThinking: boolean;
   gameOverInfo: { winner?: Faction; condition: string; message: string } | null;
   notification: string | null;
+  vetoPending: { sanzioniDelta: number; cardName: string } | null;
 
   // Actions
   initAuth: () => Promise<void>;
@@ -130,6 +131,7 @@ interface OnlineGameStore {
    * Marca un obiettivo come completato e aggiorna il punteggio in Supabase.
    */
   markObjectiveComplete: (objId: string, completed: boolean) => Promise<void>;
+  useVeto: (use: boolean) => Promise<void>;
 }
 
 export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
@@ -146,10 +148,45 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   isBotThinking: false,
   gameOverInfo: null,
   notification: null,
+  vetoPending: null,
   territories: [],
   militaryUnits: [],
   combatLog: [],
   myObjectives: [],
+
+  // ── VETO ONU Russia: manuale ─────────────────────────────────────────
+  useVeto: async (use: boolean) => {
+    const { gameState, game, vetoPending } = get();
+    if (!vetoPending || !gameState || !game) return;
+    try {
+      let newState = { ...gameState };
+      if (use) {
+        // Consuma 1 veto e NON aumenta le sanzioni
+        newState = {
+          ...gameState,
+          veto_onu_russia: (gameState.veto_onu_russia ?? 1) - 1,
+        };
+        await supabase.from('game_state').update({ veto_onu_russia: newState.veto_onu_russia }).eq('game_id', game.id);
+        set(s => ({
+          gameState: { ...s.gameState!, veto_onu_russia: newState.veto_onu_russia },
+          vetoPending: null,
+          notification: `🏛️ Russia ha usato il VETO ONU — sanzioni bloccate (${newState.veto_onu_russia} rimasti)`,
+        }));
+      } else {
+        // Non usa il veto: le sanzioni aumentano normalmente
+        const newSanzioni = gameState.sanzioni + vetoPending.sanzioniDelta;
+        newState = { ...gameState, sanzioni: newSanzioni };
+        await supabase.from('game_state').update({ sanzioni: newSanzioni }).eq('game_id', game.id);
+        set(s => ({
+          gameState: { ...s.gameState!, sanzioni: newSanzioni },
+          vetoPending: null,
+          notification: `Russia non usa il veto — sanzioni aumentate di +${vetoPending.sanzioniDelta}`,
+        }));
+      }
+    } catch (err) {
+      set({ vetoPending: null, error: 'Errore veto Russia' });
+    }
+  },
 
   // -----------------------------------------------
   initAuth: async () => {
@@ -408,24 +445,28 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // ── 3. Applica effetti e calcola prossimo stato ──────────────────
       const { newState: rawNewState, deltas } = applyCardEffects(cardDef as Parameters<typeof applyCardEffects>[0], gameState, myFaction);
 
-      // ── MECCANICA VETO RUSSIA ─────────────────────────────────────────
-      // Se le sanzioni aumentano AND Russia ha veti disponibili AND Russia è in gioco
+      // ── VETO RUSSIA: manuale (gestito da VetoModal) ─────────────────
       let newState = rawNewState;
-      let vetoUsato = false;
-      const vetoDisponibili = gameState.veto_onu_russia ?? 0;
       const russiaIsActive = players.some(p => p.faction === 'Russia');
+      const vetoDisponibili = gameState.veto_onu_russia ?? 0;
       if (
         (rawNewState.sanzioni ?? gameState.sanzioni) > gameState.sanzioni &&
         russiaIsActive &&
         vetoDisponibili > 0 &&
         myFaction !== 'Russia'
       ) {
-        newState = {
-          ...rawNewState,
-          sanzioni: gameState.sanzioni,           // annulla aumento sanzioni
-          veto_onu_russia: vetoDisponibili - 1,   // consuma 1 veto
-        };
-        vetoUsato = true;
+        const sanzioniDelta = (rawNewState.sanzioni ?? gameState.sanzioni) - gameState.sanzioni;
+        if (players.find(p => p.faction === 'Russia')?.is_bot) {
+          // Bot Russia: usa veto automaticamente solo se sanzioni alte
+          if ((gameState.sanzioni ?? 0) >= 12) {
+            newState = { ...rawNewState, sanzioni: gameState.sanzioni, veto_onu_russia: vetoDisponibili - 1 };
+          }
+          // altrimenti newState rimane rawNewState (sanzioni aumentano)
+        } else {
+          // Giocatore Russia reale: mostra popup — salva vetoPending e BLOCCA
+          set({ vetoPending: { sanzioniDelta, cardName: resolvedCard.card_name }, loading: false });
+          return; // il turno proseguirà quando Russia risponde via useVeto()
+        }
       }
       // ─────────────────────────────────────────────────────────────────
 
@@ -470,8 +511,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
         deckCards: s.deckCards.filter(dc => dc.id !== resolvedCard.id),
         loading: false,
-        notification: `✅ ${myFaction}: "${resolvedCard.card_name}" giocata — turno di ${nextFact}`
-          + (vetoUsato ? ` | 🏛️ Russia usa VETO ONU (${vetoDisponibili - 1} rimasti)` : ''),
+        notification: `✅ ${myFaction}: "${resolvedCard.card_name}" giocata — turno di ${nextFact}`,
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
           condition: winCheck.condition ?? '',
@@ -620,9 +660,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // Applica la carta scelta
       const { newState: botRawState, deltas } = applyCardEffects(decision.card, gameState, botFaction);
 
-      // ── MECCANICA VETO RUSSIA (bot turn) ──────────────────────────────
+      // ── VETO RUSSIA: bot Russia usa veto se sanzioni >= 12 ──────────
       let botNewState = botRawState;
-      let botVetoUsato = false;
       const botVetoDisp = gameState.veto_onu_russia ?? 0;
       const botRussiaActive = players.some(p => p.faction === 'Russia');
       if (
@@ -631,12 +670,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         botVetoDisp > 0 &&
         botFaction !== 'Russia'
       ) {
-        botNewState = {
-          ...botRawState,
-          sanzioni: gameState.sanzioni,
-          veto_onu_russia: botVetoDisp - 1,
-        };
-        botVetoUsato = true;
+        // Russia è un bot: usa veto automaticamente solo se sanzioni alte
+        if ((gameState.sanzioni ?? 0) >= 12) {
+          botNewState = { ...botRawState, sanzioni: gameState.sanzioni, veto_onu_russia: botVetoDisp - 1 };
+        }
       }
       // ─────────────────────────────────────────────────────────────────
 
@@ -683,8 +720,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         // Rimuove carta bot giocata dall'array locale
         deckCards: s.deckCards.filter(dc => dc.card_id !== decision.card.card_id || dc.faction !== botFaction),
         isBotThinking: false,
-        notification: `🤖 ${botFaction} ha giocato: ${decision.card.card_name}`
-          + (botVetoUsato ? ` | 🏛️ Russia usa VETO ONU (${botVetoDisp - 1} rimasti)` : ''),
+        notification: `🤖 ${botFaction} ha giocato: ${decision.card.card_name}`,
         gameOverInfo: winCheck.isOver ? {
           winner: winCheck.winner,
           condition: winCheck.condition ?? '',
@@ -1004,7 +1040,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         newState = { ...gameState, ...result.newState };
         deltas = result.deltas;
 
-        // ── MECCANICA VETO RUSSIA (playCardUnified) ───────────────────
+        // ── VETO RUSSIA (playCardUnified): manuale o bot ─────────────
         const unifiedVetoDisp = gameState.veto_onu_russia ?? 0;
         const unifiedRussiaActive = players.some(p => p.faction === 'Russia');
         if (
@@ -1013,13 +1049,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           unifiedVetoDisp > 0 &&
           myFaction !== 'Russia'
         ) {
-          newState = {
-            ...newState,
-            sanzioni: gameState.sanzioni,
-            veto_onu_russia: unifiedVetoDisp - 1,
-          };
-          (deltas as Record<string, number>).sanzioni = 0;
-          console.log('[playCardUnified] VETO RUSSIA applicato — sanzioni bloccate, veti rimasti:', unifiedVetoDisp - 1);
+          const unifiedSanzioniDelta = (newState.sanzioni ?? gameState.sanzioni) - gameState.sanzioni;
+          const russiaPlayer = players.find(p => p.faction === 'Russia');
+          if (russiaPlayer?.is_bot) {
+            if ((gameState.sanzioni ?? 0) >= 12) {
+              newState = { ...newState, sanzioni: gameState.sanzioni, veto_onu_russia: unifiedVetoDisp - 1 };
+              (deltas as Record<string, number>).sanzioni = 0;
+            }
+          } else {
+            // Giocatore Russia reale: mostra popup
+            set({ vetoPending: { sanzioniDelta: unifiedSanzioniDelta, cardName: cardDef.card_name }, loading: false });
+            return;
+          }
         }
         // ─────────────────────────────────────────────────────────────
         console.log('[playCardUnified] effetti applicati:', deltas, '| isMyCard:', isMyCard, '| ownerFaction:', ownerFaction);

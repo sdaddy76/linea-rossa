@@ -17,6 +17,7 @@ import type { TerritoryState } from '@/components/TerritoryMap';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
 import EventoModal from '@/components/EventoModal';
+import VetoModal from '@/components/VetoModal';
 import UnifiedCardPlayModal from '@/components/UnifiedCardPlayModal';
 import OpsActionModal from '@/components/OpsActionModal';
 import { ClassicHandCard, UnifiedHandCard } from '@/components/HandCard';
@@ -190,6 +191,15 @@ function Segment({
       }}
     >
       {n}
+      {/* ─── VETO MODAL RUSSIA ─── */}
+      {vetoPending && myFaction === 'Russia' && (
+        <VetoModal
+          sanzioniDelta={vetoPending.sanzioniDelta}
+          cardName={vetoPending.cardName}
+          vetiRimasti={gameState?.veto_onu_russia ?? 0}
+          onDecide={(use) => useVeto(use)}
+        />
+      )}
     </div>
   );
 }
@@ -268,6 +278,15 @@ function FullTrack({
           </div>
         )}
       </div>
+      {/* ─── VETO MODAL RUSSIA ─── */}
+      {vetoPending && myFaction === 'Russia' && (
+        <VetoModal
+          sanzioniDelta={vetoPending.sanzioniDelta}
+          cardName={vetoPending.cardName}
+          vetiRimasti={gameState?.veto_onu_russia ?? 0}
+          onDecide={(use) => useVeto(use)}
+        />
+      )}
     </div>
   );
 }
@@ -311,6 +330,15 @@ function FactionSingleTrack({
           );
         })}
       </div>
+      {/* ─── VETO MODAL RUSSIA ─── */}
+      {vetoPending && myFaction === 'Russia' && (
+        <VetoModal
+          sanzioniDelta={vetoPending.sanzioniDelta}
+          cardName={vetoPending.cardName}
+          vetiRimasti={gameState?.veto_onu_russia ?? 0}
+          onDecide={(use) => useVeto(use)}
+        />
+      )}
     </div>
   );
 }
@@ -343,6 +371,15 @@ function FactionTrackCard({
           );
         })}
       </div>
+      {/* ─── VETO MODAL RUSSIA ─── */}
+      {vetoPending && myFaction === 'Russia' && (
+        <VetoModal
+          sanzioniDelta={vetoPending.sanzioniDelta}
+          cardName={vetoPending.cardName}
+          vetiRimasti={gameState?.veto_onu_russia ?? 0}
+          onDecide={(use) => useVeto(use)}
+        />
+      )}
     </div>
   );
 }
@@ -351,8 +388,8 @@ function FactionTrackCard({
 export default function GamePage({ onBack }: { onBack: () => void }) {
   const {
     game, gameState, players, myFaction, moves, deckCards,
-    loading, isBotThinking, error, gameOverInfo, notification,
-    playCard, startGame, clearError, setNotification, buyMilitaryResources,
+    loading, isBotThinking, error, gameOverInfo, notification, vetoPending,
+    playCard, startGame, clearError, setNotification, buyMilitaryResources, useVeto,
     loadTerritories, deployUnit, attackTerritory, addInfluence,
     runBotTurn, playCardUnified, playCardOps, drawCards, myHand,
     territories: terrRecords, militaryUnits: unitRecords,
@@ -1381,6 +1418,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           onClose={() => setShowObjectives(false)}
           onAssignNew={() => assignObjectivesToFaction(myFaction)}
           onMarkComplete={(objId) => markObjectiveComplete(objId, true)}
+        />
+      )}
+      {/* ─── VETO MODAL RUSSIA ─── */}
+      {vetoPending && myFaction === 'Russia' && (
+        <VetoModal
+          sanzioniDelta={vetoPending.sanzioniDelta}
+          cardName={vetoPending.cardName}
+          vetiRimasti={gameState?.veto_onu_russia ?? 0}
+          onDecide={(use) => useVeto(use)}
         />
       )}
     </div>
