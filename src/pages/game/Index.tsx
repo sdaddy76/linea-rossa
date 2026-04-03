@@ -152,7 +152,7 @@ const FACTION_TRACKS: Record<string, FactionTrackDef[]> = {
   Russia: [
     { id: 'risorse_russia',           label: 'Energia / Risorse',  icon: '⛽', min: 1, max: 10, color: '#f97316', zones: ZONE_STANDARD,  isPO: true },
     { id: 'influenza_militare_russia',label: 'Influenza Militare', icon: '🪖', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
-    { id: 'veto_onu_russia',          label: 'Veto ONU',           icon: '⚖️', min: 0, max: 3,  color: '#fbbf24', zones: ZONE_VETO },
+    { id: 'veto_onu_russia',          label: 'Veto ONU',           icon: '🏛️', min: 0, max: 3,  color: '#fbbf24', zones: ZONE_VETO },
     { id: 'stabilita_economica_russia',label:'Stabilità Economica',icon: '💹', min: 1, max: 10, color: '#a3e635', zones: ZONE_STABILITA, isIndicator: true },
   ],
   Cina: [
