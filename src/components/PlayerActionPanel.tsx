@@ -21,6 +21,7 @@ import { useState, useMemo } from 'react';
 import type { GameCard, GameState, Faction } from '@/types/game';
 import type { TerritoryId } from '@/lib/territoriesData';
 import { TERRITORIES, TERRITORY_MAP } from '@/lib/territoriesData';
+import { TRACK_TOOLTIPS } from '@/lib/tooltips';
 
 interface Props {
   card: GameCard & { name?: string };
@@ -264,6 +265,7 @@ export default function PlayerActionPanel({
 
           {/* 1. EVENTO */}
           <button onClick={() => { setView('evento'); doEvento(); }}
+            title="Gioca come EVENTO: applica gli effetti della carta ai tracciati"
             className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
               hover:border-[#00ff88] hover:bg-[#00ff8808] transition-all text-left group">
             <span className="text-xl">🎭</span>
@@ -273,6 +275,7 @@ export default function PlayerActionPanel({
 
           {/* 2. INFLUENZA */}
           <button onClick={() => setView('influenza')}
+            title="Usa i PO per piazzare cubi influenza in un territorio"
             className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
               hover:border-[#ec4899] hover:bg-[#ec489908] transition-all text-left group">
             <span className="text-xl">🌐</span>
@@ -285,6 +288,7 @@ export default function PlayerActionPanel({
 
           {/* 3. TRACCIATO */}
           <button onClick={() => setView('tracciato')}
+            title="Usa tutti i PO per incrementare un tracciato della tua fazione"
             className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
               hover:border-[#3b82f6] hover:bg-[#3b82f608] transition-all text-left group">
             <span className="text-xl">📈</span>
@@ -296,6 +300,7 @@ export default function PlayerActionPanel({
 
           {/* 4. ACQUISTO (apre mercato) */}
           <button onClick={() => { setView('acquisto'); doAcquisto(); }}
+            title="Usa i PO per acquistare unità militari o risorse nel mercato"
             className="flex flex-col items-start gap-1 p-3 rounded-lg border border-[#1e3a5f]
               hover:border-[#f59e0b] hover:bg-[#f59e0b08] transition-all text-left group">
             <span className="text-xl">⚔️</span>
@@ -494,6 +499,7 @@ export default function PlayerActionPanel({
               return (
                 <button key={opt.key}
                   onClick={() => setTrackKey(isSelected ? null : opt.key)}
+                  title={TRACK_TOOLTIPS[opt.key] ?? opt.label}
                   className={`flex items-center justify-between px-3 py-2 rounded-lg border transition-all font-mono text-xs
                     ${isSelected ? 'border-[#3b82f6] bg-[#3b82f610] text-white' : 'border-[#1e3a5f] text-[#8899aa] hover:border-[#2a4a7f]'}`}>
                   <span>{opt.icon} {opt.label}</span>

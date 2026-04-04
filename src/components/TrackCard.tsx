@@ -4,6 +4,7 @@ import { ChevronUp, ChevronDown, Minus, Plus } from 'lucide-react';
 import type { Tracciato } from '@/data/tracciati';
 import { getZonaAttiva, ZONA_COLORS } from '@/data/tracciati';
 import { useGameStore, type LogEntry } from '@/store/gameStore';
+import { TRACK_TOOLTIPS } from '@/lib/tooltips';
 
 // ── Barra segmentata interattiva ────────────────────────────────────
 function SegmentBar({ tracciato, valore }: { tracciato: Tracciato; valore: number }) {
@@ -141,7 +142,7 @@ export function TrackCard({ tracciato }: { tracciato: Tracciato }) {
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-lg">{tracciato.icona}</span>
+          <span className="text-lg" title={TRACK_TOOLTIPS[tracciato.id] ?? tracciato.nome}>{tracciato.icona}</span>
           <div>
             <div className="font-bold text-xs tracking-wider" style={{ color: '#e8e4d8', fontFamily: 'Share Tech Mono, monospace' }}>
               {tracciato.sigla}
@@ -169,7 +170,7 @@ export function TrackCard({ tracciato }: { tracciato: Tracciato }) {
         {/* Bottone Iran –1 */}
         <button onClick={() => step(-1, 'iran')} disabled={gameOver || valore <= tracciato.min}
           className="w-7 h-7 flex items-center justify-center rounded border text-xs transition-all hover:bg-green-900/30 disabled:opacity-30"
-          style={{ borderColor: '#22c55e44', color: '#4ade80' }} title="Iran –1">
+          style={{ borderColor: '#22c55e44', color: '#4ade80' }} title={`🇮🇷 Iran: diminuisci ${tracciato.nome} di 1`}>
           <Minus size={11} />
         </button>
 
@@ -181,6 +182,7 @@ export function TrackCard({ tracciato }: { tracciato: Tracciato }) {
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.18 }}
             className="text-3xl font-black"
+            title={`${tracciato.nome}: valore attuale ${valore} (range ${tracciato.min}–${tracciato.max})`}
             style={{ color: c.text, fontFamily: 'JetBrains Mono, monospace', textShadow: c.glow, lineHeight: 1 }}
           >
             {valore > 0 && tracciato.min < 0 ? `+${valore}` : valore}
@@ -193,7 +195,7 @@ export function TrackCard({ tracciato }: { tracciato: Tracciato }) {
         {/* Bottone Iran +1 */}
         <button onClick={() => step(1, 'iran')} disabled={gameOver || valore >= tracciato.max}
           className="w-7 h-7 flex items-center justify-center rounded border text-xs transition-all hover:bg-green-900/30 disabled:opacity-30"
-          style={{ borderColor: '#22c55e44', color: '#4ade80' }} title="Iran +1">
+          style={{ borderColor: '#22c55e44', color: '#4ade80' }} title={`🇮🇷 Iran: aumenta ${tracciato.nome} di 1`}>
           <Plus size={11} />
         </button>
       </div>

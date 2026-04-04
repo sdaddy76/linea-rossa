@@ -7,6 +7,7 @@ import type { Faction, GameState } from '@/types/game';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
 import { TERRITORIES, UNITS_BY_FACTION, UNIT_MAP, TERRITORY_MAP } from '@/lib/territoriesData';
 import { resolveCombat, checkHormuz } from '@/lib/combatEngine';
+import { ICON_TOOLTIPS } from '@/lib/tooltips';
 import type { CombatOutcome } from '@/lib/combatEngine';
 import type { TerritoryState } from '@/components/TerritoryMap';
 
@@ -223,7 +224,7 @@ export default function CombatPanel({
             className={`flex-1 py-2 text-[10px] font-mono font-bold transition-all
               ${mode === m ? 'text-white' : 'bg-[#0a0e1a] text-[#8899aa] hover:text-white'}`}
             style={mode === m ? { background: factionColor + '33', borderBottom: `2px solid ${factionColor}` } : {}}>
-            {m === 'roster' ? '📋 UNITÀ' : m === 'deploy' ? '🪖 SCHIERA' : '🚨 ATTACCA'}
+            {m === 'roster' ? <span title="Visualizza il roster completo delle tue unità">📋 UNITÀ</span> : m === 'deploy' ? <span title="Schiera unità in un territorio per rinforzarlo">🪖 SCHIERA</span> : <span title="Dichiara un attacco militare su un territorio nemico">🚨 ATTACCA</span>}
           </button>
         ))}
       </div>
@@ -256,10 +257,10 @@ export default function CombatPanel({
                   </div>
                   {/* Stats bar */}
                   <div className="flex gap-3 text-[9px] font-mono">
-                    <span className={u.attackBonus > 0 ? 'text-[#ef4444]' : 'text-[#374151]'}>
+                    <span title="Forza di Attacco" className={u.attackBonus > 0 ? 'text-[#ef4444]' : 'text-[#374151]'}>
                       ⚔️ ATK {u.attackBonus > 0 ? `+${u.attackBonus}` : '—'}
                     </span>
-                    <span className={u.defenseBonus > 0 ? 'text-[#22c55e]' : 'text-[#374151]'}>
+                    <span title="Forza di Difesa" className={u.defenseBonus > 0 ? 'text-[#22c55e]' : 'text-[#374151]'}>
                       🛡️ DEF {u.defenseBonus > 0 ? `+${u.defenseBonus}` : '—'}
                     </span>
                     <span className="text-[#8899aa]">💰 {u.cost} PO</span>
@@ -486,13 +487,13 @@ export default function CombatPanel({
               <p className="text-[#8899aa] text-[9px] mb-2 font-bold">⚙️ CALCOLO FORZE IN TEMPO REALE</p>
               <div className="grid grid-cols-2 gap-3 mb-2">
                 <div>
-                  <p className="text-[#ef4444] font-bold mb-1">⚔️ ATK: {preview.attackForce}</p>
+                  <p className="text-[#ef4444] font-bold mb-1" title="Forza totale di attacco calcolata">⚔️ ATK: {preview.attackForce}</p>
                   {preview.attackBreakdown.map((l, i) => (
                     <p key={i} className="text-[8px] text-[#6b7280] leading-tight">{l}</p>
                   ))}
                 </div>
                 <div>
-                  <p className="text-[#3b82f6] font-bold mb-1">🛡️ DEF: {preview.defenseForce}</p>
+                  <p className="text-[#3b82f6] font-bold mb-1" title="Forza totale di difesa calcolata">🛡️ DEF: {preview.defenseForce}</p>
                   {preview.defenseBreakdown.map((l, i) => (
                     <p key={i} className="text-[8px] text-[#6b7280] leading-tight">{l}</p>
                   ))}
@@ -551,7 +552,7 @@ export default function CombatPanel({
               <p className="font-bold text-[#3b82f6] text-sm">{lastOutcome.defenseForce}</p>
             </div>
             <div>
-              <p className="text-[#8899aa] text-[9px]">Δ DEFCON</p>
+              <p className="text-[#8899aa] text-[9px]" title="Variazione DEFCON — Allerta Guerra (1=guerra, 10=pace)">Δ DEFCON</p>
               <p className={`font-bold text-sm ${lastOutcome.defconChange < 0 ? 'text-[#ef4444]' : 'text-[#22c55e]'}`}>
                 {lastOutcome.defconChange >= 0 ? '+' : ''}{lastOutcome.defconChange}
               </p>

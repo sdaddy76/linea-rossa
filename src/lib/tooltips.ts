@@ -1,0 +1,61 @@
+export const TRACK_TOOLTIPS: Record<string, string> = {
+  // Globali
+  nucleare:   'Nucleare Iraniano (1-15) — vittoria Iran a 15',
+  sanzioni:   'Sanzioni Internazionali (1-20) — vittoria Coalizione a 20',
+  opinione:   'Opinione Globale (-10/+10) — negativo=pro-Iran, positivo=pro-Coalizione',
+  defcon:     'DEFCON Allerta Guerra (1-10) — 1=guerra tutti perdono, 10=pace',
+  risorse:    'Risorse Economiche/Militari della fazione',
+  stabilita:  'Stabilità Interna della fazione',
+  // Iran
+  risorse_iran:              '🇮🇷 Risorse Economiche Iran (1-10)',
+  forze_militari_iran:       '🇮🇷 Forze Militari Iran (1-10)',
+  tecnologia_nucleare_iran:  '🇮🇷 Tecnologia Nucleare Iran (1-10)',
+  stabilita_iran:            '🇮🇷 Stabilità Interna Iran (1-10)',
+  // Coalizione
+  risorse_coalizione:                '🇺🇸 Risorse Militari Coalizione (1-15)',
+  influenza_diplomatica_coalizione:  '🇺🇸 Influenza Diplomatica Coalizione (1-10)',
+  tecnologia_avanzata_coalizione:    '🇺🇸 Tecnologia Avanzata Coalizione (1-10)',
+  supporto_pubblico_coalizione:      '🇺🇸 Supporto Pubblico Coalizione (1-10)',
+  stabilita_coalizione:              '🇺🇸 Stabilità Coalizione (1-10)',
+  // Russia
+  risorse_russia:              '🇷🇺 Energia e Risorse Russia (1-10)',
+  influenza_militare_russia:   '🇷🇺 Influenza Militare Russia (1-10)',
+  veto_onu_russia:             '🇷🇺 Veto ONU Russia (0-3) — blocca aumento sanzioni',
+  stabilita_economica_russia:  '🇷🇺 Stabilità Economica Russia (1-10)',
+  stabilita_russia:            '🇷🇺 Stabilità Russia (1-10)',
+  // Cina
+  risorse_cina:              '🇨🇳 Potenza Economica Cina (1-12)',
+  influenza_commerciale_cina:'🇨🇳 Influenza Commerciale Cina (1-10)',
+  cyber_warfare_cina:        '🇨🇳 Capacità Cyber Warfare Cina (1-10)',
+  stabilita_rotte_cina:      '🇨🇳 Stabilità Rotte Commerciali Cina (1-10)',
+  stabilita_cina:            '🇨🇳 Stabilità Cina (1-10)',
+  // Europa
+  risorse_europa:              '🇪🇺 Stabilità Energetica Europa (1-10)',
+  influenza_diplomatica_europa:'🇪🇺 Influenza Diplomatica Europa (1-10)',
+  aiuti_umanitari_europa:      '🇪🇺 Aiuti Umanitari Europa (1-10)',
+  coesione_ue_europa:          '🇪🇺 Coesione Interna UE (1-10)',
+  stabilita_europa:            '🇪🇺 Stabilità Europa (1-10)',
+};
+
+export const ICON_TOOLTIPS: Record<string, string> = {
+  '☢️': 'Nucleare Iraniano',
+  '🔒': 'Sanzioni Internazionali',
+  '📣': 'Opinione Globale',
+  '🚨': 'DEFCON — Allerta Guerra',
+  '💵': 'Risorse',
+  '⚖️': 'Stabilità',
+  '⚔️': 'Forze Militari',
+  '🔬': 'Tecnologia Nucleare',
+  '🤝': 'Influenza Diplomatica',
+  '💻': 'Tecnologia Avanzata',
+  '📢': 'Supporto Pubblico',
+  '🎖️': 'Influenza Militare',
+  '🏛️': 'Veto ONU',
+  '📊': 'Stabilità Economica',
+  '🏪': 'Influenza Commerciale',
+  '🖥️': 'Cyber Warfare',
+  '🚢': 'Stabilità Rotte',
+  '🕊️': 'Influenza Diplomatica EU',
+  '❤️': 'Aiuti Umanitari',
+  '🌐': 'Coesione UE',
+};

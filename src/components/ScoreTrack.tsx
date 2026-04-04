@@ -179,7 +179,7 @@ export const ScoreTrack: React.FC<Props> = ({ gameId, factions }) => {
         onClick={() => setOpen(o => !o)}
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm">🏆</span>
+          <span className="text-sm" title="Classifica Punteggi">🏆</span>
           <span className="font-mono text-xs font-bold text-[#4a9eff] uppercase tracking-widest">
             Punteggi
           </span>
@@ -200,12 +200,12 @@ export const ScoreTrack: React.FC<Props> = ({ gameId, factions }) => {
               {/* Riga principale: fazione + punteggio */}
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <span className="text-base leading-none">{s.flag}</span>
+                  <span className="text-base leading-none" title={`${s.faction} — punteggio: ${s.totale} pt`}>{s.flag}</span>
                   <span className="font-mono font-bold" style={{ color: s.color }}>
                     {s.faction}
                   </span>
                   {i === 0 && s.totale > 0 && (
-                    <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-1 rounded font-mono">
+                    <span className="text-[10px] bg-yellow-500/20 text-yellow-400 px-1 rounded font-mono" title="In testa alla classifica">
                       👑 1°
                     </span>
                   )}
@@ -233,7 +233,7 @@ export const ScoreTrack: React.FC<Props> = ({ gameId, factions }) => {
                   🗺️ Territori controllati:{' '}
                   <span className="text-[#8899aa]">{s.puntiTerritorio} pt</span>
                 </span>
-                <span className="text-[#334455] italic">🚨 Obiettivi: segreti</span>
+                <span className="text-[#334455] italic" title="Gli obiettivi segreti non sono visibili agli avversari">🚨 Obiettivi: segreti</span>
               </div>
             </div>
           ))}

@@ -9,6 +9,7 @@ import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } from '@/data/mazzi';
 import type { GameCard } from '@/types/game';
 import MilitaryMarket from '@/components/MilitaryMarket';
 import { calcolaCosto, getForzeMilitari } from '@/lib/militaryMarket';
+import { TRACK_TOOLTIPS } from '@/lib/tooltips';
 import TerritoryMap from '@/components/TerritoryMap';
 import CombatPanel from '@/components/CombatPanel';
 import PlayerActionPanel from '@/components/PlayerActionPanel';
@@ -228,10 +229,10 @@ function FullTrack({
       {/* Header tracciato */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-base">{track.icon}</span>
-          <span className="font-mono text-xs font-bold text-white">{track.label}</span>
+          <span className="text-base" title={TRACK_TOOLTIPS[track.id] ?? track.label}>{track.icon}</span>
+          <span className="font-mono text-xs font-bold text-white" title={TRACK_TOOLTIPS[track.id] ?? track.label}>{track.label}</span>
           {/* Badge zona corrente */}
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold"
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded font-bold" title={`Zona corrente: ${currentZone.label ?? 'N/D'}`}
             style={{ color: currentZone.color, backgroundColor: `${currentZone.color}20`, border: `1px solid ${currentZone.color}40` }}>
             {currentZone.label}
           </span>
@@ -241,15 +242,15 @@ function FullTrack({
           {delta !== 0 && (
             <span className={`text-[10px] font-mono font-bold px-1 rounded ${
               delta > 0 ? 'text-[#22c55e] bg-[#22c55e20]' : 'text-[#ef4444] bg-[#ef444420]'
-            }`}>
+            }`} title={`Variazione rispetto al turno precedente: ${delta > 0 ? '+' : ''}${delta}`}>
               {delta > 0 ? '▲' : '▼'}{Math.abs(delta)}
             </span>
           )}
           {/* Valore corrente grande */}
-          <span className="font-mono text-xl font-bold" style={{ color: currentZone.color }}>
+          <span className="font-mono text-xl font-bold" title={`${track.label}: ${value} su ${track.max}`} style={{ color: currentZone.color }}>
             {value}
           </span>
-          <span className="text-[10px] text-[#334455] font-mono">/{track.max}</span>
+          <span className="text-[10px] text-[#334455] font-mono" title={`Range: 1–${track.max}`}>/{track.max}</span>
         </div>
       </div>
 

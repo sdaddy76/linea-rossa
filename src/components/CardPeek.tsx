@@ -263,6 +263,7 @@ export default function CardPeek({
               <button
                 onClick={() => { onPlayEvento(); }}
                 className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                title="Gioca come EVENTO: applica gli effetti meccanici ai tracciati"
                 style={{
                   background: '#22c55e20',
                   border: '1.5px solid #22c55e55',
@@ -278,6 +279,7 @@ export default function CardPeek({
               <button
                 onClick={() => { onPlayInfluenza(); }}
                 className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                title="Usa i Punti Operazione per piazzare influenza in un territorio"
                 style={{
                   background: '#3b82f620',
                   border: '1.5px solid #3b82f655',
@@ -293,6 +295,7 @@ export default function CardPeek({
               <button
                 onClick={() => { onPlayAttacco(); }}
                 className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                title="Usa i Punti Operazione per attaccare un territorio nemico"
                 style={{
                   background: '#ef444420',
                   border: '1.5px solid #ef444455',
@@ -308,6 +311,7 @@ export default function CardPeek({
               <button
                 onClick={() => { onPlayAcquisto(); }}
                 className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                title="Usa i Punti Operazione per acquistare unità militari o risorse"
                 style={{
                   background: '#f59e0b20',
                   border: '1.5px solid #f59e0b55',
