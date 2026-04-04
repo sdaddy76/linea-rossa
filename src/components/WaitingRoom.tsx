@@ -52,6 +52,9 @@ export default function WaitingRoom({
   const pendingOps = useRef(0);
   const onGameStartRef = useRef(onGameStart); // ref stabile — evita re-subscribe ad ogni render
   useEffect(() => { onGameStartRef.current = onGameStart; }, [onGameStart]);
+  // FIX: isMountedRef — previene setState su componente smontato (causa "message channel closed")
+  const isMountedRef = useRef(true);
+  useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
@@ -438,105 +441,118 @@ export default function WaitingRoom({
         .eq('id', gameId);
       if (gameErr) throw gameErr;
 
-      // Step 5b — colonne opzionali: allow_join, game_mode, special_mode, max_turns
-      // Ogni update è separato: se la colonna non esiste (400 / 42703) viene ignorato
+      // Step 5b — colonne opzionali: allow_join, game_mode, special_mode
+      // FIRE-AND-FORGET con catch: dopo step 5a il real-time può già aver triggerato
+      // onGameStart e smontato il componente. Queste Promise NON devono bloccare né
+      // aggiornare stato locale — altrimenti generano "message channel closed".
       if (mode === 'pubblico') {
-        try {
-          const { error: e } = await supabase.from('games').update({ allow_join: true }).eq('id', gameId);
-          if (e && e.code !== '42703' && e.code !== 'PGRST204') console.warn('[startGame] allow_join warn:', e);
-        } catch { /* colonna opzionale */ }
+        supabase.from('games').update({ allow_join: true }).eq('id', gameId)
+          .then(({ error: e }) => {
+            if (e && e.code !== '42703' && e.code !== 'PGRST204') console.warn('[startGame] allow_join warn:', e);
+          })
+          .catch(e => console.warn('[startGame] allow_join fire-and-forget catch:', e));
       }
-      try {
-        const { error: e } = await supabase.from('games').update({
-          game_mode: gameMode,
-          special_mode: specialMode,
-        }).eq('id', gameId);
-        if (e && e.code !== '42703' && e.code !== 'PGRST204') console.warn('[startGame] game_mode warn:', e);
-      } catch { /* colonne opzionali — migration non eseguita */ }
+      supabase.from('games').update({ game_mode: gameMode, special_mode: specialMode }).eq('id', gameId)
+        .then(({ error: e }) => {
+          if (e && e.code !== '42703' && e.code !== 'PGRST204') console.warn('[startGame] game_mode warn:', e);
+        })
+        .catch(e => console.warn('[startGame] game_mode fire-and-forget catch:', e));
 
       // Se modalità "speciali separate": ricrea i mazzi senza le carte speciali,
       // e inserisce le speciali come status='special_locked' (mazzo separato in DB)
+      // FIRE-AND-FORGET: dopo games.status=active il componente può essere smontato.
       if (specialMode === 'separate') {
-        // Rimuovi le speciali già inserite nel mazzo normale
-        await supabase.from('cards_deck')
-          .delete()
-          .eq('game_id', gameId)
-          .eq('deck_type', 'speciale');
+        (async () => {
+          try {
+            // Rimuovi le speciali già inserite nel mazzo normale
+            await supabase.from('cards_deck')
+              .delete()
+              .eq('game_id', gameId)
+              .eq('deck_type', 'speciale');
 
-        // Reinserisci le speciali come special_locked (mazzo separato, non pescabile)
-        const { MAZZI_SPECIALI } = await import('@/data/mazzi');
-        const specialRows: object[] = [];
-        const activeFactions = players
-          .filter(p => p.player_id || p.is_bot)
-          .map(p => p.faction) as Faction[];
-        let specPos = 1000; // posizioni alte per non confondersi col mazzo normale
-        for (const faction of activeFactions) {
-          const specCards = MAZZI_SPECIALI[faction] ?? [];
-          for (const card of specCards) {
-            specialRows.push({
-              game_id: gameId,
-              faction: card.faction,
-              owner_faction: faction,
-              card_id: card.card_id,
-              card_name: card.card_name,
-              card_type: card.card_type,
-              op_points: card.op_points,
-              deck_type: 'speciale_locked',
-              status: 'special_locked',
-              held_by_faction: null,
-              position: specPos++,
-            });
+            // Reinserisci le speciali come special_locked (mazzo separato, non pescabile)
+            const { MAZZI_SPECIALI } = await import('@/data/mazzi');
+            const specialRows: object[] = [];
+            const activeFactions = players
+              .filter(p => p.player_id || p.is_bot)
+              .map(p => p.faction) as Faction[];
+            let specPos = 1000;
+            for (const faction of activeFactions) {
+              const specCards = MAZZI_SPECIALI[faction] ?? [];
+              for (const card of specCards) {
+                specialRows.push({
+                  game_id: gameId,
+                  faction: card.faction,
+                  owner_faction: faction,
+                  card_id: card.card_id,
+                  card_name: card.card_name,
+                  card_type: card.card_type,
+                  op_points: card.op_points,
+                  deck_type: 'speciale_locked',
+                  status: 'special_locked',
+                  held_by_faction: null,
+                  position: specPos++,
+                });
+              }
+            }
+            if (specialRows.length > 0) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const { error: specErr } = await (supabase.from('cards_deck') as any)
+                .upsert(specialRows, { onConflict: 'game_id,card_id', ignoreDuplicates: true });
+              if (specErr) console.warn('[startGame] specialRows upsert warn:', specErr);
+            }
+          } catch (e) {
+            console.warn('[startGame] specialRows fire-and-forget catch:', e);
           }
-        }
-        if (specialRows.length > 0) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const { error: specErr } = await (supabase.from('cards_deck') as any)
-            .upsert(specialRows, { onConflict: 'game_id,card_id', ignoreDuplicates: true });
-          if (specErr) console.warn('[startGame] specialRows upsert warn:', specErr);
-        }
+        })();
       }
 
       // Se mazzo unificato: costruisci mazzo unico al posto dei mazzi separati
+      // FIRE-AND-FORGET: dopo games.status=active il componente può essere smontato.
       if (gameMode === 'unified') {
-        // Cancella i deck rows già inseriti sopra (mazzo classico) e crea il mazzo unificato
-        await supabase.from('cards_deck').delete().eq('game_id', gameId);
-        const { getUnifiedDeck, UNIFIED_HAND_SIZE } = await import('@/data/mazzi');
-        const allPlayers = [...players.filter(p => p.player_id || p.is_bot)];
-        const factions = allPlayers.map(p => p.faction) as Faction[];
-        const unified = getUnifiedDeck();
-        let pos = 1;
-        const unifiedRows: object[] = [];
-        let cardIdx = 0;
-        // Distribuisce le mani round-robin
-        for (let i = 0; i < UNIFIED_HAND_SIZE; i++) {
-          for (const f of factions) {
-            if (cardIdx >= unified.length) break;
-            const card = unified[cardIdx++];
-            unifiedRows.push({
-              game_id: gameId, faction: card.faction, owner_faction: card.owner_faction,
-              card_id: card.card_id, card_name: card.card_name, card_type: card.card_type,
-              op_points: card.op_points, deck_type: card.deck_type,
-              status: 'in_hand', held_by_faction: f, position: pos++,
-            });
+        (async () => {
+          try {
+            await supabase.from('cards_deck').delete().eq('game_id', gameId);
+            const { getUnifiedDeck, UNIFIED_HAND_SIZE } = await import('@/data/mazzi');
+            const allPlayers = [...players.filter(p => p.player_id || p.is_bot)];
+            const factions = allPlayers.map(p => p.faction) as Faction[];
+            const unified = getUnifiedDeck();
+            let pos = 1;
+            const unifiedRows: object[] = [];
+            let cardIdx = 0;
+            for (let i = 0; i < UNIFIED_HAND_SIZE; i++) {
+              for (const f of factions) {
+                if (cardIdx >= unified.length) break;
+                const card = unified[cardIdx++];
+                unifiedRows.push({
+                  game_id: gameId, faction: card.faction, owner_faction: card.owner_faction,
+                  card_id: card.card_id, card_name: card.card_name, card_type: card.card_type,
+                  op_points: card.op_points, deck_type: card.deck_type,
+                  status: 'in_hand', held_by_faction: f, position: pos++,
+                });
+              }
+            }
+            for (; cardIdx < unified.length; cardIdx++) {
+              const card = unified[cardIdx];
+              unifiedRows.push({
+                game_id: gameId, faction: card.faction, owner_faction: card.owner_faction,
+                card_id: card.card_id, card_name: card.card_name, card_type: card.card_type,
+                op_points: card.op_points, deck_type: card.deck_type,
+                status: 'available', held_by_faction: null, position: pos++,
+              });
+            }
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { error: unifiedErr } = await (supabase.from('cards_deck') as any)
+              .upsert(unifiedRows, { onConflict: 'game_id,card_id', ignoreDuplicates: false });
+            if (unifiedErr) console.error('[startGame] unifiedRows upsert err:', unifiedErr);
+          } catch (e) {
+            console.warn('[startGame] unified fire-and-forget catch:', e);
           }
-        }
-        // Resto: mazzo disponibile
-        for (; cardIdx < unified.length; cardIdx++) {
-          const card = unified[cardIdx];
-          unifiedRows.push({
-            game_id: gameId, faction: card.faction, owner_faction: card.owner_faction,
-            card_id: card.card_id, card_name: card.card_name, card_type: card.card_type,
-            op_points: card.op_points, deck_type: card.deck_type,
-            status: 'available', held_by_faction: null, position: pos++,
-          });
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: unifiedErr } = await (supabase.from('cards_deck') as any)
-          .upsert(unifiedRows, { onConflict: 'game_id,card_id', ignoreDuplicates: false });
-        if (unifiedErr) { console.error('[startGame] unifiedRows upsert err:', unifiedErr); throw unifiedErr; }
+        })();
       }
 
       // L'host viene notificato tramite real-time come tutti gli altri
+      // (le Promise fire-and-forget sopra continuano in background senza bloccare)
     } catch (err: unknown) {
       const pe = (typeof err === 'object' && err !== null) ? err as Record<string, string> : {};
       const msg = pe.message ?? (err instanceof Error ? err.message : 'Errore nell\'avvio');
@@ -549,8 +565,11 @@ export default function WaitingRoom({
       console.error('[WaitingRoom startGame] errore:', full, err);
       setError(full);
     } finally {
-      // ✅ SEMPRE resetta lo stato loading — anche in caso di successo o errore
-      setStarting(false);
+      // ✅ Resetta lo stato loading solo se il componente è ancora montato
+      // (evita setState su componente smontato dopo il navigate)
+      if (isMountedRef.current) {
+        setStarting(false);
+      }
     }
   };
 
