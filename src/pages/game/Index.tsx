@@ -20,6 +20,7 @@ import EventoModal from '@/components/EventoModal';
 import VetoModal from '@/components/VetoModal';
 import UnifiedCardPlayModal from '@/components/UnifiedCardPlayModal';
 import OpsActionModal from '@/components/OpsActionModal';
+import CardPeek from '@/components/CardPeek';
 import { ClassicHandCard, UnifiedHandCard } from '@/components/HandCard';
 import { FACTION_FLAGS, FACTION_COLORS, CARD_TYPE_COLORS } from '@/lib/factionColors';
 import type { EventoCard } from '@/data/eventi';
@@ -1131,67 +1132,31 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       </div>
                   )}
 
-                  {/* Azioni carta selezionata */}
+                  {/* CardPeek classico — 4 pulsanti azione unificati */}
                   {selectedCard && isMyTurn && (() => {
                     const cardDef = myCards.find(c => c.card_id === selectedCard);
                     if (!cardDef || !myFaction || !gameState) return null;
                     return (
-                      <div className="p-3 border-t border-[#1e3a5f]">
-                        {!showActionPanel ? (
-                          <button
-                            onClick={() => setShowActionPanel(true)}
-                            disabled={loading}
-                            className="w-full py-2.5 bg-[#00ff88] hover:bg-[#00dd77] disabled:opacity-50
-                              text-[#0a0e1a] font-bold font-mono rounded-lg text-sm tracking-wider
-                              shadow-lg shadow-[#00ff8830] transition-all">
-                            {loading ? '⏳ ELABORAZIONE...' : '▶ GIOCA — SCEGLI AZIONE'}
-                          </button>
-                        ) : (
-                          <PlayerActionPanel
-                            card={cardDef}
-                            myFaction={myFaction}
-                            state={gameState}
-                            selectedTerritory={selectedTerritory}
-                            territories={territoryState}
-                            onCancel={() => { setShowActionPanel(false); setSelectedCard(null); }}
-                            onAction={async (actionType: PlayerActionType, payload: PlayerActionPayload) => {
-                              // 1. INFLUENZA: influenza applicata solo su successo, carta SEMPRE scartata
-                              if (actionType === 'influenza') {
-                                if (payload.diceSuccess && payload.targetTerritory && (payload.influenceDelta ?? 0) > 0) {
-                                  try { await addInfluence(payload.targetTerritory, payload.influenceDelta!); }
-                                  catch (e) { console.warn('[influenza] addInfluence fallita (non bloccante):', e); }
-                                }
-                                // carta SEMPRE scartata e turno SEMPRE avanza — sia successo che fallimento dado
-                                await playCard(selectedCard!);
-
-                              // 2. TRACCIATO: applica delta al tracciato, poi gioca carta
-                              } else if (actionType === 'tracciato' && payload.trackKey && payload.trackDelta) {
-                                // Aggiorna direttamente il tracciato su Supabase tramite gameState update
-                                const { supabase } = await import('@/integrations/supabase/client');
-                                const { game: g, gameState: gs } = useOnlineGameStore.getState();
-                                if (g && gs) {
-                                  const cur = (gs as Record<string, number>)[payload.trackKey] ?? 0;
-                                  const next = Math.min(15, Math.max(0, cur + (payload.trackDelta ?? 0)));
-                                  await supabase.from('game_state')
-                                    .update({ [payload.trackKey]: next })
-                                    .eq('game_id', g.id);
-                                  useOnlineGameStore.setState(s => ({
-                                    gameState: { ...s.gameState!, [payload.trackKey!]: next },
-                                  }));
-                                }
-                                await playCard(selectedCard!);
-
-                              // 3. EVENTO / ACQUISTO: gioca direttamente la carta
-                              } else {
-                                await playCard(selectedCard!);
-                              }
-
-                              setSelectedCard(null);
-                              setShowActionPanel(false);
-                            }}
-                          />
-                        )}
-                      </div>
+                      <CardPeek
+                        card={cardDef}
+                        myFaction={myFaction}
+                        isMyTurn={isMyTurn}
+                        disabled={loading}
+                        onClose={() => { setSelectedCard(null); setShowActionPanel(false); }}
+                        onPlayEvento={async () => {
+                          await playCard(selectedCard!);
+                          setSelectedCard(null); setShowActionPanel(false);
+                        }}
+                        onPlayInfluenza={() => {
+                          setShowActionPanel(true);
+                        }}
+                        onPlayAttacco={() => {
+                          setShowCombat(true);
+                        }}
+                        onPlayAcquisto={() => {
+                          setShowMarket(true);
+                        }}
+                      />
                     );
                   })()}
 
@@ -1247,29 +1212,32 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                 />
               )}
 
-              {/* ── Modale gioco carta unificata ── */}
-              {unifiedCardToPlay && myFaction && (
-                <UnifiedCardPlayModal
+              {/* ── CardPeek unificata — 4 pulsanti azione ── */}
+              {selectedUnifiedCard && unifiedCardToPlay && myFaction && (
+                <CardPeek
                   card={unifiedCardToPlay}
                   myFaction={myFaction}
-                  loading={loading}
-                  onCancel={() => setSelectedUnifiedCard(null)}
-                  onPlay={async (mode) => {
-                    if (mode === 'ops') {
-                      // Apri OpsActionModal per scegliere l'azione
-                      setShowOpsModal(true);
-                    } else {
-                      // FIX: salva l'id prima di qualsiasi await; chiudi sempre il modal
-                      const cardIdToPlay = unifiedCardToPlay.card_id;
-                      console.log('[onPlay evento] mode:', mode, 'cardId:', cardIdToPlay);
-                      try {
-                        await playCardUnified(cardIdToPlay, mode);
-                      } catch (err) {
-                        console.error('[onPlay evento] errore non gestito:', err);
-                      } finally {
-                        setSelectedUnifiedCard(null);
-                      }
+                  isMyTurn={isMyTurn}
+                  disabled={loading}
+                  onClose={() => setSelectedUnifiedCard(null)}
+                  onPlayEvento={async () => {
+                    const cardIdToPlay = unifiedCardToPlay.card_id;
+                    try {
+                      await playCardUnified(cardIdToPlay, 'event');
+                    } catch (err) {
+                      console.error('[CardPeek evento] errore:', err);
+                    } finally {
+                      setSelectedUnifiedCard(null);
                     }
+                  }}
+                  onPlayInfluenza={() => {
+                    setShowOpsModal(true);
+                  }}
+                  onPlayAttacco={() => {
+                    setShowCombat(true);
+                  }}
+                  onPlayAcquisto={() => {
+                    setShowOpsModal(true);
                   }}
                 />
               )}

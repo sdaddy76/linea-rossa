@@ -3,7 +3,7 @@
 // Pannello di anteprima espansa che appare sopra la mano
 // quando l'utente clicca una carta.
 // Mostra la carta a dimensione 'lg' con tutti i dettagli
-// leggibili, senza occupare l'intero schermo.
+// leggibili + 4 pulsanti azione unificati.
 // =============================================
 import type { GameCard, DeckCard } from '@/types/game';
 import CardVisual, {
@@ -13,10 +13,15 @@ import CardVisual, {
 
 interface CardPeekProps {
   card: GameCard | DeckCard;
-  myFaction?: string;           // per distinguere carte proprie/altrui (mazzo unificato)
+  myFaction?: string;              // per distinguere carte proprie/altrui (mazzo unificato)
   onClose: () => void;
-  onPlay: () => void;           // seleziona la carta per giocarla
+  onPlay?: () => void;             // retrocompatibilità: singolo bottone legacy
+  onPlayEvento?: () => void;       // gioca come evento — applica effetti tracciati
+  onPlayInfluenza?: () => void;    // usa OP per influenza territorio
+  onPlayAttacco?: () => void;      // usa OP per attacco militare
+  onPlayAcquisto?: () => void;     // usa OP per acquisto risorse/unità
   disabled?: boolean;
+  isMyTurn?: boolean;
 }
 
 // ─── Tracciati ────────────────────────────────
@@ -90,7 +95,18 @@ function getDeltas(card: GameCard | DeckCard) {
     .filter(Boolean) as Array<{ key: string; icon: string; label: string; posGood: boolean; delta: number }>;
 }
 
-export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = false }: CardPeekProps) {
+export default function CardPeek({
+  card,
+  myFaction,
+  onClose,
+  onPlay,
+  onPlayEvento,
+  onPlayInfluenza,
+  onPlayAttacco,
+  onPlayAcquisto,
+  disabled = false,
+  isMyTurn = false,
+}: CardPeekProps) {
   const faction      = card.faction as string;
   const cardType     = card.card_type as string;
   const borderColor  = CARD_TYPE_BORDER[cardType] ?? '#445566';
@@ -104,6 +120,10 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
   const deltas       = getDeltas(card);
   const ownerFaction = 'owner_faction' in card ? (card.owner_faction ?? card.faction) as string : faction;
   const isMyOwn      = !myFaction || ownerFaction === myFaction;
+
+  // Determina se mostrare i nuovi 4 pulsanti oppure il bottone legacy
+  const hasNewActions = onPlayEvento || onPlayInfluenza || onPlayAttacco || onPlayAcquisto;
+  const hasLegacyPlay = !hasNewActions && onPlay;
 
   return (
     // Overlay semi-trasparente — click fuori chiude
@@ -120,7 +140,7 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
           border: `1.5px solid ${borderColor}`,
           borderBottom: 'none',
           boxShadow: `0 -8px 40px ${factionColor}22`,
-          maxHeight: '85vh',
+          maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
         }}
@@ -131,7 +151,7 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
         </div>
 
         {/* ── Contenuto scrollabile ── */}
-        <div className="overflow-y-auto flex-1 px-4 pb-5 pt-1">
+        <div className="overflow-y-auto flex-1 px-4 pb-2 pt-1">
           <div className="flex gap-4 items-start">
 
             {/* ── Carta grande (lg) ── */}
@@ -224,12 +244,95 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
               )}
             </div>
           </div>
+        </div>
 
-          {/* ── Azioni ── */}
-          {!disabled && (
-            <div className="flex gap-2 mt-4">
+        {/* ══════════════════════════════════════════
+            SEZIONE AZIONI — fuori dallo scroll,
+            sempre visibile in fondo al pannello
+        ══════════════════════════════════════════ */}
+
+        {/* ── Nuovi 4 pulsanti azione (flusso unificato) ── */}
+        {isMyTurn && !disabled && hasNewActions && (
+          <div className="px-4 pb-4 pt-3 border-t border-[#1e3a5f] space-y-2">
+            <p className="text-[#445566] font-mono text-[10px] uppercase tracking-widest mb-2">
+              Come vuoi giocare questa carta?
+            </p>
+
+            {onPlayEvento && (
               <button
-                onClick={() => { onPlay(); onClose(); }}
+                onClick={() => { onPlayEvento(); }}
+                className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                style={{
+                  background: '#22c55e20',
+                  border: '1.5px solid #22c55e55',
+                  color: '#22c55e',
+                }}
+              >
+                ⚡ Gioca come EVENTO
+                <span className="text-[10px] opacity-60">— applica effetti tracciati</span>
+              </button>
+            )}
+
+            {onPlayInfluenza && (
+              <button
+                onClick={() => { onPlayInfluenza(); }}
+                className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                style={{
+                  background: '#3b82f620',
+                  border: '1.5px solid #3b82f655',
+                  color: '#3b82f6',
+                }}
+              >
+                🌍 Usa OP — Influenza Territorio
+                <span className="text-[10px] opacity-60">— {card.op_points} OP disponibili</span>
+              </button>
+            )}
+
+            {onPlayAttacco && (
+              <button
+                onClick={() => { onPlayAttacco(); }}
+                className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                style={{
+                  background: '#ef444420',
+                  border: '1.5px solid #ef444455',
+                  color: '#ef4444',
+                }}
+              >
+                ⚔️ Usa OP — Attacco Militare
+                <span className="text-[10px] opacity-60">— {card.op_points} OP disponibili</span>
+              </button>
+            )}
+
+            {onPlayAcquisto && (
+              <button
+                onClick={() => { onPlayAcquisto(); }}
+                className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[.98]"
+                style={{
+                  background: '#f59e0b20',
+                  border: '1.5px solid #f59e0b55',
+                  color: '#f59e0b',
+                }}
+              >
+                🏭 Usa OP — Acquista Unità/Risorse
+                <span className="text-[10px] opacity-60">— {card.op_points} OP disponibili</span>
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="w-full py-2 rounded-xl text-xs font-mono text-[#445566] border border-[#1e3a5f] hover:border-[#445566] transition-all"
+            >
+              ✕ Annulla
+            </button>
+          </div>
+        )}
+
+        {/* ── Bottone legacy (retrocompatibilità) ── */}
+        {!disabled && hasLegacyPlay && (
+          <div className="px-4 pb-4 pt-3 border-t border-[#1e3a5f]">
+            <div className="flex gap-2">
+              <button
+                onClick={() => { onPlay!(); onClose(); }}
                 className="flex-1 py-3 rounded-xl font-mono font-black text-sm tracking-wider transition-all"
                 style={{
                   background: isMyOwn
@@ -249,8 +352,21 @@ export default function CardPeek({ card, myFaction, onClose, onPlay, disabled = 
                 ✕
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* ── Nessuna azione disponibile (non è il tuo turno) ── */}
+        {(!isMyTurn || disabled) && !hasLegacyPlay && (
+          <div className="px-4 pb-4 pt-3 border-t border-[#1e3a5f]">
+            <button
+              onClick={onClose}
+              className="w-full py-2 rounded-xl text-xs font-mono text-[#445566] border border-[#1e3a5f] hover:border-[#445566] transition-all"
+            >
+              ✕ Chiudi
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
   );
