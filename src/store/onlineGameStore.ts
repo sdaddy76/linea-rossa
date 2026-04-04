@@ -954,7 +954,43 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       .sort((a, b) => a.position - b.position)
       .slice(0, canDraw);
 
-    if (available.length === 0) return; // mazzo esaurito
+    if (available.length === 0) {
+      // ── Mazzo esaurito: rimescola le carte played ──────────────────────
+      const playedCards = deckCards.filter(dc =>
+        dc.status === 'played' &&
+        !dc.held_by_faction &&
+        (isUnified || dc.faction === faction)
+      );
+      if (playedCards.length === 0) return; // nessuna carta disponibile neanche tra le played
+
+      // 1. Rimetti tutte le carte played → available nel DB e nello stato
+      const playedIds = playedCards.map(dc => dc.id);
+      await supabase.from('cards_deck')
+        .update({ status: 'available' })
+        .in('id', playedIds);
+      set(s => ({
+        deckCards: s.deckCards.map(dc =>
+          playedIds.includes(dc.id) ? { ...dc, status: 'available' as const } : dc
+        ),
+      }));
+
+      // 2. Pesca canDraw carte dal mazzo appena rimescolato
+      const reshuffled = [...playedCards]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, canDraw);
+      const reshuffledIds = reshuffled.map(dc => dc.id);
+      await supabase.from('cards_deck')
+        .update({ status: 'in_hand', held_by_faction: faction })
+        .in('id', reshuffledIds);
+      set(s => ({
+        deckCards: s.deckCards.map(dc =>
+          reshuffledIds.includes(dc.id)
+            ? { ...dc, status: 'in_hand' as const, held_by_faction: faction }
+            : dc
+        ),
+      }));
+      return; // pesca completata dopo rimescolo
+    }
 
     const ids = available.map(dc => dc.id);
     await supabase.from('cards_deck')
