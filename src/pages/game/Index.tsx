@@ -1125,6 +1125,35 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                     );
                   })()}
 
+                  {/* ── PlayerActionPanel classico (influenza / tracciato / acquisto) ── */}
+                  {showActionPanel && selectedCard && myFaction && gameState && (() => {
+                    const cardDef = myCards.find(c => c.card_id === selectedCard);
+                    if (!cardDef) return null;
+                    return (
+                      <PlayerActionPanel
+                        card={cardDef}
+                        myFaction={myFaction}
+                        state={gameState}
+                        selectedTerritory={selectedTerritory}
+                        territories={territoryState}
+                        onCancel={() => { setShowActionPanel(false); }}
+                        onAction={async (actionType, payload) => {
+                          if (actionType === 'influenza') {
+                            await playCard(selectedCard!);
+                          } else if (actionType === 'acquisto') {
+                            setShowMarket(true);
+                          } else if (actionType === 'tracciato') {
+                            await playCard(selectedCard!);
+                          } else {
+                            await playCard(selectedCard!);
+                          }
+                          setShowActionPanel(false);
+                          setSelectedCard(null);
+                        }}
+                      />
+                    );
+                  })()}
+
                   {/* Pulsante Mercato Risorse Militari */}
                   {(myFaction === 'Iran' || myFaction === 'Coalizione') && game.status === 'active' && (() => {
                     const forzeMil = getForzeMilitari(myFaction, {
