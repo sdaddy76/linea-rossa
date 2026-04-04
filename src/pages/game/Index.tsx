@@ -193,15 +193,6 @@ function Segment({
       }}
     >
       {n}
-      {/* ─── VETO MODAL RUSSIA ─── */}
-      {vetoPending && myFaction === 'Russia' && (
-        <VetoModal
-          sanzioniDelta={vetoPending.sanzioniDelta}
-          cardName={vetoPending.cardName}
-          vetiRimasti={gameState?.veto_onu_russia ?? 0}
-          onDecide={(use) => useVeto(use)}
-        />
-      )}
     </div>
   );
 }
@@ -280,15 +271,6 @@ function FullTrack({
           </div>
         )}
       </div>
-      {/* ─── VETO MODAL RUSSIA ─── */}
-      {vetoPending && myFaction === 'Russia' && (
-        <VetoModal
-          sanzioniDelta={vetoPending.sanzioniDelta}
-          cardName={vetoPending.cardName}
-          vetiRimasti={gameState?.veto_onu_russia ?? 0}
-          onDecide={(use) => useVeto(use)}
-        />
-      )}
     </div>
   );
 }
@@ -332,15 +314,6 @@ function FactionSingleTrack({
           );
         })}
       </div>
-      {/* ─── VETO MODAL RUSSIA ─── */}
-      {vetoPending && myFaction === 'Russia' && (
-        <VetoModal
-          sanzioniDelta={vetoPending.sanzioniDelta}
-          cardName={vetoPending.cardName}
-          vetiRimasti={gameState?.veto_onu_russia ?? 0}
-          onDecide={(use) => useVeto(use)}
-        />
-      )}
     </div>
   );
 }
@@ -373,15 +346,6 @@ function FactionTrackCard({
           );
         })}
       </div>
-      {/* ─── VETO MODAL RUSSIA ─── */}
-      {vetoPending && myFaction === 'Russia' && (
-        <VetoModal
-          sanzioniDelta={vetoPending.sanzioniDelta}
-          cardName={vetoPending.cardName}
-          vetiRimasti={gameState?.veto_onu_russia ?? 0}
-          onDecide={(use) => useVeto(use)}
-        />
-      )}
     </div>
   );
 }
