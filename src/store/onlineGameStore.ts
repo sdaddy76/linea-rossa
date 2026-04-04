@@ -1427,7 +1427,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           const curNuc    = gs['nucleare'] ?? 0;
           iranSpecialUpdates['tecnologia_nucleare_iran'] = Math.max(0, curTecNuc - 1);
           iranSpecialUpdates['nucleare']                 = Math.max(0, curNuc - 1);
-          iranAttackNoteSuffix += ' nucleare-1 tecnologia_nucleare-1';
+          // Iran guadagna simpatia internazionale (opinione -2)
+          iranSpecialUpdates['opinione'] = Math.max(-10, (gs['opinione'] ?? 0) - 2);
+          iranAttackNoteSuffix += ' nucleare-1 tecnologia_nucleare-1 opinione-2';
         }
 
         if (capitalTargets.includes(territory)) {
@@ -1436,7 +1438,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           const curForze    = gs['forze_militari_iran'] ?? 0;
           iranSpecialUpdates['stabilita_iran']     = Math.max(0, curStabIran - 1);
           iranSpecialUpdates['forze_militari_iran'] = Math.max(0, curForze - 1);
-          iranAttackNoteSuffix += ' stabilita_iran-1 forze_militari-1';
+          // Iran guadagna ancora più simpatia internazionale (opinione -3)
+          iranSpecialUpdates['opinione'] = Math.max(-10, (gs['opinione'] ?? 0) - 3);
+          iranAttackNoteSuffix += ' stabilita_iran-1 forze_militari-1 opinione-3';
         }
 
         if (Object.keys(iranSpecialUpdates).length > 0) {

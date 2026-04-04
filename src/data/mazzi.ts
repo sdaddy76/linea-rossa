@@ -704,11 +704,11 @@ export const MAZZO_COALIZIONE_SPECIALE: GameCard[] = [
   { card_id:'SE_C06', card_name:'Operazione Smantellamento (spec.)', faction:'Coalizione', card_type:'Militare', op_points:4, deck_type:'speciale', description:'Operazione combinata multi-teatro',
     effects:{ nucleare:(v)=>v>=8?-3:-2, defcon:(v)=>-2, sanzioni:(v)=>+1, risorse:(v)=>-3 , forze_militari_iran:(v)=>-1, stabilita_iran:(v)=>-1, supporto_pubblico_coalizione:(v)=>+1}},
   { card_id:'SC_ATK01', card_name:'Strike su Natanz', faction:'Coalizione', card_type:'Militare', op_points:4, deck_type:'speciale', description:'Attacco aereo sui reattori di Natanz',
-    effects:{ nucleare:(v)=>-2, tecnologia_nucleare_iran:(v)=>-2, defcon:(v)=>-2, risorse_coalizione:(v)=>-1 }},
+    effects:{ nucleare:(v)=>-2, tecnologia_nucleare_iran:(v)=>-2, defcon:(v)=>-2, risorse_coalizione:(v)=>-1, opinione:(v)=>-2 }},
   { card_id:'SC_ATK02', card_name:'Operazione Bunker Buster', faction:'Coalizione', card_type:'Militare', op_points:4, deck_type:'speciale', description:'Bombardamento sotterraneo Fordow',
-    effects:{ nucleare:(v)=>-3, tecnologia_nucleare_iran:(v)=>-2, defcon:(v)=>-2, stabilita_iran:(v)=>-1, risorse_coalizione:(v)=>-2 }},
+    effects:{ nucleare:(v)=>-3, tecnologia_nucleare_iran:(v)=>-2, defcon:(v)=>-2, stabilita_iran:(v)=>-1, risorse_coalizione:(v)=>-2, opinione:(v)=>-2 }},
   { card_id:'SC_ATK03', card_name:'Cyberattack Sistemi Missilistici', faction:'Coalizione', card_type:'Segreto', op_points:3, deck_type:'speciale', description:'Sabotaggio sistemi lancio Iran',
-    effects:{ forze_militari_iran:(v)=>-2, tecnologia_nucleare_iran:(v)=>-1, defcon:(v)=>-1 }},
+    effects:{ forze_militari_iran:(v)=>-2, tecnologia_nucleare_iran:(v)=>-1, defcon:(v)=>-1, opinione:(v)=>-1 }},
 ];
 
 
