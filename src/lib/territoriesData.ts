@@ -6,7 +6,7 @@ import type { Faction } from '@/types/game';
 // ─── Tipi ────────────────────────────────────────────────────────────────────
 export type TerritoryId =
   | 'Turchia' | 'Siria' | 'Libano' | 'Israele' | 'Giordania' | 'Egitto'
-  | 'Iraq' | 'Iran' | 'Kuwait' | 'Bahrain' | 'Qatar'
+  | 'Iraq' | 'Iran' | 'Natanz' | 'Fordow' | 'Teheran' | 'Kuwait' | 'Bahrain' | 'Qatar'
   | 'ArabiaSaudita' | 'EmiratiArabi' | 'Oman' | 'StrettoHormuz' | 'Yemen';
 
 // ─── Unità per fazione — SISTEMA ASIMMETRICO ─────────────────────────────────
@@ -354,6 +354,10 @@ export interface TerritoryDef {
   isNaval: boolean;
   isLand: boolean;
   homeFaction?: Faction;
+  /** Fazioni che possono attaccare questo territorio */
+  canBeAttackedBy?: Faction[];
+  /** Tag per effetti speciali di combattimento */
+  iranTarget?: boolean;
 }
 
 export const TERRITORIES: TerritoryDef[] = [
@@ -364,7 +368,10 @@ export const TERRITORIES: TerritoryDef[] = [
   { id: 'Giordania',      label: 'GIORDANIA',       isNaval: false, isLand: true  },
   { id: 'Egitto',         label: 'EGITTO',          isNaval: false, isLand: true  },
   { id: 'Iraq',           label: 'IRAQ',            isNaval: false, isLand: true  },
-  { id: 'Iran',           label: 'IRAN',            isNaval: false, isLand: true,  homeFaction: 'Iran' },
+  { id: 'Iran',           label: 'IRAN',            isNaval: false, isLand: true,  homeFaction: 'Iran', canBeAttackedBy: ['Coalizione', 'Russia', 'Europa', 'Cina'], iranTarget: true },
+  { id: 'Natanz',         label: 'NATANZ',          isNaval: false, isLand: true,  homeFaction: 'Iran', canBeAttackedBy: ['Coalizione', 'Russia', 'Europa', 'Cina'], iranTarget: true },
+  { id: 'Fordow',         label: 'FORDOW',          isNaval: false, isLand: true,  homeFaction: 'Iran', canBeAttackedBy: ['Coalizione', 'Russia', 'Europa', 'Cina'], iranTarget: true },
+  { id: 'Teheran',        label: 'TEHERAN',         isNaval: false, isLand: true,  homeFaction: 'Iran', canBeAttackedBy: ['Coalizione', 'Russia', 'Europa', 'Cina'], iranTarget: true },
   { id: 'Kuwait',         label: 'KUWAIT',          isNaval: true,  isLand: true  },
   { id: 'Bahrain',        label: 'BAHRAIN',         isNaval: true,  isLand: true  },
   { id: 'Qatar',          label: 'QATAR',           isNaval: true,  isLand: true  },

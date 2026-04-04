@@ -31,8 +31,19 @@ export interface CardEffects {
   sanzioni?: (val: number) => number;
   opinione?: (val: number) => number;
   defcon?: (val: number) => number;
-  risorse?: (val: number) => number;
-  stabilita?: (val: number) => number;
+  risorse?: (val: number) => number;    // fazione che gioca la carta
+  stabilita?: (val: number) => number;  // fazione che gioca la carta
+  // Effetti su fazioni specifiche (fazione avversaria o alleata esplicita)
+  risorse_iran?:         (val: number) => number;
+  risorse_coalizione?:   (val: number) => number;
+  risorse_russia?:       (val: number) => number;
+  risorse_cina?:         (val: number) => number;
+  risorse_europa?:       (val: number) => number;
+  stabilita_iran?:       (val: number) => number;
+  stabilita_coalizione?: (val: number) => number;
+  stabilita_russia?:     (val: number) => number;
+  stabilita_cina?:       (val: number) => number;
+  stabilita_europa?:     (val: number) => number;
 }
 
 // Stato tracciati globali

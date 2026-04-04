@@ -1403,6 +1403,50 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const stabKey     = `stabilita_${myFaction.toLowerCase()}` as keyof typeof gameState;
       const newStab     = Math.max(1, ((gameState[stabKey] as number) ?? 5) + stabilityChange);
 
+      // ─── Effetti speciali attacchi Coalizione su territori iraniani ───────
+      const iranTargets = ['Iran', 'Natanz', 'Fordow', 'Teheran'];
+      const isIranAttack = myFaction === 'Coalizione' && iranTargets.includes(territory);
+      const nuclearTargets = ['Natanz', 'Fordow'];
+      const capitalTargets = ['Teheran', 'Iran'];
+
+      // Delta effetti speciali (inizializzati a 0, calcolati solo se iranAttack)
+      let iranSpecialUpdates: Record<string, number> = {};
+      let iranAttackNoteSuffix = '';
+
+      if (isIranAttack) {
+        const gs = gameState as unknown as Record<string, number>;
+
+        // sanzioni +1 su qualsiasi attacco Iran
+        const curSanzioni = gs['sanzioni'] ?? 0;
+        iranSpecialUpdates['sanzioni'] = Math.min(15, curSanzioni + 1);
+        iranAttackNoteSuffix += ' sanzioni+1';
+
+        if (nuclearTargets.includes(territory)) {
+          // Natanz/Fordow: tecnologia_nucleare_iran -1, nucleare -1
+          const curTecNuc = gs['tecnologia_nucleare_iran'] ?? 0;
+          const curNuc    = gs['nucleare'] ?? 0;
+          iranSpecialUpdates['tecnologia_nucleare_iran'] = Math.max(0, curTecNuc - 1);
+          iranSpecialUpdates['nucleare']                 = Math.max(0, curNuc - 1);
+          iranAttackNoteSuffix += ' nucleare-1 tecnologia_nucleare-1';
+        }
+
+        if (capitalTargets.includes(territory)) {
+          // Teheran/Iran: stabilita_iran -1, forze_militari_iran -1
+          const curStabIran = gs['stabilita_iran'] ?? 0;
+          const curForze    = gs['forze_militari_iran'] ?? 0;
+          iranSpecialUpdates['stabilita_iran']     = Math.max(0, curStabIran - 1);
+          iranSpecialUpdates['forze_militari_iran'] = Math.max(0, curForze - 1);
+          iranAttackNoteSuffix += ' stabilita_iran-1 forze_militari-1';
+        }
+
+        if (Object.keys(iranSpecialUpdates).length > 0) {
+          await supabase.from('game_state')
+            .update(iranSpecialUpdates)
+            .eq('game_id', game.id);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       // 3. Pool unità: sottrai unità perse
       const unitsKey = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
       const pool = { ...((gameState[unitsKey] as Record<string, number>) ?? {}) };
@@ -1461,7 +1505,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         gameState: updatedGs,
         territories: updTerr,
         combatLog: [{ ...logEntry, id: crypto.randomUUID(), created_at: new Date().toISOString() } as import('@/types/game').CombatLogRecord, ...get().combatLog].slice(0, 20),
-        notification: `⚔️ ${result.toUpperCase().replace('_', ' ')}: ${myFaction} attacca ${territory} — ${description}`,
+        notification: `⚔️ ${result.toUpperCase().replace('_', ' ')}: ${myFaction} attacca ${territory} — ${description}${isIranAttack && iranAttackNoteSuffix ? ` |${iranAttackNoteSuffix}` : ''}`,
       }); // loading: false → gestito dal finally
 
       // Controlla DEFCON 1 → game over immediato, NON passare il turno

@@ -445,6 +445,22 @@ export default function CombatPanel({
             </div>
           </div>
 
+          {/* Target Iran rapidi per Coalizione */}
+          {myFaction === 'Coalizione' && (
+            <div className="mt-3 border-t border-[#1e3a5f] pt-3">
+              <p className="text-[#8899aa] text-xs font-mono mb-2">⚔️ TARGET IRAN</p>
+              <div className="flex gap-2 flex-wrap">
+                {(['Iran','Natanz','Fordow','Teheran'] as const).map(t => (
+                  <button key={t}
+                    onClick={() => setAtkTerritory(t as TerritoryId)}
+                    className="px-2 py-1 rounded text-xs font-mono bg-[#ef444420] border border-[#ef444440] text-[#ef4444] hover:bg-[#ef444430]">
+                    🎯 {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Opzioni speciali */}
           <div className="flex flex-col gap-1.5 p-2 rounded-lg border border-[#1e3a5f] bg-[#0a0e1a]">
             <p className="text-[9px] font-mono text-[#8899aa]">⚙️ Opzioni Speciali</p>

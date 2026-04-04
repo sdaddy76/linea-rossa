@@ -325,6 +325,7 @@ export default function WaitingRoom({
           units_russia: INITIAL_UNITS.Russia, units_cina: INITIAL_UNITS.Cina,
           units_europa: INITIAL_UNITS.Europa,
           special_uses: { veto_russia: 3, hormuz_iran: false, superiorita_aerea: false },
+          veto_onu_russia: 3,
           active_alliances: [],
         });
       } catch { /* import fallito — ignorato */ }

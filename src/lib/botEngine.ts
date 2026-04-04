@@ -433,16 +433,20 @@ export function applyCardEffects(
   deltas: {
     nucleare: number; sanzioni: number; opinione: number;
     defcon: number; risorse: number; stabilita: number;
+    risorse_iran: number; risorse_coalizione: number; risorse_russia: number;
+    risorse_cina: number; risorse_europa: number;
+    stabilita_iran: number; stabilita_coalizione: number; stabilita_russia: number;
+    stabilita_cina: number; stabilita_europa: number;
   };
 } {
-  const risorseKey = `risorse_${faction.toLowerCase()}` as keyof GameState;
+  const risorseKey   = `risorse_${faction.toLowerCase()}`   as keyof GameState;
   const stabilitaKey = `stabilita_${faction.toLowerCase()}` as keyof GameState;
 
-  const curNucleare = state.nucleare;
-  const curSanzioni = state.sanzioni;
-  const curOpinione = state.opinione;
-  const curDefcon   = state.defcon;
-  const curRisorse  = state[risorseKey] as number;
+  const curNucleare  = state.nucleare;
+  const curSanzioni  = state.sanzioni;
+  const curOpinione  = state.opinione;
+  const curDefcon    = state.defcon;
+  const curRisorse   = state[risorseKey]   as number;
   const curStabilita = state[stabilitaKey] as number;
 
   const dNucleare  = card.effects.nucleare?.(curNucleare)  ?? 0;
@@ -452,13 +456,52 @@ export function applyCardEffects(
   const dRisorse   = card.effects.risorse?.(curRisorse)    ?? 0;
   const dStabilita = card.effects.stabilita?.(curStabilita) ?? 0;
 
+  // Effetti su fazioni specifiche
+  const dRisorseIran         = card.effects.risorse_iran?.(state.risorse_iran)                 ?? 0;
+  const dRisorseCoalizione   = card.effects.risorse_coalizione?.(state.risorse_coalizione)     ?? 0;
+  const dRisorseRussia       = card.effects.risorse_russia?.(state.risorse_russia)             ?? 0;
+  const dRisorseCina         = card.effects.risorse_cina?.(state.risorse_cina)                 ?? 0;
+  const dRisorseEuropa       = card.effects.risorse_europa?.(state.risorse_europa)             ?? 0;
+  const dStabilitaIran       = card.effects.stabilita_iran?.(state.stabilita_iran)             ?? 0;
+  const dStabilitaCoalizione = card.effects.stabilita_coalizione?.(state.stabilita_coalizione) ?? 0;
+  const dStabilitaRussia     = card.effects.stabilita_russia?.(state.stabilita_russia)         ?? 0;
+  const dStabilitaCina       = card.effects.stabilita_cina?.(state.stabilita_cina)             ?? 0;
+  const dStabilitaEuropa     = card.effects.stabilita_europa?.(state.stabilita_europa)         ?? 0;
+
+  // Accumulatori per fazione (effetto proprio + effetto esplicito sulla fazione)
+  const fazioni: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
+  const risorseDeltas: Record<string, number> = {
+    iran: dRisorseIran, coalizione: dRisorseCoalizione,
+    russia: dRisorseRussia, cina: dRisorseCina, europa: dRisorseEuropa,
+  };
+  const stabilitaDeltas: Record<string, number> = {
+    iran: dStabilitaIran, coalizione: dStabilitaCoalizione,
+    russia: dStabilitaRussia, cina: dStabilitaCina, europa: dStabilitaEuropa,
+  };
+  // Aggiungi l'effetto generico "risorse/stabilita" alla fazione che gioca
+  const factionKey = faction.toLowerCase();
+  risorseDeltas[factionKey]   = (risorseDeltas[factionKey]   ?? 0) + dRisorse;
+  stabilitaDeltas[factionKey] = (stabilitaDeltas[factionKey] ?? 0) + dStabilita;
+
+  const newStateFazioni: Partial<GameState> = {};
+  for (const f of fazioni) {
+    const fk = f.toLowerCase();
+    const rKey = `risorse_${fk}`   as keyof GameState;
+    const sKey = `stabilita_${fk}` as keyof GameState;
+    const curR = state[rKey] as number;
+    const curS = state[sKey] as number;
+    const dr = risorseDeltas[fk]   ?? 0;
+    const ds = stabilitaDeltas[fk] ?? 0;
+    if (dr !== 0) (newStateFazioni as Record<string, number>)[rKey] = Math.max(1, Math.min(10, curR + dr));
+    if (ds !== 0) (newStateFazioni as Record<string, number>)[sKey] = Math.max(1, Math.min(10, curS + ds));
+  }
+
   const newState: Partial<GameState> = {
-    nucleare:  Math.max(1, Math.min(15, curNucleare + dNucleare)),
-    sanzioni:  Math.max(1, Math.min(20, curSanzioni + dSanzioni)),
-    opinione:  Math.max(-10, Math.min(10, curOpinione + dOpinione)),
-    defcon:    Math.max(1, Math.min(10, curDefcon + dDefcon)),
-    [risorseKey]:  Math.max(1, Math.min(10, curRisorse + dRisorse)),
-    [stabilitaKey]: Math.max(1, Math.min(10, curStabilita + dStabilita)),
+    nucleare: Math.max(1, Math.min(15, curNucleare + dNucleare)),
+    sanzioni: Math.max(1, Math.min(20, curSanzioni + dSanzioni)),
+    opinione: Math.max(-10, Math.min(10, curOpinione + dOpinione)),
+    defcon:   Math.max(1, Math.min(10, curDefcon + dDefcon)),
+    ...newStateFazioni,
   };
 
   return {
@@ -467,6 +510,16 @@ export function applyCardEffects(
       nucleare: dNucleare, sanzioni: dSanzioni,
       opinione: dOpinione, defcon: dDefcon,
       risorse: dRisorse, stabilita: dStabilita,
+      risorse_iran:         risorseDeltas['iran'],
+      risorse_coalizione:   risorseDeltas['coalizione'],
+      risorse_russia:       risorseDeltas['russia'],
+      risorse_cina:         risorseDeltas['cina'],
+      risorse_europa:       risorseDeltas['europa'],
+      stabilita_iran:       stabilitaDeltas['iran'],
+      stabilita_coalizione: stabilitaDeltas['coalizione'],
+      stabilita_russia:     stabilitaDeltas['russia'],
+      stabilita_cina:       stabilitaDeltas['cina'],
+      stabilita_europa:     stabilitaDeltas['europa'],
     },
   };
 }
