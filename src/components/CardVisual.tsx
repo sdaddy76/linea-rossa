@@ -15,6 +15,7 @@ import { useState } from 'react';
 import type { GameCard } from '@/types/game';
 import type { DeckCard } from '@/types/game';
 import CardDetailModal from './CardDetailModal';
+import { isGoodForFaction } from '@/lib/cardColors';
 
 // ─── Asset ───────────────────────────────────
 export const CARD_ART: Record<string, string> = {
@@ -379,7 +380,7 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
             }}
           >
             {deltas.map(d => {
-              const isGood = d.posGood ? d.delta > 0 : d.delta < 0;
+              const isGood = isGoodForFaction(d.key, d.delta, (card.faction as string) ?? 'Neutrale');
               const color = isGood ? '#22c55e' : '#ef4444';
               const displayVal = Math.abs(d.delta);
               const sign = d.delta > 0 ? '+' : '-';

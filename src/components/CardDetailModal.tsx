@@ -6,6 +6,7 @@
 // =============================================
 import { useEffect } from 'react';
 import type { GameCard, DeckCard } from '@/types/game';
+import { isGoodForFaction } from '@/lib/cardColors';
 import {
   CARD_ART,
   CARD_TYPE_BORDER,
@@ -259,7 +260,7 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {deltas.map(d => {
-                  const isGood = d.posGood ? d.delta > 0 : d.delta < 0;
+                  const isGood = isGoodForFaction(d.key, d.delta, (card.faction as string) ?? 'Neutrale');
                   const color = isGood ? '#22c55e' : '#ef4444';
                   const arrow = d.delta > 0 ? '▲' : '▼';
                   return (

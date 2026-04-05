@@ -6,6 +6,7 @@
 // leggibili + 4 pulsanti azione unificati.
 // =============================================
 import type { GameCard, DeckCard } from '@/types/game';
+import { isGoodForFaction } from '@/lib/cardColors';
 import CardVisual, {
   CARD_TYPE_BORDER, FACTION_COLOR, FACTION_FLAG,
   CARD_TYPE_ICON, CARD_ART,
@@ -213,7 +214,8 @@ export default function CardPeek({
                   </p>
                   <div className="flex flex-wrap gap-1">
                     {deltas.map(d => {
-                      const isGood = d.posGood ? d.delta > 0 : d.delta < 0;
+                      const cardFaction = (card.faction as string) ?? 'Neutrale';
+                      const isGood = isGoodForFaction(d.key, d.delta, cardFaction);
                       const color = isGood ? '#22c55e' : '#ef4444';
                       // Segno e freccia REALI sempre (rispecchiano il delta effettivo)
                       const displayVal = Math.abs(d.delta);
