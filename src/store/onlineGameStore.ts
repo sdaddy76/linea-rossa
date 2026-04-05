@@ -27,7 +27,7 @@ import { assignObjectives, TUTTI_GLI_OBIETTIVI, type ObjFazione, type ObiettivoS
 interface OnlineGameStore {
   // Auth
   profile: Profile | null;
-  session: { user: { id: string } } | null;
+  session: { user: { id: string; email?: string } } | null;
 
   // Partita corrente
   game: Game | null;

@@ -97,6 +97,15 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   const [showObjectiveLibrary, setShowObjectiveLibrary] = useState(false);
   const [showStats, setShowStats]             = useState(false);
   const [playerStats, setPlayerStats]         = useState<{giocate:number;inCorso:number;vinte:number}|null>(null);
+  const [showAdminMenu, setShowAdminMenu]     = useState(false);
+
+  // ── Controllo admin ─────────────────────────────────────────────────────
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setIsAdmin(data?.user?.email === 'sdaddino@yahoo.it');
+    });
+  }, []);
 
   // Carica statistiche personali
   const loadPlayerStats = async () => {
@@ -452,36 +461,62 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <button onClick={() => setShowLibrary(true)}
-              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#00ff88]
-                text-[#8899aa] hover:text-[#00ff88] rounded-lg font-mono text-xs transition-colors">
-              🃏 Carte
-            </button>
-            <button onClick={() => setShowBotLibrary(true)}
-              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#c8a55a]
-                text-[#8899aa] hover:text-[#c8a55a] rounded-lg font-mono text-xs transition-colors">
-              🤖 BOT
-            </button>
-            <button onClick={() => setShowEventLibrary(true)}
-              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#f97316]
-                text-[#8899aa] hover:text-[#f97316] rounded-lg font-mono text-xs transition-colors">
-              🎴 Eventi
-            </button>
-            <button onClick={() => setShowObjectiveLibrary(true)}
-              className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#8b5cf6]
-                text-[#8899aa] hover:text-[#8b5cf6] rounded-lg font-mono text-xs transition-colors">
-              🚨 Obiettivi
-            </button>
+            {/* ── Pulsanti visibili a tutti ── */}
             <button onClick={() => { setShowStats(true); loadPlayerStats(); }}
               className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#22c55e]
                 text-[#8899aa] hover:text-[#22c55e] rounded-lg font-mono text-xs transition-colors">
               📊 Statistiche
             </button>
-            <button onClick={onAdmin}
-              className="text-[#8899aa] hover:text-[#00ff88] font-mono text-xs
-                border border-[#334455] rounded px-2 py-1">
-              ⚙️ DB
-            </button>
+
+            {/* ── Menu Impostazioni Admin (solo sdaddino@yahoo.it) ── */}
+            {isAdmin && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowAdminMenu(v => !v)}
+                  className="px-3 py-1.5 border border-[#f59e0b55] hover:border-[#f59e0b]
+                    text-[#f59e0b99] hover:text-[#f59e0b] rounded-lg font-mono text-xs transition-colors
+                    flex items-center gap-1"
+                  title="Impostazioni Admin"
+                >
+                  ⚙️ Impostazioni
+                </button>
+                {showAdminMenu && (
+                  <>
+                    {/* overlay trasparente per chiudere cliccando fuori */}
+                    <div className="fixed inset-0 z-40" onClick={() => setShowAdminMenu(false)} />
+                    <div className="absolute right-0 top-9 z-50 w-52 rounded-xl border border-[#f59e0b44]
+                      bg-[#0d1220] shadow-2xl overflow-hidden"
+                      style={{ boxShadow: '0 0 30px #f59e0b22' }}>
+                      <div className="px-3 py-2 border-b border-[#1e3a5f]">
+                        <p className="text-[9px] font-mono text-[#f59e0b] uppercase tracking-widest font-bold">
+                          🔐 Area Admin
+                        </p>
+                        <p className="text-[8px] font-mono text-[#445566] mt-0.5">sdaddino@yahoo.it</p>
+                      </div>
+                      <div className="py-1">
+                        {[
+                          { label: '🃏 Gestione Carte',     action: () => { setShowLibrary(true);          setShowAdminMenu(false); }, color: '#00ff88' },
+                          { label: '🤖 Gestione BOT',       action: () => { setShowBotLibrary(true);       setShowAdminMenu(false); }, color: '#c8a55a' },
+                          { label: '🎴 Gestione Eventi',    action: () => { setShowEventLibrary(true);     setShowAdminMenu(false); }, color: '#f97316' },
+                          { label: '🚨 Gestione Obiettivi', action: () => { setShowObjectiveLibrary(true); setShowAdminMenu(false); }, color: '#8b5cf6' },
+                          { label: '⚙️ Database',           action: () => { onAdmin?.();                  setShowAdminMenu(false); }, color: '#64748b' },
+                        ].map(({ label, action, color }) => (
+                          <button key={label} onClick={action}
+                            className="w-full text-left px-4 py-2 font-mono text-xs hover:bg-[#ffffff08] transition-colors"
+                            style={{ color: '#8899aa' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = color)}
+                            onMouseLeave={e => (e.currentTarget.style.color = '#8899aa')}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             <button onClick={onLogout}
               className="px-3 py-1.5 border border-[#334455] text-[#8899aa] hover:text-white
                 rounded-lg font-mono text-xs transition-colors">
