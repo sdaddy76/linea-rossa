@@ -463,7 +463,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Israele: {
     label: 'Hub Tecnologico',
     bonusByFaction: {
-      Coalizione: { risorse_coalizione: 2, stabilita_coalizione: 1 }, // Iron Dome, intelligence
+      Coalizione: { risorse_coalizione: 1, stabilita_coalizione: 1 }, // Iron Dome, intelligence
       Iran:       { nucleare: 1 },                              // minaccia percepita
       Europa:     { influenza_diplomatica_europa: 1 },
       Russia:     { veto_onu_russia: 0 },                       // nessun bonus Russia
@@ -475,7 +475,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   StrettoHormuz: {
     label: 'Controllo Stretto di Hormuz',
     bonusByFaction: {
-      Iran:       { risorse_iran: 2, sanzioni: -1 },            // leva sul blocco
+      Iran:       { risorse_iran: 1, nucleare: 1 },              // leva sul blocco
       Coalizione: { risorse_coalizione: 1, sanzioni: 1 },       // libertà di navigazione
       Russia:     { risorse_russia: 1 },
       Cina:       { risorse_cina: 1, stabilita_rotte_cina: 1 }, // rotte BRI
@@ -487,8 +487,8 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   ArabiaSaudita: {
     label: 'Petrodollari',
     bonusByFaction: {
-      Coalizione: { risorse_coalizione: 2 },
-      Iran:       { sanzioni: -1 },                             // contro-pressione
+      Coalizione: { risorse_coalizione: 1 },
+      Iran:       { risorse_iran: 1 },                          // contro-pressione
       Russia:     { risorse_russia: 1 },
       Cina:       { risorse_cina: 1, influenza_commerciale_cina: 1 },
       Europa:     { risorse_europa: 1 },
@@ -523,7 +523,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Natanz: {
     label: 'Impianto Nucleare Natanz',
     bonusByFaction: {
-      Iran:       { nucleare: 2 },
+      Iran:       { nucleare: 1 },
       Coalizione: { nucleare: -1, sanzioni: 1 },
       Russia:     { influenza_militare_russia: 1 },
       Cina:       { cyber_warfare_cina: 1 },
@@ -533,7 +533,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Fordow: {
     label: 'Bunker Nucleare Fordow',
     bonusByFaction: {
-      Iran:       { nucleare: 2, stabilita_iran: 1 },
+      Iran:       { nucleare: 1, stabilita_iran: 1 },
       Coalizione: { nucleare: -1 },
       Russia:     { influenza_militare_russia: 1 },
       Cina:       { cyber_warfare_cina: 1 },
@@ -543,7 +543,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Teheran: {
     label: 'Capitale Politica',
     bonusByFaction: {
-      Iran:       { risorse_iran: 1, stabilita_iran: 2 },
+      Iran:       { risorse_iran: 1, stabilita_iran: 1 },
       Coalizione: { sanzioni: 1, influenza_diplomatica_coalizione: 1 },
       Russia:     { influenza_militare_russia: 1 },
       Cina:       { influenza_commerciale_cina: 1 },
@@ -591,7 +591,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Kuwait: {
     label: 'Base Militare Avanzata',
     bonusByFaction: {
-      Coalizione: { risorse_coalizione: 2, forze_militari_coalizione: 1 },
+      Coalizione: { risorse_coalizione: 1, forze_militari_coalizione: 1 },
       Iran:       { risorse_iran: 1 },
       Russia:     { influenza_militare_russia: 1 },
       Cina:       { influenza_commerciale_cina: 1 },
@@ -616,7 +616,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
     label: 'Hub GNL e Al Udeid',
     bonusByFaction: {
       Coalizione: { risorse_coalizione: 1, stabilita_coalizione: 1 },
-      Iran:       { sanzioni: -1 },
+      Iran:       { stabilita_iran: 1 },
       Russia:     { risorse_russia: 1 },
       Cina:       { risorse_cina: 1, influenza_commerciale_cina: 1 },
       Europa:     { risorse_europa: 1 },
@@ -627,7 +627,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Oman: {
     label: 'Canale Diplomatico',
     bonusByFaction: {
-      Iran:       { sanzioni: -1, risorse_iran: 1 },
+      Iran:       { risorse_iran: 1, stabilita_iran: 1 },
       Coalizione: { influenza_diplomatica_coalizione: 1 },
       Europa:     { opinione: 1, aiuti_umanitari_europa: 1 },
       Russia:     { influenza_militare_russia: 1 },
