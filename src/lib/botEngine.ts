@@ -527,6 +527,17 @@ export function applyCardEffects(
 // -----------------------------------------------
 // Controlla condizioni di fine partita
 // -----------------------------------------------
+// ─── Formula punteggi per fazione ────────────────────────────────────────────
+export function calcScores(state: GameState): Record<string, number> {
+  return {
+    Iran:       Math.round((state.nucleare ?? 0) * 2 + (state.risorse_iran ?? 0) - (state.sanzioni ?? 0)),
+    Coalizione: Math.round((state.sanzioni ?? 0) * 2 + (state.risorse_coalizione ?? 0) - (state.nucleare ?? 0)),
+    Russia:     Math.round((state.risorse_russia ?? 0) + (state.influenza_militare_russia ?? 0) + (state.stabilita_russia ?? 0)),
+    Cina:       Math.round((state.risorse_cina ?? 0) + (state.influenza_commerciale_cina ?? 0) + (state.stabilita_rotte_cina ?? 0)),
+    Europa:     Math.round((state.defcon ?? 0) * 3 + (state.coesione_ue_europa ?? 0) + (state.aiuti_umanitari_europa ?? 0)),
+  };
+}
+
 export function checkWinCondition(state: GameState, turn: number, maxTurns: number) {
   // Iran vince: nucleare raggiunge 15 (breakout)
   if (state.nucleare >= 15) {
@@ -545,12 +556,15 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
   }
   // Fine turni: vince chi ha posizione migliore
   if (turn >= maxTurns) {
-    const iranScore = state.nucleare * 2 - state.sanzioni;
-    const coalScore = state.sanzioni * 2 - state.nucleare;
-    const winner = iranScore > coalScore ? 'Iran' : iranScore < coalScore ? 'Coalizione' : null;
+    const scores = calcScores(state);
+    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+    const [topName, topScore] = sorted[0];
+    const [secondName, secondScore] = sorted[1];
+    const winner = topScore > secondScore ? topName : null;
     const winnerLabel = winner ?? 'Pareggio';
+    const scoreLines = sorted.map(([f, s]) => `  ${f}: ${s} pt`).join('\n');
     return { isOver: true, winner: (winner ?? undefined) as Faction | undefined, condition: 'turni',
-      message: `⏱️ Turni esauriti. ${winnerLabel} vince ai punti.\n🇮🇷 Iran: ${iranScore} pt  |  🇺🇸 Coalizione: ${coalScore} pt\n(Nucleare=${state.nucleare} · Sanzioni=${state.sanzioni})` };
+      message: `⏱️ Turni esauriti. ${winnerLabel} vince ai punti.\n${scoreLines}` };
   }
   return { isOver: false };
 }

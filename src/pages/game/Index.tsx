@@ -27,7 +27,7 @@ import { FACTION_FLAGS, FACTION_COLORS, CARD_TYPE_COLORS } from '@/lib/factionCo
 import type { EventoCard } from '@/data/eventi';
 import ObjectivesModal from '@/components/ObjectivesModal';
 import { ObjectivesSection } from '@/components/ObjectivesSection';
-import { ScoreTrack } from '@/components/ScoreTrack';
+import { calcScores } from '@/lib/botEngine';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -686,35 +686,50 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
               {gameOverInfo.winner ? `✅ Vince: ${gameOverInfo.winner}` : '❌ Pareggio'}
             </p>
 
-            {/* Punteggi finali — sempre visibili */}
+            {/* Punteggi finali — tutte le fazioni */}
             {gameState && (() => {
-              const iranScore = (gameState.nucleare ?? 0) * 2 - (gameState.sanzioni ?? 0);
-              const coalScore = (gameState.sanzioni ?? 0) * 2 - (gameState.nucleare ?? 0);
+              const scores = calcScores(gameState);
+              const FACTIONS: { key: string; label: string; flag: string; color: string }[] = [
+                { key: 'Iran',       label: 'Iran',       flag: '🇮🇷', color: '#ff6644' },
+                { key: 'Coalizione', label: 'Coalizione', flag: '🇺🇸', color: '#3b82f6' },
+                { key: 'Russia',     label: 'Russia',     flag: '🇷🇺', color: '#ef4444' },
+                { key: 'Cina',       label: 'Cina',       flag: '🇨🇳', color: '#f59e0b' },
+                { key: 'Europa',     label: 'Europa',     flag: '🇪🇺', color: '#8b5cf6' },
+              ];
+              const sorted = [...FACTIONS].sort((a, b) => (scores[b.key] ?? 0) - (scores[a.key] ?? 0));
               return (
                 <div className="my-4 rounded-xl border border-[#1e3a5f] bg-[#0d1220] overflow-hidden">
                   <div className="px-4 py-2 bg-[#0a0e1a] border-b border-[#1e3a5f]">
-                    <p className="text-[10px] font-mono text-[#445566] uppercase tracking-widest">📊 Punteggi finali</p>
+                    <p className="text-[10px] font-mono text-[#445566] uppercase tracking-widest">📊 Classifica finale</p>
                   </div>
-                  <div className="grid grid-cols-2 divide-x divide-[#1e3a5f]">
-                    <div className={`p-4 ${gameOverInfo.winner === 'Iran' ? 'bg-[#ff664410]' : ''}`}>
-                      <p className="text-2xl font-black font-mono" style={{ color: gameOverInfo.winner === 'Iran' ? '#ff6644' : '#8899aa' }}>
-                        {iranScore}
-                      </p>
-                      <p className="text-xs font-mono text-[#8899aa] mt-1">🇮🇷 Iran</p>
-                      {gameOverInfo.winner === 'Iran' && <p className="text-[10px] text-[#ff6644] font-mono mt-1">🏆 VINCITORE</p>}
-                    </div>
-                    <div className={`p-4 ${gameOverInfo.winner === 'Coalizione' ? 'bg-[#3b82f610]' : ''}`}>
-                      <p className="text-2xl font-black font-mono" style={{ color: gameOverInfo.winner === 'Coalizione' ? '#3b82f6' : '#8899aa' }}>
-                        {coalScore}
-                      </p>
-                      <p className="text-xs font-mono text-[#8899aa] mt-1">🇺🇸 Coalizione</p>
-                      {gameOverInfo.winner === 'Coalizione' && <p className="text-[10px] text-[#3b82f6] font-mono mt-1">🏆 VINCITORE</p>}
-                    </div>
+                  <div className="divide-y divide-[#1e3a5f10]">
+                    {sorted.map((f, idx) => {
+                      const isWinner = gameOverInfo.winner === f.key;
+                      const sc = scores[f.key] ?? 0;
+                      return (
+                        <div key={f.key}
+                          className="flex items-center gap-3 px-4 py-2.5"
+                          style={{ background: isWinner ? `${f.color}12` : undefined }}
+                        >
+                          <span className="w-5 text-center font-mono text-xs" style={{ color: idx === 0 ? '#f59e0b' : '#445566' }}>
+                            {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx+1}.`}
+                          </span>
+                          <span className="text-base">{f.flag}</span>
+                          <span className="flex-1 font-mono text-xs" style={{ color: isWinner ? f.color : '#8899aa' }}>
+                            {f.label}{isWinner ? ' 🏆' : ''}
+                          </span>
+                          <span className="font-black font-mono text-lg" style={{ color: isWinner ? f.color : '#8899aa' }}>
+                            {sc}
+                          </span>
+                          <span className="text-[10px] font-mono text-[#445566]">pt</span>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="px-4 py-2 bg-[#0a0e1a] border-t border-[#1e3a5f] flex justify-around text-[10px] font-mono text-[#556677]">
-                    <span>☢️ Nucleare: <b className="text-white">{gameState.nucleare}</b>/15</span>
-                    <span>💰 Sanzioni: <b className="text-white">{gameState.sanzioni}</b>/20</span>
-                    <span>⚔️ DEFCON: <b className="text-white">{gameState.defcon}</b></span>
+                    <span>☢️ Nuc: <b className="text-white">{gameState.nucleare}</b>/15</span>
+                    <span>💰 San: <b className="text-white">{gameState.sanzioni}</b>/20</span>
+                    <span>⚔️ DEF: <b className="text-white">{gameState.defcon}</b></span>
                   </div>
                 </div>
               );
