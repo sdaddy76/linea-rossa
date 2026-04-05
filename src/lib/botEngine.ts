@@ -593,19 +593,24 @@ export const TERRITORY_CONTROL_THRESHOLD = 3;
 
 /**
  * Limiti esatti dai CHECK constraints del DB Supabase (game_state).
- * Ricavati dalle migration SQL. DEVONO corrispondere 1:1 con il DB.
+ * ATTENZIONE: il DB reale è stato aggiornato con migration manuali:
+ *   - defcon:   1-10  (commit 75f2dc4: scala DEFCON estesa 5→10)
+ *   - sanzioni: 1-20  (commit c9c7288: sanzioni 1-20)
+ *   - risorse_coalizione: 1-15 (add_faction_tracks.sql)
+ *   - risorse_cina:       1-12 (add_faction_tracks.sql)
+ * Tutti gli altri campi: 1-10 salvo eccezioni indicate.
  */
 const STATE_LIMITS: Record<string, [number, number]> = {
-  // ── globali (linea_rossa_schema.sql) ────────────────────────────
+  // ── globali ──────────────────────────────────────────────────────
   nucleare:                         [1, 15],
-  sanzioni:                         [1, 10],   // DB: BETWEEN 1 AND 10
+  sanzioni:                         [1, 20],   // DB aggiornato: BETWEEN 1 AND 20
   opinione:                         [-10, 10],
-  defcon:                           [1,  5],   // DB: BETWEEN 1 AND 5
+  defcon:                           [1, 10],   // DB aggiornato: BETWEEN 1 AND 10
   // ── risorse per fazione ─────────────────────────────────────────
   risorse_iran:                     [1, 10],
-  risorse_coalizione:               [1, 15],   // add_faction_tracks.sql: BETWEEN 1 AND 15
+  risorse_coalizione:               [1, 15],   // add_faction_tracks.sql
   risorse_russia:                   [1, 10],
-  risorse_cina:                     [1, 12],   // add_faction_tracks.sql: BETWEEN 1 AND 12
+  risorse_cina:                     [1, 12],   // add_faction_tracks.sql
   risorse_europa:                   [1, 10],
   // ── stabilità per fazione ───────────────────────────────────────
   stabilita_iran:                   [1, 10],
