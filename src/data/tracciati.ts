@@ -338,7 +338,7 @@ export const TUTTI_TRACCIATI: Tracciato[] = [
         costoCoalizione:'Carte regime change completamente inefficaci.',
         noteStrategiche:'Iran è robusto. La Coalizione deve usare altri strumenti.' },
       { da:9, a:10, label:'Regime Blindato', sottotitolo:'Immune a destabilizzazione',
-        icona:'🔒', colore:'safe',
+        icona:'💰', colore:'safe',
         scenario:'Supporto popolare genuino o controllo totale. Nessuna opposizione rilevante. Forze armate completamente fedeli.',
         carteChiave:['IRGC a piena potenza','Tutte le carte interne: costo 0','Destabilizzazione: impossibile'],
         condizioniVittoria:'Iran SI 9-10: +1 punto vittoria/turno. Regime change impossibile.',

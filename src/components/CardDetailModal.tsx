@@ -25,15 +25,15 @@ interface CardDetailModalProps {
 const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean }> = {
   // ─── Globali ───────────────────────────────────────────────────────────────
   nucleare:  { icon: '☢️',  label: 'Nucleare Iraniano (1-15)',           posGood: false },
-  sanzioni:  { icon: '🔒',  label: 'Sanzioni Internazionali (1-20)',      posGood: false },
+  sanzioni:  { icon: '💰',  label: 'Sanzioni Internazionali (1-20)',      posGood: false },
   opinione:  { icon: '📣',  label: 'Opinione Globale (-10/+10)',           posGood: true  },
-  defcon:    { icon: '🚨',  label: 'DEFCON — Allerta Guerra (1-10)',       posGood: true  },
+  defcon:    { icon: '⚔️',  label: 'DEFCON — Allerta Guerra (1-10)',       posGood: true  },
   risorse:   { icon: '💰',  label: 'Risorse Proprie',                      posGood: true  },
   stabilita: { icon: '🏗️', label: 'Stabilità Interna',                   posGood: true  },
   // ─── Iran 🇮🇷 ───────────────────────────────────────────────────────────────
   risorse_iran:               { icon: '💵', label: '🇮🇷 Risorse Iran',                posGood: true },
   forze_militari_iran:        { icon: '⚔️', label: '🇮🇷 Forze Militari Iran',        posGood: true },
-  tecnologia_nucleare_iran:   { icon: '🔬', label: '🇮🇷 Tecnologia Nucleare Iran',   posGood: true },
+  tecnologia_nucleare_iran:   { icon: '☢️', label: '🇮🇷 Tecnologia Nucleare Iran',   posGood: true },
   stabilita_iran:             { icon: '🕌', label: '🇮🇷 Stabilità Iran',             posGood: true },
   // ─── Coalizione 🇺🇸 ─────────────────────────────────────────────────────────
   risorse_coalizione:                  { icon: '🪖', label: '🇺🇸 Risorse Militari',             posGood: true },
