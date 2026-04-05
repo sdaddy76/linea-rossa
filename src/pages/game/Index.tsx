@@ -28,6 +28,7 @@ import type { EventoCard } from '@/data/eventi';
 import ObjectivesModal from '@/components/ObjectivesModal';
 import { ObjectivesSection } from '@/components/ObjectivesSection';
 import { calcScores } from '@/lib/botEngine';
+import { ScoreTrack } from '@/components/ScoreTrack';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors

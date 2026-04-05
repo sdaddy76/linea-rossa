@@ -382,14 +382,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         const objFaz: ObjFazione = FACTION_TO_OBJ_MAP[faction] ?? (faction as ObjFazione);
         const localObs = assignObjectives(objFaz, 3);
         if (localObs.length > 0) {
-          await supabase.from('game_objectives').insert(
+          await supabase.from('game_objectives').upsert(
             localObs.map(o => ({
               game_id:    game.id,
               faction:    faction as string,
               obj_id:     o.obj_id,
               completato: false,
               punteggio:  0,
-            }))
+            })),
+            { onConflict: 'game_id,faction,obj_id', ignoreDuplicates: true }
           );
         }
       } catch (e) {
