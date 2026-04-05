@@ -379,6 +379,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [selectedUnifiedCard, setSelectedUnifiedCard] = useState<string | null>(null);
   // Quando il giocatore sceglie "USA PUNTI OP" → mostra OpsActionModal
   const [showOpsModal, setShowOpsModal] = useState(false);
+  const [opsInitialStep, setOpsInitialStep] = useState<'choose'|'influence'|'buy'|'attack'>('choose');
   const isUnified = game?.game_mode === 'unified';
   // Mano corrente nel mazzo unificato (DeckCard con status='in_hand' e held_by_faction=me)
   const myHandCards = isUnified ? myHand() : [];
@@ -1161,18 +1162,20 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           setSelectedCard(null); setShowActionPanel(false);
                         }}
                         onPlayInfluenza={() => {
-                          // Usa OpsActionModal anche per il flusso classico
                           setSelectedUnifiedCard(selectedCard);
+                          setOpsInitialStep('influence');
                           setShowOpsModal(true);
                           setSelectedCard(null);
                         }}
                         onPlayAttacco={() => {
                           setSelectedUnifiedCard(selectedCard);
-                          setShowCombat(true);
+                          setOpsInitialStep('attack');
+                          setShowOpsModal(true);
                           setSelectedCard(null);
                         }}
                         onPlayAcquisto={() => {
                           setSelectedUnifiedCard(selectedCard);
+                          setOpsInitialStep('buy');
                           setShowOpsModal(true);
                           setSelectedCard(null);
                         }}
@@ -1272,12 +1275,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                     }
                   }}
                   onPlayInfluenza={() => {
+                    setOpsInitialStep('influence');
                     setShowOpsModal(true);
                   }}
                   onPlayAttacco={() => {
-                    setShowCombat(true);
+                    setOpsInitialStep('attack');
+                    setShowOpsModal(true);
                   }}
                   onPlayAcquisto={() => {
+                    setOpsInitialStep('buy');
                     setShowOpsModal(true);
                   }}
                 />
@@ -1290,6 +1296,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   myFaction={myFaction}
                   gameState={gameState}
                   territories={terrRecords}
+                  initialStep={opsInitialStep}
                   militaryUnits={unitRecords}
                   loading={loading}
                   onCancel={() => { setShowOpsModal(false); setSelectedUnifiedCard(null); }}

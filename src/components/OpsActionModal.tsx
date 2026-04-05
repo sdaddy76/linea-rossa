@@ -132,12 +132,13 @@ const RESULT_LABEL: Record<CombatResult['result'], string> = {
 export default function OpsActionModal({
   card, myFaction, gameState, territories, militaryUnits,
   onBuyUnits, onInfluence, onAttack, onCancel, loading,
-}: Props) {
+  initialStep,
+}: Props & { initialStep?: 'choose' | 'buy' | 'influence' | 'attack' }) {
   const fColor = FACTION_COLORS[myFaction] ?? '#8899aa';
   const opPoints = card.op_points;
 
   // ── Step state ──
-  const [step, setStep] = useState<'choose' | 'buy' | 'influence' | 'attack' | 'result'>('choose');
+  const [step, setStep] = useState<'choose' | 'buy' | 'influence' | 'attack' | 'result'>(initialStep ?? 'choose');
   const [combatResult, setCombatResult] = useState<CombatResult | null>(null);
   const [combatTerritory, setCombatTerritory] = useState('');
 
