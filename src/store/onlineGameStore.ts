@@ -69,15 +69,16 @@ async function applyEndOfTurnMechanics(
 
   // 5. Salva gli obiettivi completati in Supabase (non bloccante)
   for (const obj of newlyCompleted) {
-    supabase.from('game_objectives').upsert({
-      game_id: gameId,
-      obj_id: obj.obj_id,
-      faction: obj.faction,
-      completed: true,
-      completed_at: new Date().toISOString(),
-    }, { onConflict: 'game_id,obj_id' }).then(({ error }) => {
-      if (error) console.warn('[endOfTurn] game_objectives upsert warn:', error.message);
-    });
+    supabase.from('game_objectives').update({
+      completato: true,
+      punteggio:  obj.punti,
+    })
+      .eq('game_id', gameId)
+      .eq('faction', obj.faction)
+      .eq('obj_id', obj.obj_id)
+      .then(({ error }) => {
+        if (error) console.warn('[endOfTurn] game_objectives update warn:', error.message);
+      });
   }
 
   // 6. Combina stato carta + bonus territoriali nell'update finale
