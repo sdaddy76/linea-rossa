@@ -444,7 +444,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         ...(MAZZI_SPECIALI[myFaction] ?? []),
       ];
       // Se la definizione non esiste usa effetti vuoti (carta senza effetti meccanici)
-      const cardDef = allCards.find(c => c.card_id === cardId) ?? {
+      const cardDef = allMyCards.find(c => c.card_id === cardId) ?? getUnifiedDeck().find(c => c.card_id === cardId) ?? {
         card_id: cardId,
         card_name: resolvedCard.card_name,
         effects: {},
