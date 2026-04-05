@@ -19,10 +19,72 @@ import type {
 } from '@/types/game';
 import {
   botSelectCard, applyCardEffects, checkWinCondition, nextFaction,
+  applyTerritoryBonuses, checkTerritoryObjectives,
 } from '@/lib/botEngine';
 import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN, CLASSIC_HAND_SIZE, CLASSIC_DRAW_PER_TURN, MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } from '@/data/mazzi';
 import { TERRITORIES } from '@/lib/territoriesData';
 import { assignObjectives, TUTTI_GLI_OBIETTIVI, type ObjFazione, type ObiettivoSegreto } from '@/data/obiettivi';
+import type { TerritoryRecord } from '@/types/game';
+
+// ─── Helper: applica meccaniche di fine turno (bonus + obiettivi territoriali) ─
+//
+// Questa funzione viene chiamata dopo ogni mossa (playCard, playCardUnified,
+// runBotTurn) prima di aggiornare Supabase con active_faction=nextFact.
+// Restituisce lo stato aggiornato con bonus territoriali già applicati,
+// insieme a log e obiettivi completati.
+//
+async function applyEndOfTurnMechanics(
+  gameId: string,
+  gameState: import('@/types/game').GameState,
+  territories: TerritoryRecord[],
+  players: import('@/types/game').GamePlayer[],
+  currentStateUpdate: Partial<import('@/types/game').GameState>,
+  completedObjIds: Set<string>,
+): Promise<{
+  enrichedStateUpdate: Partial<import('@/types/game').GameState>;
+  bonusNotifications: string[];
+  newObjectives: Array<{ obj_id: string; faction: import('@/types/game').Faction; nome: string; punti: number; message: string }>;
+}> {
+  // 1. Calcola lo stato "merged" dopo la carta appena giocata
+  const mergedState = { ...gameState, ...currentStateUpdate } as import('@/types/game').GameState;
+
+  // 2. Applica bonus territoriali passivi
+  const { newState: bonusState, bonusLog } = applyTerritoryBonuses(mergedState, territories);
+
+  // 3. Genera notifiche human-readable per i bonus
+  const bonusNotifications: string[] = [];
+  for (const entry of bonusLog) {
+    const deltaStr = Object.entries(entry.deltas)
+      .filter(([, v]) => v !== 0 && v !== undefined)
+      .map(([k, v]) => `${k.replace(/_/g, ' ')} ${(v as number) > 0 ? '+' : ''}${v}`)
+      .join(', ');
+    if (deltaStr) {
+      bonusNotifications.push(`🗺️ ${entry.faction} (${entry.territory}): ${entry.territoryLabel} → ${deltaStr}`);
+    }
+  }
+
+  // 4. Verifica obiettivi territoriali
+  const activeFactions = players.map(p => p.faction as import('@/types/game').Faction);
+  const { newlyCompleted } = checkTerritoryObjectives(territories, completedObjIds, activeFactions);
+
+  // 5. Salva gli obiettivi completati in Supabase (non bloccante)
+  for (const obj of newlyCompleted) {
+    supabase.from('game_objectives').upsert({
+      game_id: gameId,
+      obj_id: obj.obj_id,
+      faction: obj.faction,
+      completed: true,
+      completed_at: new Date().toISOString(),
+    }, { onConflict: 'game_id,obj_id' }).then(({ error }) => {
+      if (error) console.warn('[endOfTurn] game_objectives upsert warn:', error.message);
+    });
+  }
+
+  // 6. Combina stato carta + bonus territoriali nell'update finale
+  const enrichedStateUpdate = { ...currentStateUpdate, ...bonusState };
+
+  return { enrichedStateUpdate, bonusNotifications, newObjectives: newlyCompleted };
+}
 
 interface OnlineGameStore {
   // Auth
@@ -486,10 +548,17 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(myFaction);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
+      // ── 3b. Meccaniche fine turno: bonus territoriali + obiettivi ────
+      const { territories: terrRecs, players: playersArr, myObjectives } = get();
+      const completedObjIds = new Set((myObjectives ?? []).filter(o => o.completato).map(o => o.obj_id));
+      const { enrichedStateUpdate: enrichedNewState, bonusNotifications, newObjectives } =
+        await applyEndOfTurnMechanics(game.id, gameState, terrRecs, playersArr, newState, completedObjIds);
+      // ─────────────────────────────────────────────────────────────────
+
       // ── 4. Query CRITICHE (devono riuscire per passare il turno) ─────
       const [stateRes, deckRes] = await withTimeout(Promise.all([
         supabase.from('game_state').update({
-          ...newState,
+          ...enrichedNewState,
           active_faction: nextFact,
         }).eq('game_id', game.id),
 
@@ -516,18 +585,32 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
 
       // ── 5. Aggiorna stato locale subito (turno passa immediatamente) ─
-      set(s => ({
-        gameState: { ...s.gameState!, ...newState, active_faction: nextFact },
-        game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
-        deckCards: s.deckCards.filter(dc => dc.id !== resolvedCard.id),
-        loading: false,
-        notification: `✅ ${myFaction}: "${resolvedCard.card_name}" giocata — turno di ${nextFact}`,
-        gameOverInfo: winCheck.isOver ? {
-          winner: winCheck.winner,
-          condition: winCheck.condition ?? '',
-          message: winCheck.message ?? '',
-        } : null,
-      }));
+      set(s => {
+        // Aggiorna obiettivi locali con i nuovi completati
+        const updatedObjectives = (s.myObjectives ?? []).map(o => {
+          const completed = newObjectives.find(n => n.obj_id === o.obj_id);
+          return completed ? { ...o, completato: true, data_completamento: new Date().toISOString() } : o;
+        });
+        const bonusSuffix = bonusNotifications.length > 0
+          ? ` | Bonus territoriali: ${bonusNotifications.length}`
+          : '';
+        const objSuffix = newObjectives.length > 0
+          ? ` | 🎯 ${newObjectives.length} obiettivo/i completato/i!`
+          : '';
+        return {
+          gameState: { ...s.gameState!, ...enrichedNewState, active_faction: nextFact },
+          game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
+          deckCards: s.deckCards.filter(dc => dc.id !== resolvedCard.id),
+          myObjectives: updatedObjectives,
+          loading: false,
+          notification: `✅ ${myFaction}: "${resolvedCard.card_name}" giocata — turno di ${nextFact}${bonusSuffix}${objSuffix}`,
+          gameOverInfo: winCheck.isOver ? {
+            winner: winCheck.winner,
+            condition: winCheck.condition ?? '',
+            message: winCheck.message ?? '',
+          } : null,
+        };
+      });
 
       // ── 5b. Sblocco carta speciale (se modalità speciali separate) ───
       // Se la carta ha unlocks_special e viene giocata come evento dalla propria fazione,
@@ -703,8 +786,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(botFaction);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
+      // ── Meccaniche fine turno bot: bonus territoriali + obiettivi ───
+      const { territories: botTerrRecs, myObjectives: botMyObj } = get();
+      const botCompletedIds = new Set((botMyObj ?? []).filter(o => o.completato).map(o => o.obj_id));
+      const { enrichedStateUpdate: botEnrichedState, bonusNotifications: botBonusNotes, newObjectives: botNewObj } =
+        await applyEndOfTurnMechanics(game.id, gameState, botTerrRecs, players, newState, botCompletedIds);
+      // ────────────────────────────────────────────────────────────────
+
       await withTimeout(Promise.all([
-        supabase.from('game_state').update({ ...newState, active_faction: nextFact }).eq('game_id', game.id),
+        supabase.from('game_state').update({ ...botEnrichedState, active_faction: nextFact }).eq('game_id', game.id),
         supabase.from('cards_deck').update({ status: 'played', played_at_turn: game.current_turn, held_by_faction: null })
           .eq('game_id', game.id).eq('held_by_faction', botFaction).eq('card_id', decision.card.card_id).eq('status', 'in_hand'),
         supabase.from('moves_log').insert({
@@ -734,19 +824,27 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           : supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id),
       ]), 12000, 'bot-turn-write');
 
-      set(s => ({
-        gameState: { ...s.gameState!, ...newState, active_faction: nextFact },
-        game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
-        // Rimuove carta bot giocata dall'array locale
-        deckCards: s.deckCards.filter(dc => dc.card_id !== decision.card.card_id || dc.faction !== botFaction),
-        isBotThinking: false,
-        notification: `🤖 ${botFaction} ha giocato: ${decision.card.card_name}`,
-        gameOverInfo: winCheck.isOver ? {
-          winner: winCheck.winner,
-          condition: winCheck.condition ?? '',
-          message: winCheck.message ?? '',
-        } : null,
-      }));
+      set(s => {
+        const updBotObj = (s.myObjectives ?? []).map(o => {
+          const done = botNewObj.find(n => n.obj_id === o.obj_id);
+          return done ? { ...o, completato: true, data_completamento: new Date().toISOString() } : o;
+        });
+        const botBonusSuffix = botBonusNotes.length > 0 ? ` [+${botBonusNotes.length} bonus territoriali]` : '';
+        const botObjSuffix = botNewObj.length > 0 ? ` 🎯 ${botNewObj.length} obj` : '';
+        return {
+          gameState: { ...s.gameState!, ...botEnrichedState, active_faction: nextFact },
+          game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
+          deckCards: s.deckCards.filter(dc => dc.card_id !== decision.card.card_id || dc.faction !== botFaction),
+          myObjectives: updBotObj,
+          isBotThinking: false,
+          notification: `🤖 ${botFaction} ha giocato: ${decision.card.card_name}${botBonusSuffix}${botObjSuffix}`,
+          gameOverInfo: winCheck.isOver ? {
+            winner: winCheck.winner,
+            condition: winCheck.condition ?? '',
+            message: winCheck.message ?? '',
+          } : null,
+        };
+      });
 
       // Bot pesca una nuova carta dopo aver giocato
       if (!winCheck.isOver) {
@@ -1153,9 +1251,17 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(myFaction);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
+      // 4b. Meccaniche fine turno: bonus territoriali + obiettivi ───────
+      const cardStateForBonus = mode === 'event' ? (newState as Partial<GameState>) : {};
+      const { territories: uniTerrRecs, players: uniPlayers, myObjectives: uniMyObj } = get();
+      const uniCompletedIds = new Set((uniMyObj ?? []).filter(o => o.completato).map(o => o.obj_id));
+      const { enrichedStateUpdate: uniEnrichedState, bonusNotifications: uniBonusNotes, newObjectives: uniNewObj } =
+        await applyEndOfTurnMechanics(game.id, gameState, uniTerrRecs, uniPlayers, cardStateForBonus, uniCompletedIds);
+      // ─────────────────────────────────────────────────────────────────
+
       // 5. Aggiorna DB in parallelo
       const stateUpdate = {
-        ...(mode === 'event' ? newState : {}),
+        ...uniEnrichedState,
         active_faction: nextFact,
       };
 
@@ -1197,20 +1303,29 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       await get().drawCards(myFaction);
 
       // 8. Stato locale
-      set(s => ({
-        gameState: { ...s.gameState!, ...stateUpdate },
-        game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
-        deckCards: s.deckCards.filter(dc => dc.id !== resolvedDeckCard.id),
-        loading: false,
-        notification: mode === 'event'
-          ? `🎴 ${myFaction}: "${resolvedDeckCard.card_name}" giocata come EVENTO`
-          : `⚙️ ${myFaction}: "${resolvedDeckCard.card_name}" usata come ${resolvedDeckCard.op_points} OP`,
-        gameOverInfo: winCheck.isOver ? {
-          winner: winCheck.winner,
-          condition: winCheck.condition ?? '',
-          message: winCheck.message ?? '',
-        } : null,
-      }));
+      set(s => {
+        const updUniObj = (s.myObjectives ?? []).map(o => {
+          const done = uniNewObj.find(n => n.obj_id === o.obj_id);
+          return done ? { ...o, completato: true, data_completamento: new Date().toISOString() } : o;
+        });
+        const uniBonusSuffix = uniBonusNotes.length > 0 ? ` | Bonus territori: ${uniBonusNotes.length}` : '';
+        const uniObjSuffix   = uniNewObj.length > 0 ? ` 🎯 ${uniNewObj.length} obj!` : '';
+        return {
+          gameState: { ...s.gameState!, ...stateUpdate },
+          game: { ...s.game!, current_turn: nextTurn, status: winCheck.isOver ? 'finished' : 'active' },
+          deckCards: s.deckCards.filter(dc => dc.id !== resolvedDeckCard.id),
+          myObjectives: updUniObj,
+          loading: false,
+          notification: mode === 'event'
+            ? `🎴 ${myFaction}: "${resolvedDeckCard.card_name}" giocata come EVENTO${uniBonusSuffix}${uniObjSuffix}`
+            : `⚙️ ${myFaction}: "${resolvedDeckCard.card_name}" usata come ${resolvedDeckCard.op_points} OP${uniBonusSuffix}${uniObjSuffix}`,
+          gameOverInfo: winCheck.isOver ? {
+            winner: winCheck.winner,
+            condition: winCheck.condition ?? '',
+            message: winCheck.message ?? '',
+          } : null,
+        };
+      });
 
       // 9. Log mossa
       const { profile } = get();

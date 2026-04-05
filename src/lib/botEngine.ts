@@ -7,9 +7,13 @@
 // =============================================
 
 import type { GameCard } from '@/types/game';
-import type { GameState } from '@/types/game';
+import type { GameState, TerritoryRecord } from '@/types/game';
 import type { Faction, BotDifficulty } from '@/types/game';
 import { supabase } from '@/integrations/supabase/client';
+import { TERRITORY_BONUS_MAP } from '@/lib/territoriesData';
+import type { TerritoryBonusDelta } from '@/lib/territoriesData';
+import { TUTTI_GLI_OBIETTIVI } from '@/data/obiettivi';
+import type { ObiettivoSegreto } from '@/data/obiettivi';
 
 // ─── Tipo carta BOT (v2 — specchia tabella Supabase bot_cards) ───────────
 export interface BotCard {
@@ -575,4 +579,347 @@ export const TURN_ORDER: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'E
 export function nextFaction(current: Faction): Faction {
   const idx = TURN_ORDER.indexOf(current);
   return TURN_ORDER[(idx + 1) % TURN_ORDER.length];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MECCANICA 1: Bonus Cumulativi Territoriali a Fine Turno
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Soglia di influenza minima per attivare il bonus in un territorio.
+ * La fazione deve avere influenza ≥ questa soglia nel territorio per ricevere il bonus.
+ */
+export const TERRITORY_CONTROL_THRESHOLD = 3;
+
+/**
+ * Valore massimo assoluto per ogni tracciato (clamping).
+ * Specifica i limiti per evitare overflow di stato.
+ */
+const STATE_LIMITS: Record<string, [number, number]> = {
+  nucleare:                        [1, 15],
+  sanzioni:                        [1, 20],
+  opinione:                        [-10, 10],
+  defcon:                          [1, 5],
+  risorse_iran:                    [1, 10],
+  risorse_coalizione:              [1, 15],
+  risorse_russia:                  [1, 10],
+  risorse_cina:                    [1, 12],
+  risorse_europa:                  [1, 10],
+  stabilita_iran:                  [1, 10],
+  stabilita_coalizione:            [1, 10],
+  stabilita_russia:                [1, 10],
+  stabilita_cina:                  [1, 10],
+  stabilita_europa:                [1, 10],
+  forze_militari_iran:             [1, 10],
+  forze_militari_coalizione:       [1, 10],
+  forze_militari_russia:           [1, 10],
+  forze_militari_cina:             [1, 10],
+  forze_militari_europa:           [1, 10],
+  influenza_diplomatica_coalizione:[1, 10],
+  influenza_diplomatica_europa:    [1, 10],
+  influenza_militare_russia:       [1, 10],
+  influenza_commerciale_cina:      [1, 10],
+  cyber_warfare_cina:              [1, 10],
+  coesione_ue_europa:              [1, 10],
+  aiuti_umanitari_europa:          [1, 10],
+  veto_onu_russia:                 [0, 3],
+};
+
+function clamp(key: string, value: number): number {
+  const limits = STATE_LIMITS[key];
+  if (!limits) return value;
+  return Math.max(limits[0], Math.min(limits[1], value));
+}
+
+/**
+ * Risultato dell'applicazione dei bonus territoriali.
+ */
+export interface TerritoryBonusResult {
+  /** Nuovi valori di GameState dopo aver applicato i bonus */
+  newState: Partial<GameState>;
+  /** Log descrittivo dei bonus applicati (per UI e moves_log) */
+  bonusLog: Array<{
+    faction: Faction;
+    territory: string;
+    territoryLabel: string;
+    bonusLabel: string;
+    deltas: TerritoryBonusDelta;
+  }>;
+}
+
+/**
+ * applyTerritoryBonuses
+ *
+ * Calcola e applica i bonus passivi di fine turno per tutti i territori.
+ * Per ogni territorio nella TERRITORY_BONUS_MAP, controlla tutte le fazioni:
+ * se la fazione ha influenza ≥ TERRITORY_CONTROL_THRESHOLD in quel territorio,
+ * applica il bonus corrispondente allo stato di gioco.
+ *
+ * @param state       - Stato corrente del gioco (GameState)
+ * @param territories - Array di TerritoryRecord (influenze per territorio)
+ * @returns TerritoryBonusResult con nuovo stato e log dei bonus
+ */
+export function applyTerritoryBonuses(
+  state: GameState,
+  territories: TerritoryRecord[],
+): TerritoryBonusResult {
+  const factions: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
+  const infKeys: Record<Faction, keyof TerritoryRecord> = {
+    Iran:       'inf_iran',
+    Coalizione: 'inf_coalizione',
+    Russia:     'inf_russia',
+    Cina:       'inf_cina',
+    Europa:     'inf_europa',
+  };
+
+  // Accumula tutti i delta da applicare allo stato
+  const accumulatedDeltas: Record<string, number> = {};
+  const bonusLog: TerritoryBonusResult['bonusLog'] = [];
+
+  for (const [territoryId, bonusEntry] of Object.entries(TERRITORY_BONUS_MAP)) {
+    if (!bonusEntry) continue;
+
+    // Trova il record influenza per questo territorio
+    const terrRecord = territories.find(t => t.territory === territoryId);
+    if (!terrRecord) continue;
+
+    for (const faction of factions) {
+      const infKey = infKeys[faction];
+      const influence = (terrRecord[infKey] as number) ?? 0;
+
+      // Controlla soglia di controllo
+      if (influence < TERRITORY_CONTROL_THRESHOLD) continue;
+
+      const bonusDelta = bonusEntry.bonusByFaction[faction];
+      if (!bonusDelta) continue;
+
+      // Accumula i delta
+      let hasDelta = false;
+      for (const [key, delta] of Object.entries(bonusDelta)) {
+        if (delta === 0 || delta === undefined) continue;
+        accumulatedDeltas[key] = (accumulatedDeltas[key] ?? 0) + delta;
+        hasDelta = true;
+      }
+
+      if (hasDelta) {
+        bonusLog.push({
+          faction,
+          territory: territoryId,
+          territoryLabel: bonusEntry.label,
+          bonusLabel: `${faction} +bonus in ${territoryId} (inf:${influence})`,
+          deltas: bonusDelta,
+        });
+      }
+    }
+  }
+
+  // Costruisce newState applicando i delta con clamping
+  const newState: Partial<GameState> = {};
+  for (const [key, delta] of Object.entries(accumulatedDeltas)) {
+    if (delta === 0) continue;
+    const currentVal = (state as unknown as Record<string, number>)[key] ?? 0;
+    (newState as Record<string, number>)[key] = clamp(key, currentVal + delta);
+  }
+
+  return { newState, bonusLog };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MECCANICA 2: Verifica Obiettivi Dinamici Territoriali a Fine Turno
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Condizione estesa per obiettivi di tipo 'territorio'.
+ * Supporta la struttura condizione_note come JSON inline oppure come stringa descrittiva.
+ *
+ * La condizione_note degli obiettivi con condizione_tipo='territorio' può contenere
+ * un JSON nel formato:
+ *   { "territories": ["Iraq","Yemen","..."], "minCount": 2, "minInfluence": 4 }
+ * oppure restare come stringa descrittiva (verifica manuale).
+ */
+export interface TerritoryObjectiveCondition {
+  /** Lista di territori da controllare */
+  territories?: string[];
+  /** Numero minimo di territori della lista con influenza ≥ minInfluence */
+  minCount?: number;
+  /** Soglia influenza richiesta (default: 3) */
+  minInfluence?: number;
+  /** Se true, richiede di controllare TUTTI i territories della lista */
+  all?: boolean;
+}
+
+/**
+ * Risultato della verifica obiettivi territoriali.
+ */
+export interface TerritoryObjectiveCheckResult {
+  /** Obiettivi appena completati in questo turno */
+  newlyCompleted: Array<{
+    obj_id: string;
+    faction: Faction;
+    nome: string;
+    punti: number;
+    message: string;
+  }>;
+}
+
+/**
+ * checkTerritoryObjectives
+ *
+ * Verifica automaticamente tutti gli obiettivi con condizione_tipo='territorio'
+ * per tutte le fazioni attive. Restituisce i nuovi obiettivi completati
+ * (che non erano già completati prima).
+ *
+ * @param territories         - Array di TerritoryRecord correnti
+ * @param alreadyCompletedIds - Set degli obj_id già completati (da non ricontare)
+ * @param activeFactions      - Fazioni attive nella partita
+ * @returns TerritoryObjectiveCheckResult con nuovi obiettivi completati
+ */
+export function checkTerritoryObjectives(
+  territories: TerritoryRecord[],
+  alreadyCompletedIds: Set<string>,
+  activeFactions: Faction[],
+): TerritoryObjectiveCheckResult {
+  const factions: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
+  const infKeys: Record<Faction, keyof TerritoryRecord> = {
+    Iran:       'inf_iran',
+    Coalizione: 'inf_coalizione',
+    Russia:     'inf_russia',
+    Cina:       'inf_cina',
+    Europa:     'inf_europa',
+  };
+
+  const newlyCompleted: TerritoryObjectiveCheckResult['newlyCompleted'] = [];
+
+  // Filtra solo gli obiettivi di tipo 'territorio' attivi
+  const territoryObjectives = TUTTI_GLI_OBIETTIVI.filter(
+    (o: ObiettivoSegreto) =>
+      o.condizione_tipo === 'territorio' &&
+      o.attivo &&
+      !alreadyCompletedIds.has(o.obj_id),
+  );
+
+  for (const obj of territoryObjectives) {
+    // Controlla se la fazione è attiva
+    const faction = obj.faction as Faction;
+    if (!activeFactions.includes(faction) && !factions.includes(faction)) continue;
+
+    const infKey = infKeys[faction];
+    if (!infKey) continue;
+
+    // Tenta di parsare condizione_note come JSON strutturato
+    let condition: TerritoryObjectiveCondition | null = null;
+    if (obj.condizione_note) {
+      try {
+        // Cerca un JSON-like nella nota
+        const jsonMatch = obj.condizione_note.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          condition = JSON.parse(jsonMatch[0]) as TerritoryObjectiveCondition;
+        }
+      } catch {
+        condition = null; // parsing fallito → skip (verifica manuale)
+      }
+    }
+
+    // Se non c'è condizione strutturata, prova con i campi standard
+    if (!condition) {
+      // Usa condizione_campo / condizione_op / condizione_valore se disponibili
+      // ma solo per obiettivi che hanno una lista implicita nota nel nome
+      // Altrimenti skip (verifica manuale)
+      condition = buildConditionFromFields(obj);
+      if (!condition) continue;
+    }
+
+    // Valuta la condizione
+    const isCompleted = evaluateTerritoryCondition(condition, faction, infKey, territories);
+
+    if (isCompleted) {
+      newlyCompleted.push({
+        obj_id: obj.obj_id,
+        faction,
+        nome: obj.nome,
+        punti: obj.punti,
+        message: `🎯 ${faction}: obiettivo "${obj.nome}" completato! +${obj.punti} punti`,
+      });
+    }
+  }
+
+  return { newlyCompleted };
+}
+
+/**
+ * Costruisce una condizione strutturata dagli obiettivi con condizione_tipo='territorio'
+ * che hanno campi standard (condizione_campo, condizione_op, condizione_valore).
+ * Per obiettivi noti (per nome/id), inietta la lista territori appropriata.
+ */
+function buildConditionFromFields(obj: ObiettivoSegreto): TerritoryObjectiveCondition | null {
+  // Mappa obiettivi noti con le loro condizioni territoriali
+  const KNOWN_TERRITORY_CONDITIONS: Record<string, TerritoryObjectiveCondition> = {
+    // Iran
+    'OBJ_IRAN_05': { territories: ['Iraq', 'Yemen', 'Bahrain', 'Kuwait', 'EmiratiArabi'], minCount: 3, minInfluence: 4 },
+    'OBJ_IRAN_06': { territories: ['Libano', 'Siria', 'Iraq', 'Yemen'], minCount: 3, minInfluence: 3 },
+    'OBJ_IRAN_10': { territories: ['StrettoHormuz'], minCount: 1, minInfluence: 4 },
+    'OBJ_IRAN_11': { territories: ['Natanz', 'Fordow', 'Teheran'], minCount: 2, minInfluence: 5 },
+    'OBJ_IRAN_14': { territories: ['Iran', 'Iraq', 'Siria'], all: true, minInfluence: 3 },
+    // Coalizione
+    'OBJ_COAL_05': { territories: ['Israele', 'Giordania', 'Arabia Saudita', 'Emirati'], minCount: 3, minInfluence: 3 },
+    'OBJ_COAL_09': { territories: ['StrettoHormuz'], minCount: 1, minInfluence: 3 },
+    'OBJ_COAL_10': { territories: ['Bahrain', 'Kuwait', 'Qatar'], all: true, minInfluence: 3 },
+    'OBJ_COAL_13': { territories: ['Turchia', 'Giordania'], minCount: 2, minInfluence: 3 },
+    // Russia
+    'OBJ_RUSS_05': { territories: ['Siria', 'Iraq'], all: true, minInfluence: 3 },
+    'OBJ_RUSS_09': { territories: ['Turchia', 'Siria', 'Iran'], minCount: 2, minInfluence: 3 },
+    'OBJ_RUSS_13': { territories: ['StrettoHormuz', 'Yemen'], minCount: 1, minInfluence: 3 },
+    // Cina
+    'OBJ_CINA_05': { territories: ['Iraq', 'Iran', 'ArabiaSaudita', 'EmiratiArabi'], minCount: 2, minInfluence: 3 },
+    'OBJ_CINA_06': { territories: ['StrettoHormuz', 'Oman', 'ArabiaSaudita'], minCount: 2, minInfluence: 3 },
+    'OBJ_CINA_13': { territories: ['Egitto', 'Iraq', 'Iran'], minCount: 2, minInfluence: 3 },
+    // Europa
+    'OBJ_EURO_05': { territories: ['Libano', 'Giordania', 'Egitto'], minCount: 2, minInfluence: 3 },
+    'OBJ_EURO_09': { territories: ['Libano', 'Siria', 'Iraq'], minCount: 2, minInfluence: 3 },
+    'OBJ_EURO_13': { territories: ['Turchia', 'Israele'], all: true, minInfluence: 3 },
+  };
+
+  return KNOWN_TERRITORY_CONDITIONS[obj.obj_id] ?? null;
+}
+
+/**
+ * Valuta una condizione territoriale strutturata per una fazione.
+ */
+function evaluateTerritoryCondition(
+  condition: TerritoryObjectiveCondition,
+  faction: Faction,
+  infKey: keyof TerritoryRecord,
+  territories: TerritoryRecord[],
+): boolean {
+  const minInf = condition.minInfluence ?? TERRITORY_CONTROL_THRESHOLD;
+
+  if (condition.all && condition.territories) {
+    // Tutti i territori devono avere influenza ≥ minInf
+    return condition.territories.every(tid => {
+      const rec = territories.find(t => t.territory === tid);
+      if (!rec) return false;
+      return ((rec[infKey] as number) ?? 0) >= minInf;
+    });
+  }
+
+  if (condition.territories && condition.minCount !== undefined) {
+    // Almeno minCount territori devono avere influenza ≥ minInf
+    const count = condition.territories.filter(tid => {
+      const rec = territories.find(t => t.territory === tid);
+      if (!rec) return false;
+      return ((rec[infKey] as number) ?? 0) >= minInf;
+    }).length;
+    return count >= condition.minCount;
+  }
+
+  // Condizione semplice: almeno 1 territorio con influenza ≥ minInf
+  if (condition.territories) {
+    return condition.territories.some(tid => {
+      const rec = territories.find(t => t.territory === tid);
+      if (!rec) return false;
+      return ((rec[infKey] as number) ?? 0) >= minInf;
+    });
+  }
+
+  return false;
 }

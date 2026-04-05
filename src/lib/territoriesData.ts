@@ -384,3 +384,267 @@ export const TERRITORIES: TerritoryDef[] = [
 
 export const TERRITORY_MAP: Record<TerritoryId, TerritoryDef> =
   Object.fromEntries(TERRITORIES.map(t => [t.id, t])) as Record<TerritoryId, TerritoryDef>;
+
+// ─── Bonus Territoriali Passivi ───────────────────────────────────────────────
+//
+// Per ogni territorio, definisce quale bonus passivo ottiene ogni fazione
+// quando controlla quel territorio con influenza ≥ 3 (soglia di controllo).
+//
+// Bonus applicati una volta per turno, dopo che la fazione attiva ha giocato.
+// Il bonus si applica solo alla fazione che ha influenza ≥ 3 nel territorio.
+//
+// Struttura: { [territoryId]: { [faction]: Partial<GameStateDelta> } }
+// GameStateDelta usa le stesse chiavi di GameState (risorse_*, stabilita_*, nucleare, ecc.)
+//
+export type TerritoryBonusDelta = Partial<Record<
+  | 'risorse_iran' | 'risorse_coalizione' | 'risorse_russia' | 'risorse_cina' | 'risorse_europa'
+  | 'stabilita_iran' | 'stabilita_coalizione' | 'stabilita_russia' | 'stabilita_cina' | 'stabilita_europa'
+  | 'nucleare' | 'sanzioni' | 'defcon' | 'opinione'
+  | 'forze_militari_iran' | 'forze_militari_coalizione' | 'forze_militari_russia'
+  | 'forze_militari_cina' | 'forze_militari_europa'
+  | 'influenza_diplomatica_coalizione' | 'influenza_diplomatica_europa'
+  | 'influenza_militare_russia' | 'influenza_commerciale_cina'
+  | 'cyber_warfare_cina' | 'coesione_ue_europa' | 'aiuti_umanitari_europa'
+  | 'veto_onu_russia',
+  number
+>>;
+
+export interface TerritoryBonusEntry {
+  /** Descrizione breve del bonus (per log/UI) */
+  label: string;
+  /** Bonus per fazione: chiave = Faction, valore = delta GameState */
+  bonusByFaction: Partial<Record<Faction, TerritoryBonusDelta>>;
+}
+
+/**
+ * TERRITORY_BONUS_MAP
+ * Bonus passivi a fine turno per territorio controllato (influenza ≥ 3).
+ * Ogni fazione che soddisfa la soglia in un territorio riceve il bonus corrispondente.
+ */
+export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntry>> = {
+
+  // ── IRAQ: crocevia strategico ──────────────────────────────────────────────
+  Iraq: {
+    label: 'Crocevia Strategico',
+    bonusByFaction: {
+      Iran:       { risorse_iran: 1, nucleare: 1 },            // ponte verso proxy
+      Coalizione: { risorse_coalizione: 1, stabilita_coalizione: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+      Europa:     { aiuti_umanitari_europa: 1 },
+    },
+  },
+
+  // ── SIRIA: presenza militare ───────────────────────────────────────────────
+  Siria: {
+    label: 'Presenza Militare',
+    bonusByFaction: {
+      Iran:       { risorse_iran: 1, stabilita_iran: 1 },       // IRGC e proxy
+      Russia:     { influenza_militare_russia: 1, risorse_russia: 1 }, // basi aeree
+      Coalizione: { sanzioni: 1 },                              // pressione diplomatica
+      Europa:     { aiuti_umanitari_europa: 1, opinione: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+    },
+  },
+
+  // ── LIBANO: proxy Iran (Hezbollah) ─────────────────────────────────────────
+  Libano: {
+    label: 'Rete Proxy Hezbollah',
+    bonusByFaction: {
+      Iran:       { risorse_iran: 1, nucleare: 1 },             // canale Hezbollah
+      Coalizione: { influenza_diplomatica_coalizione: 1 },
+      Europa:     { aiuti_umanitari_europa: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+    },
+  },
+
+  // ── ISRAELE: hub tecnologico Coalition ────────────────────────────────────
+  Israele: {
+    label: 'Hub Tecnologico',
+    bonusByFaction: {
+      Coalizione: { risorse_coalizione: 2, stabilita_coalizione: 1 }, // Iron Dome, intelligence
+      Iran:       { nucleare: 1 },                              // minaccia percepita
+      Europa:     { influenza_diplomatica_europa: 1 },
+      Russia:     { veto_onu_russia: 0 },                       // nessun bonus Russia
+      Cina:       { influenza_commerciale_cina: 1 },
+    },
+  },
+
+  // ── STRETTO DI HORMUZ: nodo energetico globale ───────────────────────────
+  StrettoHormuz: {
+    label: 'Controllo Stretto di Hormuz',
+    bonusByFaction: {
+      Iran:       { risorse_iran: 2, sanzioni: -1 },            // leva sul blocco
+      Coalizione: { risorse_coalizione: 1, sanzioni: 1 },       // libertà di navigazione
+      Russia:     { risorse_russia: 1 },
+      Cina:       { risorse_cina: 1, stabilita_rotte_cina: 1 }, // rotte BRI
+      Europa:     { risorse_europa: 1 },
+    },
+  },
+
+  // ── ARABIA SAUDITA: greggio e finanza ────────────────────────────────────
+  ArabiaSaudita: {
+    label: 'Petrodollari',
+    bonusByFaction: {
+      Coalizione: { risorse_coalizione: 2 },
+      Iran:       { sanzioni: -1 },                             // contro-pressione
+      Russia:     { risorse_russia: 1 },
+      Cina:       { risorse_cina: 1, influenza_commerciale_cina: 1 },
+      Europa:     { risorse_europa: 1 },
+    },
+  },
+
+  // ── EMIRATI ARABI: finanza e aviazione ───────────────────────────────────
+  EmiratiArabi: {
+    label: 'Hub Finanziario',
+    bonusByFaction: {
+      Coalizione: { risorse_coalizione: 1, influenza_diplomatica_coalizione: 1 },
+      Iran:       { risorse_iran: 1 },
+      Cina:       { risorse_cina: 1, influenza_commerciale_cina: 1 },
+      Russia:     { risorse_russia: 1 },
+      Europa:     { risorse_europa: 1, coesione_ue_europa: 1 },
+    },
+  },
+
+  // ── IRAN (nucleo): cuore del regime ──────────────────────────────────────
+  Iran: {
+    label: 'Cuore del Regime',
+    bonusByFaction: {
+      Iran:       { risorse_iran: 1, stabilita_iran: 1, nucleare: 1 },
+      Coalizione: { sanzioni: 1 },                              // pressione massima
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+      Europa:     { opinione: 1 },
+    },
+  },
+
+  // ── NATANZ / FORDOW / TEHERAN: impianti nucleari ─────────────────────────
+  Natanz: {
+    label: 'Impianto Nucleare Natanz',
+    bonusByFaction: {
+      Iran:       { nucleare: 2 },
+      Coalizione: { nucleare: -1, sanzioni: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { cyber_warfare_cina: 1 },
+      Europa:     { opinione: 1 },
+    },
+  },
+  Fordow: {
+    label: 'Bunker Nucleare Fordow',
+    bonusByFaction: {
+      Iran:       { nucleare: 2, stabilita_iran: 1 },
+      Coalizione: { nucleare: -1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { cyber_warfare_cina: 1 },
+      Europa:     { opinione: 1 },
+    },
+  },
+  Teheran: {
+    label: 'Capitale Politica',
+    bonusByFaction: {
+      Iran:       { risorse_iran: 1, stabilita_iran: 2 },
+      Coalizione: { sanzioni: 1, influenza_diplomatica_coalizione: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+      Europa:     { aiuti_umanitari_europa: 1 },
+    },
+  },
+
+  // ── TURCHIA: membro NATO e crocevia ──────────────────────────────────────
+  Turchia: {
+    label: 'Crocevia NATO-Russia',
+    bonusByFaction: {
+      Coalizione: { influenza_diplomatica_coalizione: 1, risorse_coalizione: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Europa:     { coesione_ue_europa: 1 },
+      Iran:       { risorse_iran: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+    },
+  },
+
+  // ── EGITTO: Canale di Suez ────────────────────────────────────────────────
+  Egitto: {
+    label: 'Canale di Suez',
+    bonusByFaction: {
+      Coalizione: { risorse_coalizione: 1, influenza_diplomatica_coalizione: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { risorse_cina: 1, influenza_commerciale_cina: 1 },
+      Europa:     { risorse_europa: 1 },
+      Iran:       { risorse_iran: 1 },
+    },
+  },
+
+  // ── GIORDANIA: stabilizzatore regionale ──────────────────────────────────
+  Giordania: {
+    label: 'Stabilizzatore Regionale',
+    bonusByFaction: {
+      Coalizione: { stabilita_coalizione: 1, influenza_diplomatica_coalizione: 1 },
+      Europa:     { aiuti_umanitari_europa: 1, coesione_ue_europa: 1 },
+      Iran:       { risorse_iran: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+    },
+  },
+
+  // ── KUWAIT: base militare avanzata ───────────────────────────────────────
+  Kuwait: {
+    label: 'Base Militare Avanzata',
+    bonusByFaction: {
+      Coalizione: { risorse_coalizione: 2, forze_militari_coalizione: 1 },
+      Iran:       { risorse_iran: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+      Europa:     { risorse_europa: 1 },
+    },
+  },
+
+  // ── BAHRAIN: sede della 5a Flotta USA ────────────────────────────────────
+  Bahrain: {
+    label: 'Quinta Flotta',
+    bonusByFaction: {
+      Coalizione: { risorse_coalizione: 1, forze_militari_coalizione: 1 },
+      Iran:       { risorse_iran: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+      Europa:     { influenza_diplomatica_europa: 1 },
+    },
+  },
+
+  // ── QATAR: LNG e base aerea ───────────────────────────────────────────────
+  Qatar: {
+    label: 'Hub GNL e Al Udeid',
+    bonusByFaction: {
+      Coalizione: { risorse_coalizione: 1, stabilita_coalizione: 1 },
+      Iran:       { sanzioni: -1 },
+      Russia:     { risorse_russia: 1 },
+      Cina:       { risorse_cina: 1, influenza_commerciale_cina: 1 },
+      Europa:     { risorse_europa: 1 },
+    },
+  },
+
+  // ── OMAN: diplomatico tra Iran e Occidente ────────────────────────────────
+  Oman: {
+    label: 'Canale Diplomatico',
+    bonusByFaction: {
+      Iran:       { sanzioni: -1, risorse_iran: 1 },
+      Coalizione: { influenza_diplomatica_coalizione: 1 },
+      Europa:     { opinione: 1, aiuti_umanitari_europa: 1 },
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+    },
+  },
+
+  // ── YEMEN: proxy Iran (Houthi) ────────────────────────────────────────────
+  Yemen: {
+    label: 'Guerra per Procura Houthi',
+    bonusByFaction: {
+      Iran:       { risorse_iran: 1, nucleare: 1 },
+      Coalizione: { sanzioni: 1, defcon: 0 },
+      Arabia:     {},                                           // non è una fazione giocabile
+      Russia:     { influenza_militare_russia: 1 },
+      Cina:       { influenza_commerciale_cina: 1 },
+      Europa:     { aiuti_umanitari_europa: 1, opinione: 1 },
+    },
+  },
+};
