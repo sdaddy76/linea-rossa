@@ -621,15 +621,24 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
     set({ isBotThinking: true });
 
+    // Safety: reset automatico dopo 30s se qualcosa va storto
+    const safetyTimer = setTimeout(() => {
+      const s = get();
+      if (s.isBotThinking) {
+        console.warn('[runBotTurn] safety timeout — reset isBotThinking');
+        set({ isBotThinking: false, error: 'Timeout bot: turno saltato automaticamente' });
+      }
+    }, 30000);
+
     try {
       // Recupera carte in mano al bot (classico: faction+in_hand, unified: held_by_faction+in_hand)
-      const { data: available } = await supabase
-        .from('cards_deck')
-        .select('*')
-        .eq('game_id', game.id)
-        .eq('held_by_faction', botFaction)
-        .eq('status', 'in_hand')
-        .limit(10);
+      const available = await withTimeout(
+        supabase.from('cards_deck').select('*')
+          .eq('game_id', game.id).eq('held_by_faction', botFaction)
+          .eq('status', 'in_hand').limit(10)
+          .then(r => r.data),
+        8000, 'bot-fetch-hand'
+      ).catch(() => null);
 
       if (!available || available.length === 0) {
         // Mano vuota: turno saltato, passa al prossimo
@@ -695,7 +704,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(botFaction);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
-      await Promise.all([
+      await withTimeout(Promise.all([
         supabase.from('game_state').update({ ...newState, active_faction: nextFact }).eq('game_id', game.id),
         supabase.from('cards_deck').update({ status: 'played', played_at_turn: game.current_turn, held_by_faction: null })
           .eq('game_id', game.id).eq('held_by_faction', botFaction).eq('card_id', decision.card.card_id).eq('status', 'in_hand'),
@@ -724,7 +733,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         winCheck.isOver
           ? supabase.from('games').update({ status: 'finished', winner_faction: winCheck.winner, winner_condition: winCheck.condition, finished_at: new Date().toISOString() }).eq('id', game.id)
           : supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id),
-      ]);
+      ]), 12000, 'bot-turn-write');
 
       set(s => ({
         gameState: { ...s.gameState!, ...newState, active_faction: nextFact },
@@ -753,7 +762,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         }
       }
     } catch (err) {
+      console.error('[runBotTurn] error:', err);
       set({ isBotThinking: false, error: 'Errore nel turno bot' });
+    } finally {
+      clearTimeout(safetyTimer);
     }
   },
 
