@@ -15,7 +15,7 @@ import { useState } from 'react';
 import type { GameCard } from '@/types/game';
 import type { DeckCard } from '@/types/game';
 import CardDetailModal from './CardDetailModal';
-import { isGoodForFaction } from '@/lib/cardColors';
+import { isGoodForFaction, groupDeltas, type DeltaItem } from '@/lib/cardColors';
 
 // ─── Asset ───────────────────────────────────
 export const CARD_ART: Record<string, string> = {
@@ -377,44 +377,52 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
         )}
 
         {/* ── MODIFICATORI TRACCIATI ── */}
-        {deltas.length > 0 && (
-          <div
-            className="rounded flex flex-wrap"
-            style={{
-              gap: Math.round(1.5 * scale),
-              padding: `${Math.round(2*scale)}px`,
-              background: '#060d18',
-              border: `1px solid #1e3a5f`,
-              marginTop: 'auto',
-            }}
-          >
-            {deltas.map(d => {
-              const isGood = isGoodForFaction(d.key, d.delta, (card.faction as string) ?? 'Neutrale');
-              const color = isGood ? '#22c55e' : '#ef4444';
-              const displayVal = Math.abs(d.delta);
-              const sign = d.delta > 0 ? '+' : '-';
-              return (
-                <div
-                  key={d.key}
-                  title={d.label}
-                  className="flex items-center font-mono font-bold cursor-help"
-                  style={{
-                    fontSize: fs(7),
-                    color,
-                    background: `${color}14`,
-                    border: `1px solid ${color}33`,
-                    borderRadius: Math.round(3 * scale),
-                    padding: `${Math.round(1*scale)}px ${Math.round(2.5*scale)}px`,
-                    gap: Math.round(1 * scale),
-                  }}
-                >
-                  <span>{d.icon}</span>
-                  <span style={{ fontSize: fs(6.5) }}>{sign}{displayVal}</span>
+        {deltas.length > 0 && (() => {
+          const cardFaction = (card.faction as string) ?? 'Neutrale';
+          const { global: gRow, own: oRow, others: xRow } = groupDeltas(deltas as DeltaItem[], cardFaction);
+          const renderBadge = (d: DeltaItem) => {
+            const isGood = isGoodForFaction(d.key, d.delta, cardFaction);
+            const color = isGood ? '#22c55e' : '#ef4444';
+            const sign = d.delta > 0 ? '+' : '-';
+            return (
+              <div key={d.key} title={d.label}
+                className="flex items-center font-mono font-bold cursor-help"
+                style={{
+                  fontSize: fs(7), color,
+                  background: `${color}14`,
+                  border: `1px solid ${color}33`,
+                  borderRadius: Math.round(3 * scale),
+                  padding: `${Math.round(1*scale)}px ${Math.round(2.5*scale)}px`,
+                  gap: Math.round(1 * scale),
+                }}
+              >
+                <span>{d.icon}</span>
+                <span style={{ fontSize: fs(6.5) }}>{sign}{Math.abs(d.delta)}</span>
+              </div>
+            );
+          };
+          const rows = [gRow, oRow, xRow].filter(r => r.length > 0);
+          return (
+            <div
+              className="rounded"
+              style={{
+                padding: `${Math.round(2*scale)}px`,
+                background: '#060d18',
+                border: `1px solid #1e3a5f`,
+                marginTop: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: Math.round(2 * scale),
+              }}
+            >
+              {rows.map((row, ri) => (
+                <div key={ri} style={{ display: 'flex', flexWrap: 'wrap', gap: Math.round(1.5 * scale) }}>
+                  {row.map(renderBadge)}
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
 
         {/* ── ID carta ── */}
         <p

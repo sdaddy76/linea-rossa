@@ -113,3 +113,44 @@ export function isGoodForFaction(
   // Default: positivo = buono
   return delta > 0;
 }
+
+// ─── Raggruppamento tracciati in 3 righe ─────────────────────────────────────
+// Riga 1: Globali (impatto su tutte le fazioni)
+// Riga 2: Propria fazione (tracciati interni della carta)
+// Riga 3: Altre fazioni (effetti su avversari/alleati)
+
+export const GLOBAL_TRACKS = new Set([
+  'nucleare', 'sanzioni', 'opinione', 'defcon',
+]);
+
+export const OWN_TRACKS: Record<string, Set<string>> = {
+  Iran:       new Set(['risorse_iran', 'forze_militari_iran', 'tecnologia_nucleare_iran', 'stabilita_iran', 'risorse', 'stabilita']),
+  Coalizione: new Set(['risorse_coalizione', 'influenza_diplomatica_coalizione', 'tecnologia_avanzata_coalizione', 'supporto_pubblico_coalizione', 'stabilita_coalizione', 'risorse', 'stabilita']),
+  Russia:     new Set(['risorse_russia', 'influenza_militare_russia', 'veto_onu_russia', 'stabilita_russia', 'risorse', 'stabilita']),
+  Cina:       new Set(['risorse_cina', 'influenza_commerciale_cina', 'cyber_warfare_cina', 'stabilita_rotte_cina', 'stabilita_cina', 'risorse', 'stabilita']),
+  Europa:     new Set(['risorse_europa', 'influenza_diplomatica_europa', 'aiuti_umanitari_europa', 'coesione_ue_europa', 'stabilita_europa', 'risorse', 'stabilita']),
+  Neutrale:   new Set(['risorse', 'stabilita']),
+};
+
+export type DeltaItem = {
+  key: string; originalKey: string;
+  icon: string; label: string; posGood: boolean; delta: number;
+};
+
+/** Divide un array di delta in 3 gruppi: globali / propria fazione / altre fazioni */
+export function groupDeltas(
+  deltas: DeltaItem[],
+  faction: string,
+): { global: DeltaItem[]; own: DeltaItem[]; others: DeltaItem[] } {
+  const ownSet = OWN_TRACKS[faction] ?? OWN_TRACKS['Neutrale'];
+  const global:  DeltaItem[] = [];
+  const own:     DeltaItem[] = [];
+  const others:  DeltaItem[] = [];
+
+  for (const d of deltas) {
+    if (GLOBAL_TRACKS.has(d.key)) global.push(d);
+    else if (ownSet.has(d.key))   own.push(d);
+    else                           others.push(d);
+  }
+  return { global, own, others };
+}

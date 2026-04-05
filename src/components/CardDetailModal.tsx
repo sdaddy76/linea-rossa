@@ -6,7 +6,7 @@
 // =============================================
 import { useEffect } from 'react';
 import type { GameCard, DeckCard } from '@/types/game';
-import { isGoodForFaction } from '@/lib/cardColors';
+import { isGoodForFaction, groupDeltas, type DeltaItem } from '@/lib/cardColors';
 import {
   CARD_ART,
   CARD_TYPE_BORDER,
@@ -265,48 +265,58 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
           )}
 
           {/* ── MODIFICATORI TRACCIATI ── */}
-          {deltas.length > 0 && (
-            <div>
-              <p className="text-[9px] font-mono font-bold text-[#445566] uppercase tracking-widest mb-1.5">
-                📊 Modificatori tracciati (valore medio)
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {deltas.map(d => {
-                  const isGood = isGoodForFaction(d.key, d.delta, (card.faction as string) ?? 'Neutrale');
-                  const color = isGood ? '#22c55e' : '#ef4444';
-                  const arrow = d.delta > 0 ? '▲' : '▼';
-                  return (
-                    <div
-                      key={d.key}
-                      title={d.label}
-                      className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border font-mono cursor-help"
-                      style={{
-                        backgroundColor: `${color}10`,
-                        borderColor: `${color}33`,
-                      }}
-                    >
-                      <span className="text-sm">{d.icon}</span>
-                      <div className="flex-1">
-                        <p className="text-[9px] text-[#667788] leading-none">{d.label}</p>
-                        <p
-                          className="font-black text-sm leading-none"
-                          style={{ color }}
-                        >
-                          {d.delta > 0 ? '+' : ''}{d.delta}
-                        </p>
-                      </div>
-                      <span
-                        className="text-xs font-black"
-                        style={{ color }}
-                      >
-                        {arrow}
-                      </span>
-                    </div>
-                  );
-                })}
+          {deltas.length > 0 && (() => {
+            const cardFaction = (card.faction as string) ?? 'Neutrale';
+            const { global: gRow, own: oRow, others: xRow } = groupDeltas(deltas as DeltaItem[], cardFaction);
+            const renderBadge = (d: DeltaItem) => {
+              const isGood = isGoodForFaction(d.key, d.delta, cardFaction);
+              const color = isGood ? '#22c55e' : '#ef4444';
+              const arrow = d.delta > 0 ? '▲' : '▼';
+              return (
+                <div key={d.key} title={d.label}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border font-mono cursor-help"
+                  style={{ backgroundColor: `${color}10`, borderColor: `${color}33` }}
+                >
+                  <span className="text-sm">{d.icon}</span>
+                  <div className="flex-1">
+                    <p className="text-[9px] text-[#667788] leading-none">{d.label}</p>
+                    <p className="font-black text-sm leading-none" style={{ color }}>
+                      {d.delta > 0 ? '+' : ''}{d.delta}
+                    </p>
+                  </div>
+                  <span className="text-xs font-black" style={{ color }}>{arrow}</span>
+                </div>
+              );
+            };
+            return (
+              <div className="space-y-2">
+                <p className="text-[9px] font-mono font-bold text-[#445566] uppercase tracking-widest">
+                  📊 Modificatori tracciati (valore medio)
+                </p>
+                {/* Riga 1: Globali */}
+                {gRow.length > 0 && (
+                  <div>
+                    <p className="text-[8px] font-mono text-[#334455] uppercase tracking-wide mb-1">🌍 Globali</p>
+                    <div className="grid grid-cols-2 gap-1.5">{gRow.map(renderBadge)}</div>
+                  </div>
+                )}
+                {/* Riga 2: Propria fazione */}
+                {oRow.length > 0 && (
+                  <div>
+                    <p className="text-[8px] font-mono text-[#334455] uppercase tracking-wide mb-1">🏠 Propria fazione</p>
+                    <div className="grid grid-cols-2 gap-1.5">{oRow.map(renderBadge)}</div>
+                  </div>
+                )}
+                {/* Riga 3: Altre potenze */}
+                {xRow.length > 0 && (
+                  <div>
+                    <p className="text-[8px] font-mono text-[#334455] uppercase tracking-wide mb-1">🌐 Altre potenze</p>
+                    <div className="grid grid-cols-2 gap-1.5">{xRow.map(renderBadge)}</div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {deltas.length === 0 && (
             <p className="text-xs font-mono text-[#334455] italic text-center py-1">

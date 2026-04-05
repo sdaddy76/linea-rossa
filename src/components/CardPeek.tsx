@@ -6,7 +6,7 @@
 // leggibili + 4 pulsanti azione unificati.
 // =============================================
 import type { GameCard, DeckCard } from '@/types/game';
-import { isGoodForFaction } from '@/lib/cardColors';
+import { isGoodForFaction, groupDeltas, type DeltaItem } from '@/lib/cardColors';
 import CardVisual, {
   CARD_TYPE_BORDER, FACTION_COLOR, FACTION_FLAG,
   CARD_TYPE_ICON, CARD_ART,
@@ -217,37 +217,55 @@ export default function CardPeek({
                 </p>
               )}
 
-              {/* Modificatori tracciati */}
-              {deltas.length > 0 && (
-                <div>
-                  <p className="text-[9px] font-mono font-bold text-[#445566] uppercase tracking-widest mb-1">
-                    📊 Effetti sui tracciati
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {deltas.map(d => {
-                      const cardFaction = (card.faction as string) ?? 'Neutrale';
-                      const isGood = isGoodForFaction(d.key, d.delta, cardFaction);
-                      const color = isGood ? '#22c55e' : '#ef4444';
-                      // Segno e freccia REALI sempre (rispecchiano il delta effettivo)
-                      const displayVal = Math.abs(d.delta);
-                      const sign = d.delta > 0 ? '+' : '-';
-                      const arrow = d.delta > 0 ? '▲' : '▼';
-                      return (
-                        <div
-                          key={d.key}
-                          title={d.label}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg border font-mono text-xs font-bold cursor-help"
-                          style={{ backgroundColor: `${color}12`, borderColor: `${color}33`, color }}
-                        >
-                          <span>{d.icon}</span>
-                          <span>{sign}{displayVal}</span>
-                          <span className="text-[10px]">{arrow}</span>
-                        </div>
-                      );
-                    })}
+              {/* Modificatori tracciati — 3 righe */}
+              {deltas.length > 0 && (() => {
+                const cardFaction = (card.faction as string) ?? 'Neutrale';
+                const { global: gRow, own: oRow, others: xRow } = groupDeltas(deltas as DeltaItem[], cardFaction);
+                const renderBadge = (d: DeltaItem) => {
+                  const isGood = isGoodForFaction(d.key, d.delta, cardFaction);
+                  const color = isGood ? '#22c55e' : '#ef4444';
+                  const sign  = d.delta > 0 ? '+' : '-';
+                  const arrow = d.delta > 0 ? '▲' : '▼';
+                  return (
+                    <div key={d.key} title={d.label}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg border font-mono text-xs font-bold cursor-help"
+                      style={{ backgroundColor: `${color}12`, borderColor: `${color}33`, color }}
+                    >
+                      <span>{d.icon}</span>
+                      <span>{sign}{Math.abs(d.delta)}</span>
+                      <span className="text-[10px]">{arrow}</span>
+                    </div>
+                  );
+                };
+                return (
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-mono font-bold text-[#445566] uppercase tracking-widest">
+                      📊 Effetti sui tracciati
+                    </p>
+                    {/* Riga 1: Globali */}
+                    {gRow.length > 0 && (
+                      <div>
+                        <p className="text-[8px] font-mono text-[#334455] uppercase tracking-wide mb-0.5">🌍 Globali</p>
+                        <div className="flex flex-wrap gap-1">{gRow.map(renderBadge)}</div>
+                      </div>
+                    )}
+                    {/* Riga 2: Propria fazione */}
+                    {oRow.length > 0 && (
+                      <div>
+                        <p className="text-[8px] font-mono text-[#334455] uppercase tracking-wide mb-0.5">🏠 Propria fazione</p>
+                        <div className="flex flex-wrap gap-1">{oRow.map(renderBadge)}</div>
+                      </div>
+                    )}
+                    {/* Riga 3: Altre potenze */}
+                    {xRow.length > 0 && (
+                      <div>
+                        <p className="text-[8px] font-mono text-[#334455] uppercase tracking-wide mb-0.5">🌐 Altre potenze</p>
+                        <div className="flex flex-wrap gap-1">{xRow.map(renderBadge)}</div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Avviso evento automatico */}
               {!isMyOwn && (
