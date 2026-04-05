@@ -69,7 +69,7 @@ export interface GameState {
   risorse_russia: number;             // Energia/Risorse [1-10] → PO
   influenza_militare_russia: number;  // Influenza Militare [1-10]
   veto_onu_russia: number;            // Veto ONU [0-3]
-  stabilita_economica_russia: number; // Indicatore Stabilità Economica [1-10]
+  stabilita_economica_russia: number; // legacy — mantenuto per compatibilità DB (UI usa stabilita_russia)
   // ─── Tracciati CINA ──────────────────────────────────────
   risorse_cina: number;               // Potenza Economica [1-12] → PO
   influenza_commerciale_cina: number; // Influenza Commerciale [1-10]

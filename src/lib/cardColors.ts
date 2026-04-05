@@ -41,7 +41,7 @@ export function isGoodForFaction(
     ],
     Russia: [
       'risorse_russia', 'influenza_militare_russia', 'veto_onu_russia',
-      'stabilita_economica_russia', 'stabilita_russia',
+      'stabilita_russia',
       'risorse', 'stabilita',
     ],
     Cina: [
@@ -62,7 +62,7 @@ export function isGoodForFaction(
       'risorse_coalizione', 'influenza_diplomatica_coalizione', 'tecnologia_avanzata_coalizione',
       'supporto_pubblico_coalizione', 'stabilita_coalizione',
       'risorse_russia', 'influenza_militare_russia', 'veto_onu_russia',
-      'stabilita_economica_russia', 'stabilita_russia',
+      'stabilita_russia',
       'risorse_cina', 'influenza_commerciale_cina', 'cyber_warfare_cina',
       'stabilita_rotte_cina', 'stabilita_cina',
       'risorse_europa', 'influenza_diplomatica_europa', 'aiuti_umanitari_europa',

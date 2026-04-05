@@ -45,7 +45,6 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   risorse_russia:             { icon: '🛢️', label: '🇷🇺 Risorse Russia',              posGood: true },
   influenza_militare_russia:  { icon: '🎖️', label: '🇷🇺 Influenza Militare',          posGood: true },
   veto_onu_russia:            { icon: '🏛️', label: '🇷🇺 Veto ONU Russia (0-3)',       posGood: true },
-  stabilita_economica_russia: { icon: '📊', label: '🇷🇺 Stabilità Economica',          posGood: true },
   stabilita_russia:           { icon: '🐻', label: '🇷🇺 Stabilità Russia',             posGood: true },
   // ─── Cina 🇨🇳 ────────────────────────────────────────────────────────────────
   risorse_cina:               { icon: '🏭', label: '🇨🇳 Potenza Economica Cina',      posGood: true },

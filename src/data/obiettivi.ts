@@ -550,7 +550,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     punti:             5,
     difficolta:        'media',
     condizione_tipo:   'tracciato',
-    condizione_campo:  'stabilita_economica_russia',
+    condizione_campo:  'stabilita_russia',
     condizione_op:     '>=',
     condizione_valore: 8,
     condizione_note:   'Controlla il tracciato Stabilità Economica Russia a fine partita. Deve essere ≥ 8.',

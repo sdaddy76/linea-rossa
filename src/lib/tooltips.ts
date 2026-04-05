@@ -21,7 +21,6 @@ export const TRACK_TOOLTIPS: Record<string, string> = {
   risorse_russia:              '🇷🇺 Energia e Risorse Russia (1-10)',
   influenza_militare_russia:   '🇷🇺 Influenza Militare Russia (1-10)',
   veto_onu_russia:             '🇷🇺 Veto ONU Russia (0-3) — blocca aumento sanzioni',
-  stabilita_economica_russia:  '🇷🇺 Stabilità Economica Russia (1-10)',
   stabilita_russia:            '🇷🇺 Stabilità Russia (1-10)',
   // Cina
   risorse_cina:              '🇨🇳 Potenza Economica Cina (1-12)',
@@ -56,7 +55,6 @@ export const ICON_TOOLTIPS: Record<string, string> = {
   '🛢️': 'Risorse Russia',
   '🎖️': 'Influenza Militare Russia',
   '🏛️': 'Veto ONU Russia',
-  '📊': 'Stabilità Economica Russia',
   '🐻': 'Stabilità Russia',
   '🏭': 'Risorse/Potenza Cina',
   '🏪': 'Influenza Commerciale Cina',

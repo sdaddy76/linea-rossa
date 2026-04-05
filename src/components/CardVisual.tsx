@@ -94,7 +94,6 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   risorse_russia:             { icon: '🛢️', label: '🇷🇺 Risorse Russia',              posGood: true },
   influenza_militare_russia:  { icon: '🎖️', label: '🇷🇺 Influenza Militare',          posGood: true },
   veto_onu_russia:            { icon: '🏛️', label: '🇷🇺 Veto ONU Russia (0-3)',       posGood: true },
-  stabilita_economica_russia: { icon: '📊', label: '🇷🇺 Stabilità Economica',          posGood: true },
   stabilita_russia:           { icon: '🐻', label: '🇷🇺 Stabilità Russia',             posGood: true },
   // ─── Cina 🇨🇳 ────────────────────────────────────────────────────────────────
   risorse_cina:               { icon: '🏭', label: '🇨🇳 Potenza Economica Cina',      posGood: true },
@@ -120,7 +119,7 @@ const DEFAULT_VALS: Record<string, number> = {
   stabilita: 5,
   risorse_iran: 5, forze_militari_iran: 5, tecnologia_nucleare_iran: 5, stabilita_iran: 5,
   risorse_coalizione: 5, influenza_diplomatica_coalizione: 5, tecnologia_avanzata_coalizione: 5, supporto_pubblico_coalizione: 5, stabilita_coalizione: 5,
-  risorse_russia: 5, influenza_militare_russia: 5, veto_onu_russia: 2, stabilita_economica_russia: 5, stabilita_russia: 5,
+  risorse_russia: 5, influenza_militare_russia: 5, veto_onu_russia: 2, stabilita_russia: 5,
   risorse_cina: 5, influenza_commerciale_cina: 5, cyber_warfare_cina: 5, stabilita_rotte_cina: 5, stabilita_cina: 5,
   risorse_europa: 5, influenza_diplomatica_europa: 5, aiuti_umanitari_europa: 5, coesione_ue_europa: 5, stabilita_europa: 5,
 };
