@@ -82,7 +82,21 @@ async function applyEndOfTurnMechanics(
   }
 
   // 6. Combina stato carta + bonus territoriali nell'update finale
-  const enrichedStateUpdate = { ...currentStateUpdate, ...bonusState };
+  // IMPORTANTE: filtra solo le colonne che esistono fisicamente nella tabella
+  // game_state su Supabase (le colonne "extended" del tipo TS potrebbero non
+  // esistere nel DB → 400 Bad Request se inviate nel PATCH)
+  const SAFE_GAME_STATE_KEYS = new Set([
+    'nucleare', 'sanzioni', 'opinione', 'defcon',
+    'risorse_iran', 'risorse_coalizione', 'risorse_russia', 'risorse_cina', 'risorse_europa',
+    'stabilita_iran', 'stabilita_coalizione', 'stabilita_russia', 'stabilita_cina', 'stabilita_europa',
+    'forze_militari_iran', 'forze_militari_coalizione', 'forze_militari_russia',
+    'forze_militari_cina', 'forze_militari_europa',
+    'veto_onu_russia',
+  ]);
+  const filteredBonusState = Object.fromEntries(
+    Object.entries(bonusState).filter(([k]) => SAFE_GAME_STATE_KEYS.has(k))
+  ) as Partial<import('@/types/game').GameState>;
+  const enrichedStateUpdate = { ...currentStateUpdate, ...filteredBonusState };
 
   return { enrichedStateUpdate, bonusNotifications, newObjectives: newlyCompleted };
 }
@@ -445,16 +459,20 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         const objFaz: ObjFazione = FACTION_TO_OBJ_MAP[faction] ?? (faction as ObjFazione);
         const localObs = assignObjectives(objFaz, 3);
         if (localObs.length > 0) {
-          await supabase.from('game_objectives').upsert(
+          // insert: nuova partita → nessuna riga esiste ancora
+          // ignoreDuplicates via codice errore '23505' per sicurezza
+          const { error: objErr } = await supabase.from('game_objectives').insert(
             localObs.map(o => ({
               game_id:    game.id,
               faction:    faction as string,
               obj_id:     o.obj_id,
               completato: false,
               punteggio:  0,
-            })),
-            { onConflict: 'game_id,faction,obj_id', ignoreDuplicates: true }
+            }))
           );
+          if (objErr && objErr.code !== '23505') {
+            console.warn(`[startGame] game_objectives insert warn (${faction}):`, objErr.message);
+          }
         }
       } catch (e) {
         console.warn(`[startGame] obiettivi ${faction} fallback locale:`, e);
