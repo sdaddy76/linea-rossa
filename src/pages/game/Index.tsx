@@ -383,8 +383,10 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   // Mano corrente nel mazzo unificato (DeckCard con status='in_hand' e held_by_faction=me)
   const myHandCards = isUnified ? myHand() : [];
   // Carta selezionata per il modale
-  // Cerca per card_id (stabile) non per UUID DB
-  const unifiedCardToPlay = myHandCards.find(dc => dc.card_id === selectedUnifiedCard) ?? null;
+  // Cerca per card_id (stabile) — prima in myHandCards (unified), poi in deckCards (classico)
+  const unifiedCardToPlay = myHandCards.find(dc => dc.card_id === selectedUnifiedCard)
+    ?? deckCards.find(dc => dc.card_id === selectedUnifiedCard && dc.held_by_faction === myFaction)
+    ?? null;
 
   // ── Sistema eventi ───────────────────────────────────────────────────────
   // Logica: all'inizio di OGNI turno (quando active_faction torna a 'Iran' con
@@ -1124,19 +1126,26 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           setSelectedCard(null); setShowActionPanel(false);
                         }}
                         onPlayInfluenza={() => {
-                          setShowActionPanel(true);
+                          // Usa OpsActionModal anche per il flusso classico
+                          setSelectedUnifiedCard(selectedCard);
+                          setShowOpsModal(true);
+                          setSelectedCard(null);
                         }}
                         onPlayAttacco={() => {
+                          setSelectedUnifiedCard(selectedCard);
                           setShowCombat(true);
+                          setSelectedCard(null);
                         }}
                         onPlayAcquisto={() => {
-                          setShowMarket(true);
+                          setSelectedUnifiedCard(selectedCard);
+                          setShowOpsModal(true);
+                          setSelectedCard(null);
                         }}
                       />
                     );
                   })()}
 
-                  {/* ── PlayerActionPanel classico (influenza / tracciato / acquisto) ── */}
+                  {/* PlayerActionPanel classico — deprecato, mantenuto per retrocompatibilità */}
                   {showActionPanel && selectedCard && myFaction && gameState && (() => {
                     const cardDef = myCards.find(c => c.card_id === selectedCard);
                     if (!cardDef) return null;
@@ -1148,16 +1157,8 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                         selectedTerritory={selectedTerritory}
                         territories={territoryState}
                         onCancel={() => { setShowActionPanel(false); }}
-                        onAction={async (actionType, payload) => {
-                          if (actionType === 'influenza') {
-                            await playCard(selectedCard!);
-                          } else if (actionType === 'acquisto') {
-                            setShowMarket(true);
-                          } else if (actionType === 'tracciato') {
-                            await playCard(selectedCard!);
-                          } else {
-                            await playCard(selectedCard!);
-                          }
+                        onAction={async (_actionType, _payload) => {
+                          await playCard(selectedCard!);
                           setShowActionPanel(false);
                           setSelectedCard(null);
                         }}
