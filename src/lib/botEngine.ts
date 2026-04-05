@@ -547,9 +547,10 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
   if (turn >= maxTurns) {
     const iranScore = state.nucleare * 2 - state.sanzioni;
     const coalScore = state.sanzioni * 2 - state.nucleare;
-    const winner = iranScore > coalScore ? 'Iran' : 'Coalizione';
-    return { isOver: true, winner: winner as Faction, condition: 'turni',
-      message: `⏱️ Turni esauriti. ${winner} vince per posizione migliore.` };
+    const winner = iranScore > coalScore ? 'Iran' : iranScore < coalScore ? 'Coalizione' : null;
+    const winnerLabel = winner ?? 'Pareggio';
+    return { isOver: true, winner: (winner ?? undefined) as Faction | undefined, condition: 'turni',
+      message: `⏱️ Turni esauriti. ${winnerLabel} vince ai punti.\n🇮🇷 Iran: ${iranScore} pt  |  🇺🇸 Coalizione: ${coalScore} pt\n(Nucleare=${state.nucleare} · Sanzioni=${state.sanzioni})` };
   }
   return { isOver: false };
 }

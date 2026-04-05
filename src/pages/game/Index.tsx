@@ -682,9 +682,44 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             <div className="text-6xl mb-4">{gameOverInfo.winner ? FACTION_FLAGS[gameOverInfo.winner] ?? '🏆' : '💥'}</div>
             <h2 className="text-2xl font-bold text-[#00ff88] font-mono mb-2">PARTITA CONCLUSA</h2>
             <p className="text-white font-mono text-lg mb-1">
-              {gameOverInfo.winner ? `✅ Vince: ${gameOverInfo.winner}` : '❌ Nessun vincitore'}
+              {gameOverInfo.winner ? `✅ Vince: ${gameOverInfo.winner}` : '❌ Pareggio'}
             </p>
-            <p className="text-[#8899aa] font-mono text-sm mb-6">{gameOverInfo.message}</p>
+
+            {/* Punteggi finali — sempre visibili */}
+            {gameState && (() => {
+              const iranScore = (gameState.nucleare ?? 0) * 2 - (gameState.sanzioni ?? 0);
+              const coalScore = (gameState.sanzioni ?? 0) * 2 - (gameState.nucleare ?? 0);
+              return (
+                <div className="my-4 rounded-xl border border-[#1e3a5f] bg-[#0d1220] overflow-hidden">
+                  <div className="px-4 py-2 bg-[#0a0e1a] border-b border-[#1e3a5f]">
+                    <p className="text-[10px] font-mono text-[#445566] uppercase tracking-widest">📊 Punteggi finali</p>
+                  </div>
+                  <div className="grid grid-cols-2 divide-x divide-[#1e3a5f]">
+                    <div className={`p-4 ${gameOverInfo.winner === 'Iran' ? 'bg-[#ff664410]' : ''}`}>
+                      <p className="text-2xl font-black font-mono" style={{ color: gameOverInfo.winner === 'Iran' ? '#ff6644' : '#8899aa' }}>
+                        {iranScore}
+                      </p>
+                      <p className="text-xs font-mono text-[#8899aa] mt-1">🇮🇷 Iran</p>
+                      {gameOverInfo.winner === 'Iran' && <p className="text-[10px] text-[#ff6644] font-mono mt-1">🏆 VINCITORE</p>}
+                    </div>
+                    <div className={`p-4 ${gameOverInfo.winner === 'Coalizione' ? 'bg-[#3b82f610]' : ''}`}>
+                      <p className="text-2xl font-black font-mono" style={{ color: gameOverInfo.winner === 'Coalizione' ? '#3b82f6' : '#8899aa' }}>
+                        {coalScore}
+                      </p>
+                      <p className="text-xs font-mono text-[#8899aa] mt-1">🇺🇸 Coalizione</p>
+                      {gameOverInfo.winner === 'Coalizione' && <p className="text-[10px] text-[#3b82f6] font-mono mt-1">🏆 VINCITORE</p>}
+                    </div>
+                  </div>
+                  <div className="px-4 py-2 bg-[#0a0e1a] border-t border-[#1e3a5f] flex justify-around text-[10px] font-mono text-[#556677]">
+                    <span>☢️ Nucleare: <b className="text-white">{gameState.nucleare}</b>/15</span>
+                    <span>💰 Sanzioni: <b className="text-white">{gameState.sanzioni}</b>/20</span>
+                    <span>⚔️ DEFCON: <b className="text-white">{gameState.defcon}</b></span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <p className="text-[#8899aa] font-mono text-xs mb-6 whitespace-pre-line">{gameOverInfo.message}</p>
             <button onClick={onBack}
               className="px-6 py-3 bg-[#00ff88] text-[#0a0e1a] font-bold font-mono rounded-xl
                 hover:bg-[#00dd77] transition-colors">
