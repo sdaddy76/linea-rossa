@@ -82,7 +82,6 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   // ─── Iran 🇮🇷 ───────────────────────────────────────────────────────────────
   risorse_iran:               { icon: '💵', label: '🇮🇷 Risorse Iran',                posGood: true },
   forze_militari_iran:        { icon: '⚔️', label: '🇮🇷 Forze Militari Iran',        posGood: true },
-  tecnologia_nucleare_iran:   { icon: '🔬', label: '🇮🇷 Tecnologia Nucleare Iran',   posGood: true },
   stabilita_iran:             { icon: '🕌', label: '🇮🇷 Stabilità Iran',             posGood: true },
   // ─── Coalizione 🇺🇸 ─────────────────────────────────────────────────────────
   risorse_coalizione:                  { icon: '🪖', label: '🇺🇸 Risorse Militari',             posGood: true },
@@ -117,7 +116,7 @@ const DEFAULT_VALS: Record<string, number> = {
   defcon:    7,
   risorse:   5,
   stabilita: 5,
-  risorse_iran: 5, forze_militari_iran: 5, tecnologia_nucleare_iran: 5, stabilita_iran: 5,
+  risorse_iran: 5, forze_militari_iran: 5, stabilita_iran: 5,
   risorse_coalizione: 5, influenza_diplomatica_coalizione: 5, tecnologia_avanzata_coalizione: 5, supporto_pubblico_coalizione: 5, stabilita_coalizione: 5,
   risorse_russia: 5, influenza_militare_russia: 5, veto_onu_russia: 2, stabilita_russia: 5,
   risorse_cina: 5, influenza_commerciale_cina: 5, cyber_warfare_cina: 5, stabilita_rotte_cina: 5, stabilita_cina: 5,

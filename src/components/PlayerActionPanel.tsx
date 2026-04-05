@@ -91,7 +91,7 @@ const TRACK_OPTIONS: Record<Faction, { key: string; label: string; icon: string 
     { key: 'risorse_iran',         label: 'Risorse',           icon: '💰' },
     { key: 'stabilita_iran',       label: 'Stabilità Interna', icon: '⚖️' },
     { key: 'forze_militari_iran',  label: 'Forze Militari',    icon: '⚔️' },
-    { key: 'tecnologia_nucleare_iran', label: 'Tecnologia Nuc.', icon: '🔬' },
+
   ],
   Coalizione: [
     { key: 'risorse_coalizione',              label: 'Risorse Militari',       icon: '💰' },

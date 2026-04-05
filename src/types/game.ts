@@ -58,7 +58,6 @@ export interface GameState {
   // ─── Tracciati IRAN ─────────────────────────────────────
   risorse_iran: number;               // Risorse Economiche [1-10] → PO
   forze_militari_iran: number;        // Forze Militari [1-10]
-  tecnologia_nucleare_iran: number;   // Tecnologia Nucleare (fazione) [1-10]
   stabilita_iran: number;             // Indicatore Stabilità Interna [1-10]
   // ─── Tracciati COALIZIONE ────────────────────────────────
   risorse_coalizione: number;                 // Risorse Militari [1-15] → PO

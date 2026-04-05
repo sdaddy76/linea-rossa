@@ -1503,10 +1503,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         iranAttackNoteSuffix += ' sanzioni+1';
 
         if (nuclearTargets.includes(territory)) {
-          // Natanz/Fordow: tecnologia_nucleare_iran -1, nucleare -1
-          const curTecNuc = gs['tecnologia_nucleare_iran'] ?? 0;
           const curNuc    = gs['nucleare'] ?? 0;
-          iranSpecialUpdates['tecnologia_nucleare_iran'] = Math.max(0, curTecNuc - 1);
           iranSpecialUpdates['nucleare']                 = Math.max(0, curNuc - 1);
           // Iran guadagna simpatia internazionale (opinione -2)
           iranSpecialUpdates['opinione'] = Math.max(-10, (gs['opinione'] ?? 0) - 2);

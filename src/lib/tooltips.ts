@@ -9,7 +9,6 @@ export const TRACK_TOOLTIPS: Record<string, string> = {
   // Iran
   risorse_iran:              '🇮🇷 Risorse Economiche Iran (1-10)',
   forze_militari_iran:       '🇮🇷 Forze Militari Iran (1-10)',
-  tecnologia_nucleare_iran:  '🇮🇷 Tecnologia Nucleare Iran (1-10)',
   stabilita_iran:            '🇮🇷 Stabilità Interna Iran (1-10)',
   // Coalizione
   risorse_coalizione:                '🇺🇸 Risorse Militari Coalizione (1-15)',

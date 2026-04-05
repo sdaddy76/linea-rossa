@@ -33,7 +33,6 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   // ─── Iran 🇮🇷 ───────────────────────────────────────────────────────────────
   risorse_iran:               { icon: '💵', label: '🇮🇷 Risorse Iran',                posGood: true },
   forze_militari_iran:        { icon: '⚔️', label: '🇮🇷 Forze Militari Iran',        posGood: true },
-  tecnologia_nucleare_iran:   { icon: '🔬', label: '🇮🇷 Tecnologia Nucleare Iran',   posGood: true },
   stabilita_iran:             { icon: '🕌', label: '🇮🇷 Stabilità Iran',             posGood: true },
   // ─── Coalizione 🇺🇸 ─────────────────────────────────────────────────────────
   risorse_coalizione:                  { icon: '🪖', label: '🇺🇸 Risorse Militari',             posGood: true },

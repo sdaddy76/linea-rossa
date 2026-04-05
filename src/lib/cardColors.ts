@@ -40,7 +40,7 @@ export function isGoodForFaction(
   // Tracciati PROPRI della fazione (delta > 0 → buono per se stessi)
   const ownPositive: Record<string, string[]> = {
     Iran: [
-      'risorse_iran', 'forze_militari_iran', 'tecnologia_nucleare_iran', 'stabilita_iran',
+      'risorse_iran', 'forze_militari_iran', 'stabilita_iran',
       'risorse', 'stabilita',
     ],
     Coalizione: [
@@ -78,7 +78,7 @@ export function isGoodForFaction(
       'coesione_ue_europa', 'stabilita_europa',
     ],
     Coalizione: [
-      'risorse_iran', 'forze_militari_iran', 'tecnologia_nucleare_iran', 'stabilita_iran',
+      'risorse_iran', 'forze_militari_iran', 'stabilita_iran',
     ],
     Russia: [
       'risorse_coalizione', 'tecnologia_avanzata_coalizione', 'supporto_pubblico_coalizione',
@@ -124,7 +124,7 @@ export const GLOBAL_TRACKS = new Set([
 ]);
 
 export const OWN_TRACKS: Record<string, Set<string>> = {
-  Iran:       new Set(['risorse_iran', 'forze_militari_iran', 'tecnologia_nucleare_iran', 'stabilita_iran', 'risorse', 'stabilita']),
+  Iran:       new Set(['risorse_iran', 'forze_militari_iran', 'stabilita_iran', 'risorse', 'stabilita']),
   Coalizione: new Set(['risorse_coalizione', 'influenza_diplomatica_coalizione', 'tecnologia_avanzata_coalizione', 'supporto_pubblico_coalizione', 'stabilita_coalizione', 'risorse', 'stabilita']),
   Russia:     new Set(['risorse_russia', 'influenza_militare_russia', 'veto_onu_russia', 'stabilita_russia', 'risorse', 'stabilita']),
   Cina:       new Set(['risorse_cina', 'influenza_commerciale_cina', 'cyber_warfare_cina', 'stabilita_rotte_cina', 'stabilita_cina', 'risorse', 'stabilita']),
