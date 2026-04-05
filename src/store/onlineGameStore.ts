@@ -1,6 +1,16 @@
 // =============================================
 // LINEA ROSSA — Game Store con Supabase Real-Time
 // =============================================
+
+// ── Helper: wrappa una Promise con timeout ────────────────────────────────────
+async function withTimeout<T>(promise: Promise<T>, ms = 8000, label = ''): Promise<T> {
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`Timeout ${label} dopo ${ms}ms`)), ms)
+  );
+  return Promise.race([promise, timeout]);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 import type {
@@ -477,7 +487,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
       // ── 4. Query CRITICHE (devono riuscire per passare il turno) ─────
-      const [stateRes, deckRes] = await Promise.all([
+      const [stateRes, deckRes] = await withTimeout(Promise.all([
         supabase.from('game_state').update({
           ...newState,
           active_faction: nextFact,
@@ -488,7 +498,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           played_at_turn: game.current_turn,
           held_by_faction: null,
         }).eq('id', resolvedCard.id),
-      ]);
+      ]), 8000, 'playCard stateRes+deckRes');
 
       if (stateRes.error) throw new Error(`Errore aggiornamento stato: ${stateRes.error.message} [${stateRes.error.code}]`);
       if (deckRes.error)  throw new Error(`Errore aggiornamento carta: ${deckRes.error.message} [${deckRes.error.code}] — verifica RLS policy cards_deck`);
@@ -967,9 +977,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       // 1. Rimetti tutte le carte played → available nel DB e nello stato
       const playedIds = playedCards.map(dc => dc.id);
-      await supabase.from('cards_deck')
-        .update({ status: 'available' })
-        .in('id', playedIds);
+      await withTimeout(
+        supabase.from('cards_deck').update({ status: 'available' }).in('id', playedIds),
+        5000, 'drawCards reshuffle'
+      );
       set(s => ({
         deckCards: s.deckCards.map(dc =>
           playedIds.includes(dc.id) ? { ...dc, status: 'available' as const } : dc
@@ -981,9 +992,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .sort(() => Math.random() - 0.5)
         .slice(0, canDraw);
       const reshuffledIds = reshuffled.map(dc => dc.id);
-      await supabase.from('cards_deck')
-        .update({ status: 'in_hand', held_by_faction: faction })
-        .in('id', reshuffledIds);
+      await withTimeout(
+        supabase.from('cards_deck').update({ status: 'in_hand', held_by_faction: faction }).in('id', reshuffledIds),
+        5000, 'drawCards reshuffledIds'
+      );
       set(s => ({
         deckCards: s.deckCards.map(dc =>
           reshuffledIds.includes(dc.id)
@@ -995,9 +1007,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     }
 
     const ids = available.map(dc => dc.id);
-    await supabase.from('cards_deck')
-      .update({ status: 'in_hand', held_by_faction: faction })
-      .in('id', ids);
+    await withTimeout(
+      supabase.from('cards_deck').update({ status: 'in_hand', held_by_faction: faction }).in('id', ids),
+      5000, 'drawCards ids'
+    );
 
     set(s => ({
       deckCards: s.deckCards.map(dc =>
@@ -1127,10 +1140,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         held_by_faction: null,
       };
 
-      const [stateRes, deckRes] = await Promise.all([
+      const [stateRes, deckRes] = await withTimeout(Promise.all([
         supabase.from('game_state').update(stateUpdate).eq('game_id', game.id),
         supabase.from('cards_deck').update(cardUpdate).eq('id', resolvedDeckCard.id),
-      ]);
+      ]), 8000, 'playCardUnified stateRes+deckRes');
 
       if (stateRes.error) throw new Error(`Stato: ${stateRes.error.message}`);
       if (deckRes.error)  throw new Error(`Carta: ${deckRes.error.message}`);
@@ -1227,40 +1240,41 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextFact = nextFaction(myFaction);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
-      await Promise.all([
+      await withTimeout(Promise.all([
         supabase.from('game_state').update({
           ...stateUpdate,
           active_faction: nextFact,
         }).eq('game_id', game.id),
-
-        // Log mossa: segna come market_purchase
-        supabase.from('moves_log').insert({
-          game_id: game.id,
-          turn_number: game.current_turn,
-          faction: myFaction,
-          player_id: profile?.id ?? null,
-          is_bot_move: false,
-          card_id: 'MARKET',
-          card_name: `Acquisto risorse (×${quantita})`,
-          card_type: 'Militare',
-          delta_nucleare: 0,
-          delta_sanzioni: 0,
-          delta_opinione: 0,
-          delta_defcon: 0,
-          delta_risorse: quantita,
-          delta_stabilita: 0,
-          stato_nucleare: gameState.nucleare,
-          stato_sanzioni: gameState.sanzioni,
-          stato_opinione: gameState.opinione,
-          stato_defcon: gameState.defcon,
-          description: `Acquisto mercato: ${quantita} unità risorse militari — ${costoOpTotale} OP spesi`,
-          is_market_purchase: true,
-          market_op_spent: costoOpTotale,
-          market_resources: quantita,
-        }),
-
         supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id),
-      ]);
+      ]), 8000, 'market-state');
+
+      // Log mossa mercato (non bloccante)
+      supabase.from('moves_log').insert({
+        game_id: game.id,
+        turn_number: game.current_turn,
+        faction: myFaction,
+        player_id: profile?.id ?? null,
+        is_bot_move: false,
+        card_id: 'MARKET',
+        card_name: `Acquisto risorse (×${quantita})`,
+        card_type: 'Militare',
+        delta_nucleare: 0,
+        delta_sanzioni: 0,
+        delta_opinione: 0,
+        delta_defcon: 0,
+        delta_risorse: quantita,
+        delta_stabilita: 0,
+        stato_nucleare: gameState.nucleare,
+        stato_sanzioni: gameState.sanzioni,
+        stato_opinione: gameState.opinione,
+        stato_defcon: gameState.defcon,
+        description: `Acquisto mercato: ${quantita} unità risorse militari — ${costoOpTotale} OP spesi`,
+        is_market_purchase: true,
+        market_op_spent: costoOpTotale,
+        market_resources: quantita,
+      }).then(({ error }) => {
+        if (error) console.warn('[moves_log] acquisto non salvato:', error.message);
+      }).catch(() => {});
 
       // Aggiorna stato locale
       set(s => ({
