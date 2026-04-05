@@ -143,7 +143,7 @@ const FACTION_TRACKS: Record<string, FactionTrackDef[]> = {
   Iran: [
     { id: 'risorse_iran',             label: 'Risorse Economiche', icon: '💵', min: 1, max: 10, color: '#f59e0b', zones: ZONE_STANDARD,       isPO: true },
     { id: 'forze_militari_iran',      label: 'Forze Militari',     icon: '⚔️', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
-    { id: 'tecnologia_nucleare_iran', label: 'Tecnologia Nucleare',icon: '☢️', min: 1, max: 10, color: '#22c55e', zones: ZONE_NUCLEARE_IRAN },
+    { id: 'tecnologia_nucleare_iran', label: 'Tecnologia Nucleare',icon: '🔬', min: 1, max: 10, color: '#22c55e', zones: ZONE_NUCLEARE_IRAN },
     { id: 'stabilita_iran',           label: 'Stabilità Interna',  icon: '🕌', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STABILITA,      isIndicator: true },
   ],
   Coalizione: [

@@ -82,7 +82,7 @@ const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean
   // ─── Iran 🇮🇷 ───────────────────────────────────────────────────────────────
   risorse_iran:               { icon: '💵', label: '🇮🇷 Risorse Iran',                posGood: true },
   forze_militari_iran:        { icon: '⚔️', label: '🇮🇷 Forze Militari Iran',        posGood: true },
-  tecnologia_nucleare_iran:   { icon: '☢️', label: '🇮🇷 Tecnologia Nucleare Iran',   posGood: true },
+  tecnologia_nucleare_iran:   { icon: '🔬', label: '🇮🇷 Tecnologia Nucleare Iran',   posGood: true },
   stabilita_iran:             { icon: '🕌', label: '🇮🇷 Stabilità Iran',             posGood: true },
   // ─── Coalizione 🇺🇸 ─────────────────────────────────────────────────────────
   risorse_coalizione:                  { icon: '🪖', label: '🇺🇸 Risorse Militari',             posGood: true },
@@ -138,18 +138,21 @@ function getEffectDeltas(card: GameCard | DeckCard) {
     Europa:     { risorse: 'risorse_europa',      stabilita: 'stabilita_europa'     },
   };
   return Object.entries(e)
-    .map(([key, fn]) => {
-      if (!fn) return null;
-      // Traduci chiave generica → specifica fazione per icona e colore corretti
+    .reduce((acc, [key, fn]) => {
+      if (!fn) return acc;
       const resolvedKey = FACTION_TRACK_MAP[faction]?.[key] ?? key;
       const ref = DEFAULT_VALS[resolvedKey] ?? DEFAULT_VALS[key] ?? 5;
       const delta = fn(ref);
-      if (delta === 0) return null;
+      if (delta === 0) return acc;
       const info = TRACK_INFO[resolvedKey] ?? TRACK_INFO[key];
-      if (!info) return null;
-      return { key: resolvedKey, originalKey: key, ...info, delta };
-    })
-    .filter(Boolean) as Array<{ key: string; originalKey: string; icon: string; label: string; posGood: boolean; delta: number }>;
+      if (!info) return acc;
+      // Deduplica: se resolvedKey già presente, somma i delta
+      const existing = acc.find(d => d.key === resolvedKey);
+      if (existing) { existing.delta += delta; return acc; }
+      acc.push({ key: resolvedKey, originalKey: key, ...info, delta });
+      return acc;
+    }, [] as Array<{ key: string; originalKey: string; icon: string; label: string; posGood: boolean; delta: number }>)
+    .filter(d => d.delta !== 0);
 }
 
 // ─── Prerequisiti (interpretati dalla carta) ─
