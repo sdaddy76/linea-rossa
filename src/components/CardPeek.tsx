@@ -28,41 +28,41 @@ interface CardPeekProps {
 // ─── Tracciati ────────────────────────────────
 const TRACK_INFO: Record<string, { icon: string; label: string; posGood: boolean }> = {
   // ─── Globali ───────────────────────────────────────────────────────────────
-  nucleare:  { icon: '☢️', label: 'Nucleare Iraniano (1-15)',           posGood: false },
-  sanzioni:  { icon: '🔒', label: 'Sanzioni Internazionali (1-20)',      posGood: false },
-  opinione:  { icon: '📣', label: 'Opinione Globale (-10/+10)',           posGood: true  },
-  defcon:    { icon: '🚨', label: 'DEFCON — Allerta Guerra (1-10)',       posGood: true  },
-  risorse:   { icon: '💵', label: 'Risorse Proprie',                      posGood: true  },
-  stabilita: { icon: '⚖️', label: 'Stabilità Interna',                   posGood: true  },
+  nucleare:  { icon: '☢️',  label: 'Nucleare Iraniano (1-15)',           posGood: false },
+  sanzioni:  { icon: '🔒',  label: 'Sanzioni Internazionali (1-20)',      posGood: false },
+  opinione:  { icon: '📣',  label: 'Opinione Globale (-10/+10)',           posGood: true  },
+  defcon:    { icon: '🚨',  label: 'DEFCON — Allerta Guerra (1-10)',       posGood: true  },
+  risorse:   { icon: '💰',  label: 'Risorse Proprie',                      posGood: true  },
+  stabilita: { icon: '🏗️', label: 'Stabilità Interna',                   posGood: true  },
   // ─── Iran 🇮🇷 ───────────────────────────────────────────────────────────────
   risorse_iran:               { icon: '💵', label: '🇮🇷 Risorse Iran',                posGood: true },
   forze_militari_iran:        { icon: '⚔️', label: '🇮🇷 Forze Militari Iran',        posGood: true },
   tecnologia_nucleare_iran:   { icon: '🔬', label: '🇮🇷 Tecnologia Nucleare Iran',   posGood: true },
-  stabilita_iran:             { icon: '⚖️', label: '🇮🇷 Stabilità Iran',             posGood: true },
+  stabilita_iran:             { icon: '🕌', label: '🇮🇷 Stabilità Iran',             posGood: true },
   // ─── Coalizione 🇺🇸 ─────────────────────────────────────────────────────────
-  risorse_coalizione:                  { icon: '💵', label: '🇺🇸 Risorse Coalizione',             posGood: true },
-  influenza_diplomatica_coalizione:    { icon: '🤝', label: '🇺🇸 Influenza Diplomatica',          posGood: true },
-  tecnologia_avanzata_coalizione:      { icon: '💻', label: '🇺🇸 Tecnologia Avanzata',            posGood: true },
-  supporto_pubblico_coalizione:        { icon: '📢', label: '🇺🇸 Supporto Pubblico',              posGood: true },
-  stabilita_coalizione:                { icon: '⚖️', label: '🇺🇸 Stabilità Coalizione',           posGood: true },
+  risorse_coalizione:                  { icon: '🪖', label: '🇺🇸 Risorse Militari',             posGood: true },
+  influenza_diplomatica_coalizione:    { icon: '🤝', label: '🇺🇸 Influenza Diplomatica',        posGood: true },
+  tecnologia_avanzata_coalizione:      { icon: '💻', label: '🇺🇸 Tecnologia Avanzata',          posGood: true },
+  supporto_pubblico_coalizione:        { icon: '📢', label: '🇺🇸 Supporto Pubblico',            posGood: true },
+  stabilita_coalizione:                { icon: '🗽', label: '🇺🇸 Stabilità Coalizione',         posGood: true },
   // ─── Russia 🇷🇺 ──────────────────────────────────────────────────────────────
-  risorse_russia:             { icon: '💵', label: '🇷🇺 Risorse Russia',              posGood: true },
-  influenza_militare_russia:  { icon: '🎖️', label: '🇷🇺 Influenza Militare Russia',  posGood: true },
+  risorse_russia:             { icon: '🛢️', label: '🇷🇺 Risorse Russia',              posGood: true },
+  influenza_militare_russia:  { icon: '🎖️', label: '🇷🇺 Influenza Militare',          posGood: true },
   veto_onu_russia:            { icon: '🏛️', label: '🇷🇺 Veto ONU Russia (0-3)',       posGood: true },
-  stabilita_economica_russia: { icon: '📊', label: '🇷🇺 Stabilità Economica Russia',  posGood: true },
-  stabilita_russia:           { icon: '⚖️', label: '🇷🇺 Stabilità Russia',            posGood: true },
+  stabilita_economica_russia: { icon: '📊', label: '🇷🇺 Stabilità Economica',          posGood: true },
+  stabilita_russia:           { icon: '🐻', label: '🇷🇺 Stabilità Russia',             posGood: true },
   // ─── Cina 🇨🇳 ────────────────────────────────────────────────────────────────
-  risorse_cina:               { icon: '💵', label: '🇨🇳 Risorse Cina',               posGood: true },
-  influenza_commerciale_cina: { icon: '🏪', label: '🇨🇳 Influenza Commerciale Cina', posGood: true },
-  cyber_warfare_cina:         { icon: '🖥️', label: '🇨🇳 Cyber Warfare Cina',         posGood: true },
-  stabilita_rotte_cina:       { icon: '🚢', label: '🇨🇳 Stabilità Rotte Cina',        posGood: true },
-  stabilita_cina:             { icon: '⚖️', label: '🇨🇳 Stabilità Cina',              posGood: true },
-  // ─── Europa 🇪🇺 ──────────────────────────────────────────────────────────────
-  risorse_europa:              { icon: '💵', label: '🇪🇺 Risorse Europa',              posGood: true },
-  influenza_diplomatica_europa:{ icon: '🕊️', label: '🇪🇺 Influenza Diplomatica EU',   posGood: true },
-  aiuti_umanitari_europa:      { icon: '❤️', label: '🇪🇺 Aiuti Umanitari Europa',     posGood: true },
-  coesione_ue_europa:          { icon: '🌐', label: '🇪🇺 Coesione UE',                posGood: true },
-  stabilita_europa:            { icon: '⚖️', label: '🇪🇺 Stabilità Europa',           posGood: true },
+  risorse_cina:               { icon: '🏭', label: '🇨🇳 Potenza Economica Cina',      posGood: true },
+  influenza_commerciale_cina: { icon: '🏪', label: '🇨🇳 Influenza Commerciale',       posGood: true },
+  cyber_warfare_cina:         { icon: '🖥️', label: '🇨🇳 Cyber Warfare',              posGood: true },
+  stabilita_rotte_cina:       { icon: '🚢', label: '🇨🇳 Stabilità Rotte',            posGood: true },
+  stabilita_cina:             { icon: '🐉', label: '🇨🇳 Stabilità Cina',             posGood: true },
+  // ─── Europa 🇪🇺 ───────────────────────────────────────────────────────────────
+  risorse_europa:               { icon: '⚡',  label: '🇪🇺 Stabilità Energetica',    posGood: true },
+  influenza_diplomatica_europa: { icon: '🕊️', label: '🇪🇺 Influenza Diplomatica',   posGood: true },
+  aiuti_umanitari_europa:       { icon: '❤️', label: '🇪🇺 Aiuti Umanitari',         posGood: true },
+  coesione_ue_europa:           { icon: '🌐', label: '🇪🇺 Coesione UE',             posGood: true },
+  stabilita_europa:             { icon: '🏰', label: '🇪🇺 Stabilità Europa',         posGood: true },
 };
 
 // Valori medi realistici usati per la preview dei badge

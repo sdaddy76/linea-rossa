@@ -55,7 +55,7 @@ export const MAZZO_IRAN: GameCard[] = [
   { card_id:'C041', card_name:'Supporto Hamas', faction:'Iran', card_type:'Militare', op_points:2, deck_type:'base', description:'Armi e fondi per Gaza',
     effects:{ defcon:(v)=>v<=6?-1:0, opinione:(v)=>v<=-3?2:0, risorse:(v)=>-1, nucleare:(v)=>1 , forze_militari_iran:(v)=>+1, influenza_diplomatica_coalizione:(v)=>-1}},
   { card_id:'C042', card_name:'Diplomazia Oman', faction:'Iran', card_type:'Diplomatico', op_points:2, deck_type:'base', description:'Canale segreto via Muscat',
-    effects:{ sanzioni:(v)=>+1, opinione:(v)=>-1, defcon:(v)=>v<=4?1:0 , stabilita_iran:(v)=>+1, coesione_ue_europa:(v)=>-1, influenza_diplomatica_europa:(v)=>-1, risorse_iran:(v)=>+1}},
+    effects:{ sanzioni:(v)=>-1, opinione:(v)=>-1, defcon:(v)=>v<=4?1:0 , stabilita_iran:(v)=>+1, coesione_ue_europa:(v)=>-1, influenza_diplomatica_europa:(v)=>-1, risorse_iran:(v)=>+1}},
   { card_id:'C043', card_name:'Esercitazioni Navali', faction:'Iran', card_type:'Militare', op_points:2, deck_type:'base', description:'Manovre nello Stretto di Hormuz',
     effects:{ defcon:(v)=>-1, opinione:(v)=>v<=-3?1:0, risorse:(v)=>-1, stabilita:(v)=>1 , forze_militari_iran:(v)=>+1, stabilita_coalizione:(v)=>-1,
               nucleare:(v)=>3}},

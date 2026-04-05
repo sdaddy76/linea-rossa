@@ -141,34 +141,34 @@ const ZONE_STABILITA: FactionTrackZone[] = [
 // ─── Tracciati per-fazione dal regolamento ────
 const FACTION_TRACKS: Record<string, FactionTrackDef[]> = {
   Iran: [
-    { id: 'risorse_iran',             label: 'Risorse Economiche', icon: '💰', min: 1, max: 10, color: '#f59e0b', zones: ZONE_STANDARD,       isPO: true },
+    { id: 'risorse_iran',             label: 'Risorse Economiche', icon: '💵', min: 1, max: 10, color: '#f59e0b', zones: ZONE_STANDARD,       isPO: true },
     { id: 'forze_militari_iran',      label: 'Forze Militari',     icon: '⚔️', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
     { id: 'tecnologia_nucleare_iran', label: 'Tecnologia Nucleare',icon: '☢️', min: 1, max: 10, color: '#22c55e', zones: ZONE_NUCLEARE_IRAN },
-    { id: 'stabilita_iran',           label: 'Stabilità Interna',  icon: '⚖️', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STABILITA,      isIndicator: true },
+    { id: 'stabilita_iran',           label: 'Stabilità Interna',  icon: '🕌', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STABILITA,      isIndicator: true },
   ],
   Coalizione: [
     { id: 'risorse_coalizione',               label: 'Risorse Militari',      icon: '🪖', min: 1, max: 15, color: '#3b82f6', zones: ZONE_MILITARI_15, isPO: true },
     { id: 'influenza_diplomatica_coalizione', label: 'Influenza Diplomatica', icon: '🤝', min: 1, max: 10, color: '#60a5fa', zones: ZONE_STANDARD },
-    { id: 'tecnologia_avanzata_coalizione',   label: 'Tecnologia Avanzata',   icon: '🛸', min: 1, max: 10, color: '#818cf8', zones: ZONE_STANDARD },
-    { id: 'supporto_pubblico_coalizione',     label: 'Supporto Pubblico',     icon: '📊', min: 1, max: 10, color: '#c084fc', zones: ZONE_STABILITA, isIndicator: true },
+    { id: 'tecnologia_avanzata_coalizione',   label: 'Tecnologia Avanzata',   icon: '💻', min: 1, max: 10, color: '#818cf8', zones: ZONE_STANDARD },
+    { id: 'supporto_pubblico_coalizione',     label: 'Supporto Pubblico',     icon: '📢', min: 1, max: 10, color: '#c084fc', zones: ZONE_STABILITA, isIndicator: true },
   ],
   Russia: [
-    { id: 'risorse_russia',           label: 'Energia / Risorse',  icon: '⛽', min: 1, max: 10, color: '#f97316', zones: ZONE_STANDARD,  isPO: true },
-    { id: 'influenza_militare_russia',label: 'Influenza Militare', icon: '🪖', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
+    { id: 'risorse_russia',           label: 'Energia / Risorse',  icon: '🛢️', min: 1, max: 10, color: '#f97316', zones: ZONE_STANDARD,  isPO: true },
+    { id: 'influenza_militare_russia',label: 'Influenza Militare', icon: '🎖️', min: 1, max: 10, color: '#ef4444', zones: ZONE_STANDARD },
     { id: 'veto_onu_russia',          label: 'Veto ONU',           icon: '🏛️', min: 0, max: 3,  color: '#fbbf24', zones: ZONE_VETO },
-    { id: 'stabilita_economica_russia',label:'Stabilità Economica',icon: '💹', min: 1, max: 10, color: '#a3e635', zones: ZONE_STABILITA, isIndicator: true },
+    { id: 'stabilita_economica_russia',label:'Stabilità Economica',icon: '📊', min: 1, max: 10, color: '#a3e635', zones: ZONE_STABILITA, isIndicator: true },
   ],
   Cina: [
-    { id: 'risorse_cina',              label: 'Potenza Economica',   icon: '💴', min: 1, max: 12, color: '#f59e0b', zones: ZONE_ECONOMICA_12, isPO: true },
-    { id: 'influenza_commerciale_cina',label: 'Influenza Commerciale',icon:'🛒', min: 1, max: 10, color: '#fbbf24', zones: ZONE_STANDARD },
-    { id: 'cyber_warfare_cina',        label: 'Cyber Warfare',       icon: '💻', min: 1, max: 10, color: '#34d399', zones: ZONE_STANDARD },
+    { id: 'risorse_cina',              label: 'Potenza Economica',   icon: '🏭', min: 1, max: 12, color: '#f59e0b', zones: ZONE_ECONOMICA_12, isPO: true },
+    { id: 'influenza_commerciale_cina',label: 'Influenza Commerciale',icon:'🏪', min: 1, max: 10, color: '#fbbf24', zones: ZONE_STANDARD },
+    { id: 'cyber_warfare_cina',        label: 'Cyber Warfare',       icon: '🖥️', min: 1, max: 10, color: '#34d399', zones: ZONE_STANDARD },
     { id: 'stabilita_rotte_cina',      label: 'Stabilità Rotte',     icon: '🚢', min: 1, max: 10, color: '#6ee7b7', zones: ZONE_STABILITA, isIndicator: true },
   ],
   Europa: [
     { id: 'risorse_europa',             label: 'Stabilità Energetica', icon: '⚡', min: 1, max: 10, color: '#8b5cf6', zones: ZONE_STANDARD,  isPO: true },
-    { id: 'influenza_diplomatica_europa',label:'Influenza Diplomatica',icon: '🤝', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STANDARD },
-    { id: 'aiuti_umanitari_europa',     label: 'Aiuti Umanitari',      icon: '🏥', min: 1, max: 10, color: '#c084fc', zones: ZONE_STANDARD },
-    { id: 'coesione_ue_europa',         label: 'Coesione Interna UE',  icon: '🇪🇺', min: 1, max: 10, color: '#7c3aed', zones: ZONE_STABILITA, isIndicator: true },
+    { id: 'influenza_diplomatica_europa',label:'Influenza Diplomatica',icon: '🕊️', min: 1, max: 10, color: '#a78bfa', zones: ZONE_STANDARD },
+    { id: 'aiuti_umanitari_europa',     label: 'Aiuti Umanitari',      icon: '❤️', min: 1, max: 10, color: '#c084fc', zones: ZONE_STANDARD },
+    { id: 'coesione_ue_europa',         label: 'Coesione Interna UE',  icon: '🌐', min: 1, max: 10, color: '#7c3aed', zones: ZONE_STABILITA, isIndicator: true },
   ],
 };
 
