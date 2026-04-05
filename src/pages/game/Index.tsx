@@ -548,6 +548,18 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   }, [gameState?.active_faction, isBotThinking, game?.status]);
 
   // ── Reload automatico deckCards se mano vuota (timing issue) ────────────
+  // ── Timeout sicurezza: se loading rimane true > 15s, reset forzato ────────
+  useEffect(() => {
+    if (!loading) return;
+    const t = setTimeout(() => {
+      if (useOnlineGameStore.getState().loading) {
+        console.warn('[Index] loading stuck > 15s — reset forzato');
+        useOnlineGameStore.setState({ loading: false, error: null });
+      }
+    }, 15000);
+    return () => clearTimeout(t);
+  }, [loading]);
+
   useEffect(() => {
     if (!game?.id || game.status !== 'active' || !myFaction) return;
     // Se dopo 3s la mano è ancora vuota, ricarica il mazzo dal DB

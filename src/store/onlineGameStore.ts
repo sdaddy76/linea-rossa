@@ -594,6 +594,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const msg = err instanceof Error ? err.message : 'Errore sconosciuto';
       console.error('playCard error:', msg);
       set({ error: msg, loading: false });
+    } finally {
+      set({ loading: false }); // garantisce sempre il reset
     }
   },
 
@@ -1198,6 +1200,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     } catch (err: unknown) {
       console.error('[playCardUnified] ERRORE COMPLETO:', err);
       set({ error: err instanceof Error ? err.message : 'Errore sconosciuto in playCardUnified', loading: false });
+    } finally {
+      set({ loading: false }); // garantisce sempre il reset
     }
   },
 
@@ -1273,6 +1277,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Errore acquisto', loading: false });
+    } finally {
+      set({ loading: false }); // garantisce sempre il reset
     }
   },
 
