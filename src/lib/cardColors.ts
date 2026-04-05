@@ -15,6 +15,15 @@ export function isGoodForFaction(
   faction: string
 ): boolean {
   if (delta === 0) return true;
+  // Risolvi chiave generica → specifica per fazione
+  const GENERIC_TO_FACTION: Record<string, Record<string, string>> = {
+    Iran:       { risorse: 'risorse_iran',       stabilita: 'stabilita_iran'       },
+    Coalizione: { risorse: 'risorse_coalizione',  stabilita: 'stabilita_coalizione' },
+    Russia:     { risorse: 'risorse_russia',      stabilita: 'stabilita_russia'     },
+    Cina:       { risorse: 'risorse_cina',        stabilita: 'stabilita_cina'       },
+    Europa:     { risorse: 'risorse_europa',      stabilita: 'stabilita_europa'     },
+  };
+  track = GENERIC_TO_FACTION[faction]?.[track] ?? track;
 
   // Tracciati globali con direzione preferita per fazione
   // true  = vuole che il tracciato salga  (delta>0 → buono)

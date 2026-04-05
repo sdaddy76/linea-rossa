@@ -81,18 +81,30 @@ const DEFAULT_VALS: Record<string, number> = {
 
 function getDeltas(card: GameCard | DeckCard) {
   if (!('effects' in card) || !card.effects) return [];
+  const faction = (card.faction as string) ?? 'Neutrale';
   const e = card.effects as Record<string, ((v: number) => number) | undefined>;
+
+  // Mappa chiavi generiche → specifiche per fazione
+  const FACTION_TRACK_MAP: Record<string, Record<string, string>> = {
+    Iran:       { risorse: 'risorse_iran',       stabilita: 'stabilita_iran'       },
+    Coalizione: { risorse: 'risorse_coalizione',  stabilita: 'stabilita_coalizione' },
+    Russia:     { risorse: 'risorse_russia',      stabilita: 'stabilita_russia'     },
+    Cina:       { risorse: 'risorse_cina',        stabilita: 'stabilita_cina'       },
+    Europa:     { risorse: 'risorse_europa',      stabilita: 'stabilita_europa'     },
+  };
   return Object.entries(e)
     .map(([key, fn]) => {
       if (!fn) return null;
-      const ref = DEFAULT_VALS[key] ?? 5;
-      const delta = fn(ref);  // fn restituisce già il delta (es. -2), non il nuovo valore
+      // Traduci chiave generica → specifica fazione per icona e colore corretti
+      const resolvedKey = FACTION_TRACK_MAP[faction]?.[key] ?? key;
+      const ref = DEFAULT_VALS[resolvedKey] ?? DEFAULT_VALS[key] ?? 5;
+      const delta = fn(ref);
       if (delta === 0) return null;
-      const info = TRACK_INFO[key];
+      const info = TRACK_INFO[resolvedKey] ?? TRACK_INFO[key];
       if (!info) return null;
-      return { key, ...info, delta };
+      return { key: resolvedKey, originalKey: key, ...info, delta };
     })
-    .filter(Boolean) as Array<{ key: string; icon: string; label: string; posGood: boolean; delta: number }>;
+    .filter(Boolean) as Array<{ key: string; originalKey: string; icon: string; label: string; posGood: boolean; delta: number }>;
 }
 
 export default function CardPeek({
