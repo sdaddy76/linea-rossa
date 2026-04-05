@@ -82,16 +82,28 @@ async function applyEndOfTurnMechanics(
   }
 
   // 6. Combina stato carta + bonus territoriali nell'update finale
-  // IMPORTANTE: filtra solo le colonne che esistono fisicamente nella tabella
-  // game_state su Supabase (le colonne "extended" del tipo TS potrebbero non
-  // esistere nel DB → 400 Bad Request se inviate nel PATCH)
+  // Filtra solo le colonne che esistono fisicamente in game_state Supabase.
+  // Lista ricavata dalle migration SQL (linea_rossa_schema.sql +
+  // add_faction_tracks.sql + add_military_tracks.sql + add_missing_columns.sql).
+  // Qualsiasi campo non in questa lista causa 400 Bad Request.
   const SAFE_GAME_STATE_KEYS = new Set([
+    // globali
     'nucleare', 'sanzioni', 'opinione', 'defcon',
+    // risorse per fazione
     'risorse_iran', 'risorse_coalizione', 'risorse_russia', 'risorse_cina', 'risorse_europa',
+    // stabilità per fazione
     'stabilita_iran', 'stabilita_coalizione', 'stabilita_russia', 'stabilita_cina', 'stabilita_europa',
+    // forze militari per fazione
     'forze_militari_iran', 'forze_militari_coalizione', 'forze_militari_russia',
     'forze_militari_cina', 'forze_militari_europa',
-    'veto_onu_russia',
+    // tracciati estesi coalizione
+    'influenza_diplomatica_coalizione', 'tecnologia_avanzata_coalizione', 'supporto_pubblico_coalizione',
+    // tracciati estesi russia
+    'influenza_militare_russia', 'veto_onu_russia', 'stabilita_economica_russia',
+    // tracciati estesi cina
+    'influenza_commerciale_cina', 'cyber_warfare_cina', 'stabilita_rotte_cina',
+    // tracciati estesi europa
+    'influenza_diplomatica_europa', 'aiuti_umanitari_europa', 'coesione_ue_europa',
   ]);
   const filteredBonusState = Object.fromEntries(
     Object.entries(bonusState).filter(([k]) => SAFE_GAME_STATE_KEYS.has(k))

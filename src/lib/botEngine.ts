@@ -592,37 +592,46 @@ export function nextFaction(current: Faction): Faction {
 export const TERRITORY_CONTROL_THRESHOLD = 3;
 
 /**
- * Valore massimo assoluto per ogni tracciato (clamping).
- * Specifica i limiti per evitare overflow di stato.
+ * Limiti esatti dai CHECK constraints del DB Supabase (game_state).
+ * Ricavati dalle migration SQL. DEVONO corrispondere 1:1 con il DB.
  */
 const STATE_LIMITS: Record<string, [number, number]> = {
-  nucleare:                        [1, 15],
-  sanzioni:                        [1, 20],
-  opinione:                        [-10, 10],
-  defcon:                          [1, 5],
-  risorse_iran:                    [1, 10],
-  risorse_coalizione:              [1, 15],
-  risorse_russia:                  [1, 10],
-  risorse_cina:                    [1, 12],
-  risorse_europa:                  [1, 10],
-  stabilita_iran:                  [1, 10],
-  stabilita_coalizione:            [1, 10],
-  stabilita_russia:                [1, 10],
-  stabilita_cina:                  [1, 10],
-  stabilita_europa:                [1, 10],
-  forze_militari_iran:             [1, 10],
-  forze_militari_coalizione:       [1, 10],
-  forze_militari_russia:           [1, 10],
-  forze_militari_cina:             [1, 10],
-  forze_militari_europa:           [1, 10],
-  influenza_diplomatica_coalizione:[1, 10],
-  influenza_diplomatica_europa:    [1, 10],
-  influenza_militare_russia:       [1, 10],
-  influenza_commerciale_cina:      [1, 10],
-  cyber_warfare_cina:              [1, 10],
-  coesione_ue_europa:              [1, 10],
-  aiuti_umanitari_europa:          [1, 10],
-  veto_onu_russia:                 [0, 3],
+  // ── globali (linea_rossa_schema.sql) ────────────────────────────
+  nucleare:                         [1, 15],
+  sanzioni:                         [1, 10],   // DB: BETWEEN 1 AND 10
+  opinione:                         [-10, 10],
+  defcon:                           [1,  5],   // DB: BETWEEN 1 AND 5
+  // ── risorse per fazione ─────────────────────────────────────────
+  risorse_iran:                     [1, 10],
+  risorse_coalizione:               [1, 15],   // add_faction_tracks.sql: BETWEEN 1 AND 15
+  risorse_russia:                   [1, 10],
+  risorse_cina:                     [1, 12],   // add_faction_tracks.sql: BETWEEN 1 AND 12
+  risorse_europa:                   [1, 10],
+  // ── stabilità per fazione ───────────────────────────────────────
+  stabilita_iran:                   [1, 10],
+  stabilita_coalizione:             [1, 10],
+  stabilita_russia:                 [1, 10],
+  stabilita_cina:                   [1, 10],
+  stabilita_europa:                 [1, 10],
+  // ── forze militari (add_military_tracks + add_missing_columns) ──
+  forze_militari_iran:              [1, 10],
+  forze_militari_coalizione:        [1, 10],
+  forze_militari_russia:            [1, 10],
+  forze_militari_cina:              [1, 10],
+  forze_militari_europa:            [1, 10],
+  // ── tracciati fazione estesi (add_faction_tracks.sql) ───────────
+  influenza_diplomatica_coalizione: [1, 10],
+  tecnologia_avanzata_coalizione:   [1, 10],
+  supporto_pubblico_coalizione:     [1, 10],
+  influenza_militare_russia:        [1, 10],
+  stabilita_economica_russia:       [1, 10],
+  veto_onu_russia:                  [0,  3],   // BETWEEN 0 AND 3
+  influenza_commerciale_cina:       [1, 10],
+  cyber_warfare_cina:               [1, 10],
+  stabilita_rotte_cina:             [1, 10],
+  influenza_diplomatica_europa:     [1, 10],
+  aiuti_umanitari_europa:           [1, 10],
+  coesione_ue_europa:               [1, 10],
 };
 
 function clamp(key: string, value: number): number {
