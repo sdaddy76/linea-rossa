@@ -20,7 +20,7 @@ import type {
 import {
   botSelectCard, applyCardEffects, checkWinCondition, nextFaction,
 } from '@/lib/botEngine';
-import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN, CLASSIC_HAND_SIZE, CLASSIC_DRAW_PER_TURN } from '@/data/mazzi';
+import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN, CLASSIC_HAND_SIZE, CLASSIC_DRAW_PER_TURN, MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } from '@/data/mazzi';
 import { TERRITORIES } from '@/lib/territoriesData';
 import { assignObjectives, TUTTI_GLI_OBIETTIVI, type ObjFazione, type ObiettivoSegreto } from '@/data/obiettivi';
 
@@ -439,8 +439,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // (errore già gestito sopra con fallback)
 
       // ── 2. Recupera definizione carta (effetti) ──────────────────────
-      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } = await import('@/data/mazzi');
-      const allCards = [
+      const allMyCards = [
         ...(MAZZI_PER_FAZIONE[myFaction] ?? []),
         ...(MAZZI_SPECIALI[myFaction] ?? []),
       ];
@@ -654,8 +653,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         return;
       }
 
-      // Importa dati carte dalla libreria
-      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI, getUnifiedDeck } = await import('@/data/mazzi');
+      // Costruisci lista carte da definizioni statiche (no dynamic import — evita violation)
       const allCards = [
         ...(MAZZI_PER_FAZIONE[botFaction] ?? []),
         ...(MAZZI_SPECIALI[botFaction] ?? []),
@@ -675,8 +673,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const decision = botSelectCard(availableWithDef, gameState, botFaction, botPlayer.bot_difficulty as 'easy'|'normal'|'hard');
       if (!decision) { set({ isBotThinking: false }); return; }
 
-      // Breve pausa per simulare "pensiero" del bot
-      await new Promise(r => setTimeout(r, 1200));
+      // Breve pausa per simulare "pensiero" del bot (400ms — ridotto per evitare violation)
+      await new Promise(r => setTimeout(r, 400));
 
       // Applica la carta scelta
       const { newState: botRawState, deltas } = applyCardEffects(decision.card, gameState, botFaction);
@@ -771,6 +769,17 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   // -----------------------------------------------
   subscribeToGame: (gameId: string) => {
+    // Debounce handle per evitare doppia esecuzione bot da realtime
+    let botDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleBotTurn = (delayMs = 1500) => {
+      if (botDebounceTimer) clearTimeout(botDebounceTimer);
+      botDebounceTimer = setTimeout(() => {
+        botDebounceTimer = null;
+        const { isBotThinking } = get();
+        if (!isBotThinking) get().runBotTurn();
+      }, delayMs);
+    };
+
     // Real-time: game_state changes
     const stateSub = supabase
       .channel(`game-state-${gameId}`)
@@ -780,14 +789,12 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }, payload => {
         // Merge con lo stato esistente: payload.new può contenere solo i campi aggiornati
         set(s => ({ gameState: { ...s.gameState, ...payload.new } as GameState }));
-        // Se il turno è passato a un bot, avvialo
+        // Se il turno è passato a un bot, avvialo (debounced — evita doppia chiamata)
         const newActiveFaction = payload.new?.active_faction;
         if (newActiveFaction) {
-          const { players: currentPlayers, isBotThinking } = get();
+          const { players: currentPlayers } = get();
           const nextIsBot = currentPlayers.find(p => p.faction === newActiveFaction && p.is_bot);
-          if (nextIsBot && !isBotThinking) {
-            setTimeout(() => get().runBotTurn(), 1500);
-          }
+          if (nextIsBot) scheduleBotTurn(1500);
         }
       })
       .subscribe();
@@ -815,12 +822,17 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       })
       .subscribe();
 
-    // Helper: ricarica TUTTO il mazzo dal DB (usato al primo load e su INSERT)
-    const reloadDeckCards = async () => {
-      const { data } = await supabase
-        .from('cards_deck').select('*').eq('game_id', gameId)
-        .in('status', ['available', 'in_hand', 'special_locked']).order('position');
-      if (data) set({ deckCards: data as DeckCard[] });
+    // Helper: ricarica TUTTO il mazzo dal DB — throttled per evitare N query su INSERT batch
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
+    const reloadDeckCards = () => {
+      if (reloadTimer) return; // già in attesa — ignora trigger duplicati
+      reloadTimer = setTimeout(async () => {
+        reloadTimer = null;
+        const { data } = await supabase
+          .from('cards_deck').select('*').eq('game_id', gameId)
+          .in('status', ['available', 'in_hand', 'special_locked']).order('position');
+        if (data) set({ deckCards: data as DeckCard[] });
+      }, 600); // attende 600ms prima di eseguire — accumula burst di INSERT
     };
 
     // Real-time: carte INSERT (primo popolamento mazzo) + UPDATE (played/in_hand)
@@ -863,6 +875,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       .subscribe();
 
     return () => {
+      // Cancella timer pendenti per evitare memory leak
+      if (botDebounceTimer) clearTimeout(botDebounceTimer);
+      if (reloadTimer) clearTimeout(reloadTimer);
       stateSub.unsubscribe();
       movesSub.unsubscribe();
       gameSub.unsubscribe();
@@ -1066,9 +1081,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const ownerFaction = (resolvedDeckCard.owner_faction ?? resolvedDeckCard.faction) as Faction;
       const isMyCard = ownerFaction === myFaction;
 
-      // 2. Recupera definizione carta con effetti
-      // FIX: includi MAZZO_NEUTRALE per carte con ownerFaction === 'Neutrale'
-      const { MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } = await import('@/data/mazzi');
+      // 2. Recupera definizione carta con effetti (import statico — già disponibile in scope)
       const ownerDeck =
         ownerFaction === ('Neutrale' as Faction)
           ? [...MAZZO_NEUTRALE]
