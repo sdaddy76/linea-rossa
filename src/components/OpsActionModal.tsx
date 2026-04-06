@@ -15,7 +15,7 @@
 import { useState, useMemo } from 'react';
 import type { DeckCard, Faction, GameState, TerritoryRecord, MilitaryUnitRecord } from '@/types/game';
 import { FACTION_COLORS, FACTION_FLAGS } from '@/lib/factionColors';
-import { UNITS } from '@/lib/territoriesData';
+import { UNITS, UNITS_BY_FACTION } from '@/lib/territoriesData';
 import { TERRITORIES } from '@/lib/territoriesData';
 
 // ── Tipi interni ──────────────────────────────────────────────────────────────
@@ -156,7 +156,7 @@ export default function OpsActionModal({
 
   // ── Unità disponibili per questa fazione ──
   const myUnits = useMemo(() =>
-    UNITS.filter(u => u.faction === myFaction || u.faction === 'Tutti'),
+    UNITS_BY_FACTION[myFaction] ?? UNITS.filter(u => u.faction === myFaction || u.faction === 'Tutti'),
     [myFaction]);
 
   // ── Forza attacco calcolata ──
