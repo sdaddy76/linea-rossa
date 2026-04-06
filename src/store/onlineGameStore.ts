@@ -482,8 +482,12 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         const objFaz: ObjFazione = FACTION_TO_OBJ_MAP[faction] ?? (faction as ObjFazione);
         const localObs = assignObjectives(objFaz, 3);
         if (localObs.length > 0) {
-          // insert: nuova partita → nessuna riga esiste ancora
-          // ignoreDuplicates via codice errore '23505' per sicurezza
+          // DELETE prima di INSERT: rimuove righe orfane di partite precedenti
+          // con lo stesso game_id+faction che causano il 409 conflict
+          await supabase.from('game_objectives')
+            .delete()
+            .eq('game_id', game.id)
+            .eq('faction', faction as string);
           const { error: objErr } = await supabase.from('game_objectives').insert(
             localObs.map(o => ({
               game_id:    game.id,
@@ -493,7 +497,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
               punteggio:  0,
             }))
           );
-          if (objErr && objErr.code !== '23505') {
+          if (objErr) {
             console.warn(`[startGame] game_objectives insert warn (${faction}):`, objErr.message);
           }
         }
