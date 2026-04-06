@@ -608,9 +608,9 @@ const STATE_LIMITS: Record<string, [number, number]> = {
   defcon:                           [1, 10],   // DB aggiornato: BETWEEN 1 AND 10
   // ── risorse per fazione ─────────────────────────────────────────
   risorse_iran:                     [1, 10],
-  risorse_coalizione:               [1, 15],   // add_faction_tracks.sql
+  risorse_coalizione:               [1, 10],   // DB reale: BETWEEN 1 AND 10 (add_faction_tracks usava game_states sbagliato)
   risorse_russia:                   [1, 10],
-  risorse_cina:                     [1, 12],   // add_faction_tracks.sql
+  risorse_cina:                     [1, 10],   // DB reale: BETWEEN 1 AND 10 (add_faction_tracks usava game_states sbagliato)
   risorse_europa:                   [1, 10],
   // ── stabilità per fazione ───────────────────────────────────────
   stabilita_iran:                   [1, 10],
