@@ -48,12 +48,10 @@ export interface CombatOutcome {
 interface SpecialFlags {
   s400Active: boolean;      // Russia ha S-400 → blocca AviazioneTattica
   scudoActive: boolean;     // Coalizione ha ScudoMissilistico → blocca MissileiBalistici
-  peacekeepingHere: boolean; // Europa ha Peacekeeping → DEFCON non scende in difesa
   forzeSpecialiUsed: boolean; // Coalizione ForzeSpeciali → +1 inf in vittoria
   guerraIbridaUsed: boolean;  // Russia GuerraIbrida → -1 stabilità difensore
   proxyUsed: boolean;         // Iran Proxy → -1 stabilità difensore
   cyberUsed: boolean;         // Iran CyberIran o CyberCina → -1 difesa bersaglio
-  guerraEconomicaUsed: boolean; // Cina GuerraEconomica → -2 sanzioni difensore
 }
 
 function detectSpecialFlags(
@@ -66,12 +64,10 @@ function detectSpecialFlags(
   return {
     s400Active:           defArr.includes('SystemsS400'),
     scudoActive:          defArr.includes('ScudoMissilistico'),
-    peacekeepingHere:     defArr.includes('Peacekeeping'),
     forzeSpecialiUsed:    unitTypesUsed.includes('ForzeSpeciali'),
     guerraIbridaUsed:     unitTypesUsed.includes('GuerraIbrida'),
     proxyUsed:            unitTypesUsed.includes('Proxy'),
     cyberUsed:            unitTypesUsed.includes('CyberIran') || unitTypesUsed.includes('CyberCina'),
-    guerraEconomicaUsed:  unitTypesUsed.includes('GuerraEconomica'),
   };
 }
 
@@ -101,18 +97,6 @@ function calcAttackForce(
       continue;
     }
 
-    // GuerraEconomica Cina: non ha attackBonus diretto nel combattimento armato,
-    // ma conta come +2 economico contro difensori non militari
-    if (utype === 'GuerraEconomica') {
-      if (input.defender === 'Europa' || input.defender === 'Cina') {
-        bonus = 2;
-        bd.push(`${udef.icon} ${udef.label}: attacco economico contro ${input.defender}: +${bonus} → ${force + bonus}`);
-      } else {
-        bd.push(`${udef.icon} ${udef.label}: nessun effetto militare diretto`);
-        continue;
-      }
-    }
-
     // AviazioneTattica Coalizione: bloccata da S-400
     if (utype === 'AviazioneTattica' && flags.s400Active) {
       bd.push(`✈️ AviazioneTattica: BLOCCATA da S-400 russo`);
@@ -122,16 +106,6 @@ function calcAttackForce(
     // MissileiBalistici Iran: bloccati da Scudo Missilistico
     if (utype === 'MissileiBalistici' && flags.scudoActive) {
       bd.push(`🚀 MissileiBalistici: BLOCCATI da Scudo Missilistico`);
-      continue;
-    }
-
-    // Peacekeeping Europa: non attacca
-    if (utype === 'Peacekeeping') {
-      bd.push(`🕊️ Peacekeeping: non combatte in attacco`);
-      continue;
-    }
-    if (utype === 'MissioneAddestr') {
-      bd.push(`📋 Missione Addestramento: non attacca`);
       continue;
     }
 
@@ -222,11 +196,6 @@ function calcDefenseForce(
 
     // MissileiBalistici: nessun bonus difensivo
     if (utype === 'MissileiBalistici') continue;
-    // GuerraEconomica: non difende militarmente
-    if (utype === 'GuerraEconomica') continue;
-    // SanzioniBCE: non difende militarmente
-    if (utype === 'SanzioniBCE') continue;
-
     const bonus = udef.defenseBonus;
     if (bonus > 0) {
       force += bonus * qty;
@@ -290,22 +259,6 @@ function buildExtraEffects(
     effects.push(`🎭 Milizie Proxy: -1 Stabilità Interna a ${input.defender}`);
   }
 
-  // GuerraEconomica Cina: -2 sanzioni difensore in vittoria (riduce sanzioni = meno pressione)
-  if (flags.guerraEconomicaUsed && won) {
-    effects.push(`💰 Guerra Economica Cina: -2 Sanzioni su ${input.defender} (mercato aperto)`);
-  }
-
-  // Peacekeeping Europa: DEFCON non scende se Europa difende con peacekeeping
-  if (flags.peacekeepingHere && input.defender === 'Europa') {
-    effects.push(`🕊️ Peacekeeping: DEFCON stabile (nessuna escalation)`);
-  }
-
-  // ForzaRapidaEU in difesa: DEFCON non scende se EU vince in difesa
-  const forzaRapida = (input.defenderUnitsInTerritory['ForzaRapidaEU'] ?? 0) > 0;
-  if (forzaRapida && input.defender === 'Europa' && !won) {
-    effects.push(`🇪🇺 Forza Rapida EU: DEFCON stabile in difesa`);
-  }
-
   // WagnerGroup: nessun costo politico Russia in sconfitta
   const wagnerUsed = input.unitTypesUsed.includes('WagnerGroup');
   if (wagnerUsed && !won) {
@@ -352,12 +305,6 @@ export function resolveCombat(input: CombatInput): CombatOutcome {
   const won = result === 'vittoria' || result === 'vittoria_decisiva';
   if (flags.forzeSpecialiUsed && won) {
     infAtk += 1;
-  }
-
-  // Peacekeeping / ForzaRapidaEU in difesa: DEFCON non scende
-  const forzaRapida = (input.defenderUnitsInTerritory['ForzaRapidaEU'] ?? 0) > 0;
-  if ((flags.peacekeepingHere || forzaRapida) && input.defender === 'Europa') {
-    defconCh = 0;
   }
 
   // Wagner: non perde stabilità Russia

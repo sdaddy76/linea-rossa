@@ -37,16 +37,8 @@ export type UnitType =
   | 'SystemsS400'       // S-400: contraerea, blocca Aviazione
   | 'WagnerGroup'       // Wagner: proxy mercenario, sacrificabile
   // ── CINA ────────────────────────────────────────────────────────────────
-  | 'EsercitoRegolare'  // PLA: forze convenzionali bilanciate
-  | 'DroniCina'         // Droni da sorveglianza/attacco
   | 'NavalePLA'         // Marina PLA: presenza navale
-  | 'GuerraEconomica'   // Sanzioni/investimenti: attacco economico
   | 'CyberCina'         // Cyber PLA: sabotaggio infrastrutture
-  // ── EUROPA ──────────────────────────────────────────────────────────────
-  | 'Peacekeeping'      // Forze ONU/EU: solo difesa, genera opinion
-  | 'ForzaRapidaEU'     // Battlegroup EU: difesa mobile
-  | 'SanzioniBCE'       // Sanzioni finanziarie: attacco economico
-  | 'MissioneAddestr'   // Training mission: bonus stabilità alleato
   // ── CONDIVISA ───────────────────────────────────────────────────────────
   | 'Convenzionale';    // Fanteria standard: tutte le fazioni
 
@@ -238,24 +230,6 @@ export const UNITS: UnitDef[] = [
   // CINA
   // ════════════════════════════════════════════════════════════════
   {
-    type: 'EsercitoRegolare',
-    label: 'Esercito Popolare (PLA)',
-    icon: '⭐',
-    faction: 'Cina',
-    attackBonus: 1, defenseBonus: 2,
-    cost: 2,
-    specialEffect: 'Bilanciato. Cina non paga penalità di Stabilità in sconfitta.',
-  },
-  {
-    type: 'DroniCina',
-    label: 'Droni Wing Loong (CASC)',
-    icon: '🛸',
-    faction: 'Cina',
-    attackBonus: 2, defenseBonus: 0,
-    cost: 2,
-    specialEffect: 'Attacco economico. +2 attacco. In vittoria: riduce Risorse economiche difensore.',
-  },
-  {
     type: 'NavalePLA',
     label: 'Marina PLA (Type 055)',
     icon: '🚢',
@@ -264,15 +238,6 @@ export const UNITS: UnitDef[] = [
     navalOnly: true,
     cost: 3,
     specialEffect: 'Presenza navale. In territorio navale: +1 influenza commerciale Cina.',
-  },
-  {
-    type: 'GuerraEconomica',
-    label: 'Leva Economica (BRI/Sanzioni)',
-    icon: '💰',
-    faction: 'Cina',
-    attackBonus: 0, defenseBonus: 0,
-    cost: 2,
-    specialEffect: 'Non combatte. Attiva: -2 sanzioni al bersaglio, +1 influenza Cina nel territorio.',
   },
   {
     type: 'CyberCina',
@@ -284,46 +249,6 @@ export const UNITS: UnitDef[] = [
     specialEffect: 'Sabotaggio. -1 Difesa bersaglio. Se vittoria: -1 Cyber difensore.',
   },
 
-  // ════════════════════════════════════════════════════════════════
-  // EUROPA
-  // ════════════════════════════════════════════════════════════════
-  {
-    type: 'Peacekeeping',
-    label: 'Missione Peacekeeping ONU/EU',
-    icon: '🕊️',
-    faction: 'Europa',
-    attackBonus: 0, defenseBonus: 2,
-    cost: 1,
-    specialEffect: 'Difensivo. Non può attaccare. In difesa: +2. Genera +1 Opinione Globale se presente.',
-    maxPerTerritory: 3,
-  },
-  {
-    type: 'ForzaRapidaEU',
-    label: 'Battlegroup EU (PESCO)',
-    icon: '🇪🇺',
-    faction: 'Europa',
-    attackBonus: 1, defenseBonus: 3,
-    cost: 3,
-    specialEffect: 'Difesa mobile. Attacco limitato +1. Difesa +3. Riduce escalation: DEFCON non scende se vince.',
-  },
-  {
-    type: 'SanzioniBCE',
-    label: 'Sanzioni Finanziarie (BCE/FMI)',
-    icon: '🏦',
-    faction: 'Europa',
-    attackBonus: 2, defenseBonus: 0,
-    cost: 2,
-    specialEffect: 'Attacco economico. +2 ai fini del calcolo. Se vittoria: +1 Sanzioni al difensore.',
-  },
-  {
-    type: 'MissioneAddestr',
-    label: 'Missione di Addestramento EU',
-    icon: '📋',
-    faction: 'Europa',
-    attackBonus: 0, defenseBonus: 1,
-    cost: 1,
-    specialEffect: 'Supporto. +1 Difesa. In territorio: +1 Stabilità alleato. Non perde unità in sconfitta.',
-  },
 ];
 
 export const UNIT_MAP: Record<UnitType, UnitDef> =
@@ -334,8 +259,8 @@ export const INITIAL_UNITS: Record<Faction, Partial<Record<UnitType, number>>> =
   Iran:       { Convenzionale: 3, IRGC: 2, Proxy: 4, MissileiBalistici: 1, NavaleGolfo: 2, CyberIran: 1 },
   Coalizione: { Convenzionale: 2, ForzeSpeciali: 2, AviazioneTattica: 2, DroniPrecisione: 3, ScudoMissilistico: 1 },
   Russia:     { Convenzionale: 3, ArmataCorazzata: 2, SottomariniAKULA: 2, GuerraIbrida: 2, WagnerGroup: 3, SystemsS400: 1 },
-  Cina:       { Convenzionale: 3, EsercitoRegolare: 2, DroniCina: 2, NavalePLA: 2, GuerraEconomica: 1, CyberCina: 1 },
-  Europa:     { Convenzionale: 2, Peacekeeping: 3, ForzaRapidaEU: 1, SanzioniBCE: 1, MissioneAddestr: 2 },
+  Cina:       { Convenzionale: 2, NavalePLA: 2, CyberCina: 1 },
+  Europa:     { Convenzionale: 3 },
 };
 
 // Unità per fazione (lookup rapido)

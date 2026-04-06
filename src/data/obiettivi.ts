@@ -764,7 +764,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log quante volte sono state usate unità DroniCina. Devono essere ≥ 3.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_CINA_09',
@@ -792,7 +792,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log quante volte è stata giocata la carta GuerraEconomica. Devono essere ≥ 2.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_CINA_11',
@@ -974,7 +974,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log militare quante unità Peacekeeping sono state schierate. Devono essere ≥ 4.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_EU_09',
@@ -1002,7 +1002,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log quante volte è stata usata ForzaRapidaEU. Devono essere ≥ 2.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_EU_11',
@@ -1016,7 +1016,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log quante volte sono state usate SanzioniBCE. Devono essere ≥ 2.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_EU_12',
@@ -1030,7 +1030,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log quante volte sono state usate unità MissioneAddestr. Devono essere ≥ 3.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_EU_13',
