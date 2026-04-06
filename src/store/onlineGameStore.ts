@@ -105,14 +105,8 @@ async function applyEndOfTurnMechanics(
     // forze militari per fazione
     'forze_militari_iran', 'forze_militari_coalizione', 'forze_militari_russia',
     'forze_militari_cina', 'forze_militari_europa',
-    // tracciati estesi coalizione
-    'influenza_diplomatica_coalizione', 'tecnologia_avanzata_coalizione', 'supporto_pubblico_coalizione',
-    // tracciati estesi russia
-    'influenza_militare_russia', 'veto_onu_russia', 'stabilita_economica_russia',
-    // tracciati estesi cina
-    'influenza_commerciale_cina', 'cyber_warfare_cina', 'stabilita_rotte_cina',
-    // tracciati estesi europa
-    'influenza_diplomatica_europa', 'aiuti_umanitari_europa', 'coesione_ue_europa',
+    // tracciati russia (veto_onu_russia esiste in add_faction_tracks.sql)
+    'veto_onu_russia',
   ]);
 
   const filteredBonusState = Object.fromEntries(

@@ -536,9 +536,9 @@ export function calcScores(state: GameState): Record<string, number> {
   return {
     Iran:       Math.round((state.nucleare ?? 0) * 2 + (state.risorse_iran ?? 0) - (state.sanzioni ?? 0)),
     Coalizione: Math.round((state.sanzioni ?? 0) * 2 + (state.risorse_coalizione ?? 0) - (state.nucleare ?? 0)),
-    Russia:     Math.round((state.risorse_russia ?? 0) + (state.influenza_militare_russia ?? 0) + (state.stabilita_russia ?? 0)),
-    Cina:       Math.round((state.risorse_cina ?? 0) + (state.influenza_commerciale_cina ?? 0) + (state.stabilita_rotte_cina ?? 0)),
-    Europa:     Math.round((state.defcon ?? 0) * 3 + (state.coesione_ue_europa ?? 0) + (state.aiuti_umanitari_europa ?? 0)),
+    Russia:     Math.round((state.risorse_russia ?? 0) + (state.stabilita_russia ?? 0)),
+    Cina:       Math.round((state.risorse_cina ?? 0) + (state.stabilita_cina ?? 0)),
+    Europa:     Math.round((state.defcon ?? 0) * 3 + (state.stabilita_europa ?? 0)),
   };
 }
 
@@ -625,18 +625,8 @@ const STATE_LIMITS: Record<string, [number, number]> = {
   forze_militari_cina:              [1, 10],
   forze_militari_europa:            [1, 10],
   // ── tracciati fazione estesi (add_faction_tracks.sql) ───────────
-  influenza_diplomatica_coalizione: [1, 10],
-  tecnologia_avanzata_coalizione:   [1, 10],
-  supporto_pubblico_coalizione:     [1, 10],
-  influenza_militare_russia:        [1, 10],
-  stabilita_economica_russia:       [1, 10],
   veto_onu_russia:                  [0,  3],   // BETWEEN 0 AND 3
-  influenza_commerciale_cina:       [1, 10],
-  cyber_warfare_cina:               [1, 10],
   stabilita_rotte_cina:             [1, 10],
-  influenza_diplomatica_europa:     [1, 10],
-  aiuti_umanitari_europa:           [1, 10],
-  coesione_ue_europa:               [1, 10],
 };
 
 function clamp(key: string, value: number): number {
