@@ -492,30 +492,8 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
       Cina:       { risorse_cina: 1, stabilita_rotte_cina: 1 },  // rotte BRI
       Europa:     { risorse_europa: 1 },
     },
-    // Se Iran controlla Hormuz (influenza ≥ 3):
-    //   - Coalizione perde 1 risorse (carburante/logistica bloccata)
-    //   - Europa perde 1 risorse_europa (dipendenza energetica dal Golfo)
-    //   - Iran perde 1 opinione globale (bloccare il commercio = condanna internazionale)
-    crossFactionEffects: [
-      {
-        triggerFaction: 'Iran',
-        targetFaction:  'Coalizione',
-        delta:          { risorse_coalizione: -1 },
-        label:          '🚢 Blocco Hormuz — Coalizione: -1 risorse (logistica bloccata)',
-      },
-      {
-        triggerFaction: 'Iran',
-        targetFaction:  'Europa',
-        delta:          { risorse_europa: -1 },
-        label:          '⛽ Blocco Hormuz — Europa: -1 risorse (crisi energetica)',
-      },
-      {
-        triggerFaction: 'Iran',
-        targetFaction:  'Iran',
-        delta:          { opinione: -1 },
-        label:          '📢 Blocco Hormuz — Iran: -1 opinione globale (condanna internazionale)',
-      },
-    ],
+    // NOTA: il blocco Hormuz da unità militari è gestito separatamente
+    // da applyHormuzBlockade() in botEngine.ts — trigger = Iran ha unità in Hormuz
   },
 
   // ── ARABIA SAUDITA: greggio e finanza ────────────────────────────────────

@@ -19,7 +19,7 @@ import type {
 } from '@/types/game';
 import {
   botSelectCard, applyCardEffects, checkWinCondition, nextFaction,
-  applyTerritoryBonuses, checkTerritoryObjectives,
+  applyTerritoryBonuses, checkTerritoryObjectives, applyHormuzBlockade,
 } from '@/lib/botEngine';
 import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN, CLASSIC_HAND_SIZE, CLASSIC_DRAW_PER_TURN, MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } from '@/data/mazzi';
 import { TERRITORIES } from '@/lib/territoriesData';
@@ -38,6 +38,7 @@ async function applyEndOfTurnMechanics(
   gameState: import('@/types/game').GameState,
   territories: TerritoryRecord[],
   players: import('@/types/game').GamePlayer[],
+  militaryUnits: import('@/types/game').MilitaryUnitRecord[],
   currentStateUpdate: Partial<import('@/types/game').GameState>,
   completedObjIds: Set<string>,
 ): Promise<{
@@ -51,6 +52,11 @@ async function applyEndOfTurnMechanics(
   // 2. Applica bonus territoriali passivi
   const { newState: bonusState, bonusLog } = applyTerritoryBonuses(mergedState, territories);
 
+  // 2b. Blocco Stretto di Hormuz (basato su unità militari Iran in Hormuz)
+  const hormuzMerged = { ...mergedState, ...bonusState } as import('@/types/game').GameState;
+  const { newState: hormuzState, isActive: hormuzActive, log: hormuzLog } =
+    applyHormuzBlockade(hormuzMerged, militaryUnits);
+
   // 3. Genera notifiche human-readable per i bonus
   const bonusNotifications: string[] = [];
   for (const entry of bonusLog) {
@@ -61,6 +67,10 @@ async function applyEndOfTurnMechanics(
     if (deltaStr) {
       bonusNotifications.push(`🗺️ ${entry.faction} (${entry.territory}): ${entry.territoryLabel} → ${deltaStr}`);
     }
+  }
+  // Aggiungi notifiche blocco Hormuz
+  if (hormuzActive) {
+    bonusNotifications.push(...hormuzLog);
   }
 
   // 4. Verifica obiettivi territoriali
@@ -108,7 +118,8 @@ async function applyEndOfTurnMechanics(
   const filteredBonusState = Object.fromEntries(
     Object.entries(bonusState).filter(([k]) => SAFE_GAME_STATE_KEYS.has(k))
   ) as Partial<import('@/types/game').GameState>;
-  const enrichedStateUpdate = { ...currentStateUpdate, ...filteredBonusState };
+  // hormuzState contiene solo risorse_coalizione, risorse_europa, opinione — tutte safe
+  const enrichedStateUpdate = { ...currentStateUpdate, ...filteredBonusState, ...hormuzState };
 
   return { enrichedStateUpdate, bonusNotifications, newObjectives: newlyCompleted };
 }
@@ -580,10 +591,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
       // ── 3b. Meccaniche fine turno: bonus territoriali + obiettivi ────
-      const { territories: terrRecs, players: playersArr, myObjectives } = get();
+      const { territories: terrRecs, players: playersArr, myObjectives, militaryUnits: playUnits } = get();
       const completedObjIds = new Set((myObjectives ?? []).filter(o => o.completato).map(o => o.obj_id));
       const { enrichedStateUpdate: enrichedNewState, bonusNotifications, newObjectives } =
-        await applyEndOfTurnMechanics(game.id, gameState, terrRecs, playersArr, newState, completedObjIds);
+        await applyEndOfTurnMechanics(game.id, gameState, terrRecs, playersArr, playUnits, newState, completedObjIds);
       // ─────────────────────────────────────────────────────────────────
 
       // ── 4. Query CRITICHE (devono riuscire per passare il turno) ─────
@@ -818,10 +829,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
       // ── Meccaniche fine turno bot: bonus territoriali + obiettivi ───
-      const { territories: botTerrRecs, myObjectives: botMyObj } = get();
+      const { territories: botTerrRecs, myObjectives: botMyObj, militaryUnits: botUnits } = get();
       const botCompletedIds = new Set((botMyObj ?? []).filter(o => o.completato).map(o => o.obj_id));
       const { enrichedStateUpdate: botEnrichedState, bonusNotifications: botBonusNotes, newObjectives: botNewObj } =
-        await applyEndOfTurnMechanics(game.id, gameState, botTerrRecs, players, newState, botCompletedIds);
+        await applyEndOfTurnMechanics(game.id, gameState, botTerrRecs, players, botUnits, newState, botCompletedIds);
       // ────────────────────────────────────────────────────────────────
 
       await withTimeout(Promise.all([
@@ -1284,10 +1295,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       // 4b. Meccaniche fine turno: bonus territoriali + obiettivi ───────
       const cardStateForBonus = mode === 'event' ? (newState as Partial<GameState>) : {};
-      const { territories: uniTerrRecs, players: uniPlayers, myObjectives: uniMyObj } = get();
+      const { territories: uniTerrRecs, players: uniPlayers, myObjectives: uniMyObj, militaryUnits: uniUnits } = get();
       const uniCompletedIds = new Set((uniMyObj ?? []).filter(o => o.completato).map(o => o.obj_id));
       const { enrichedStateUpdate: uniEnrichedState, bonusNotifications: uniBonusNotes, newObjectives: uniNewObj } =
-        await applyEndOfTurnMechanics(game.id, gameState, uniTerrRecs, uniPlayers, cardStateForBonus, uniCompletedIds);
+        await applyEndOfTurnMechanics(game.id, gameState, uniTerrRecs, uniPlayers, uniUnits, cardStateForBonus, uniCompletedIds);
       // ─────────────────────────────────────────────────────────────────
 
       // 5. Aggiorna DB in parallelo

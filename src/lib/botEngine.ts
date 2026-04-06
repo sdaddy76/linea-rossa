@@ -7,7 +7,7 @@
 // =============================================
 
 import type { GameCard } from '@/types/game';
-import type { GameState, TerritoryRecord } from '@/types/game';
+import type { GameState, TerritoryRecord, MilitaryUnitRecord } from '@/types/game';
 import type { Faction, BotDifficulty } from '@/types/game';
 import { supabase } from '@/integrations/supabase/client';
 import { TERRITORY_BONUS_MAP } from '@/lib/territoriesData';
@@ -766,6 +766,85 @@ export function applyTerritoryBonuses(
   }
 
   return { newState, bonusLog };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MECCANICA 1b: Blocco Stretto di Hormuz (basato su unità militari)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Risultato dell'applicazione del blocco Hormuz.
+ */
+export interface HormuzBlockadeResult {
+  /** Stato aggiornato (applica penalità) */
+  newState: Partial<GameState>;
+  /** true se il blocco è attivo questo turno */
+  isActive: boolean;
+  /** Log notifiche per l'UI */
+  log: string[];
+}
+
+/**
+ * applyHormuzBlockade
+ *
+ * Controlla se l'Iran ha unità militari nello Stretto di Hormuz.
+ * Se sì, applica ogni turno:
+ *   - Coalizione: -1 risorse_coalizione  (logistica/carburante bloccato)
+ *   - Europa:     -1 risorse_europa       (crisi energetica dipendenza Golfo)
+ *   - Iran:       -1 opinione             (condanna internazionale)
+ *
+ * Il blocco è attivo se Iran ha almeno 1 unità di qualsiasi tipo a StrettoHormuz.
+ * Unità navali (NavaleGolfo) o terrestri (Proxy, Convenzionale) contano entrambe.
+ *
+ * @param state         - Stato corrente del gioco
+ * @param militaryUnits - Array di MilitaryUnitRecord (tutte le unità in partita)
+ * @returns HormuzBlockadeResult
+ */
+export function applyHormuzBlockade(
+  state: GameState,
+  militaryUnits: MilitaryUnitRecord[],
+): HormuzBlockadeResult {
+  // Conta le unità Iran in StrettoHormuz (qualsiasi tipo, qualsiasi quantità)
+  const iranUnitsInHormuz = militaryUnits.filter(
+    u => u.faction === 'Iran' && u.territory === 'StrettoHormuz' && u.quantity > 0,
+  );
+
+  const totalIranUnits = iranUnitsInHormuz.reduce((sum, u) => sum + u.quantity, 0);
+
+  if (totalIranUnits === 0) {
+    return { newState: {}, isActive: false, log: [] };
+  }
+
+  // Calcola le penalità con clamping
+  const newRisorseCoalizione = clamp(
+    'risorse_coalizione',
+    (state.risorse_coalizione ?? 5) - 1,
+  );
+  const newRisorseEuropa = clamp(
+    'risorse_europa',
+    (state.risorse_europa ?? 5) - 1,
+  );
+  const newOpinione = clamp(
+    'opinione',
+    (state.opinione ?? 0) - 1,
+  );
+
+  const unitTypes = iranUnitsInHormuz.map(u => `${u.quantity}× ${u.unit_type}`).join(', ');
+
+  return {
+    isActive: true,
+    newState: {
+      risorse_coalizione: newRisorseCoalizione,
+      risorse_europa:     newRisorseEuropa,
+      opinione:           newOpinione,
+    },
+    log: [
+      `🚢 Blocco Stretto di Hormuz attivo! Iran: ${unitTypes}`,
+      `  ↳ Coalizione: risorse −1 (logistica bloccata)`,
+      `  ↳ Europa: risorse −1 (crisi energetica Golfo)`,
+      `  ↳ Iran: opinione −1 (condanna internazionale)`,
+    ],
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
