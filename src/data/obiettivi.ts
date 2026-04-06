@@ -329,8 +329,8 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_campo:  null,
     condizione_op:     null,
     condizione_valore: null,
-    condizione_note:   'Conta nel log dei combattimenti quante volte sono stati usati DroniPrecisione. Devono essere ≥ 4.',
-    attivo:            true,
+    condizione_note:   'Conta nel log dei combattimenti quante volte sono stati usati DroniPrecisione. Devono essere ≥ 4. [DISABILITATO: DroniPrecisione sostituiti da MissiliCrociera]',
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_COAL_08',

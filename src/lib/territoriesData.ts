@@ -24,11 +24,12 @@ export type UnitType =
   | 'MissileiBalistici' // Missili balistici: forte attacco, nessun difesa
   | 'NavaleGolfo'       // Flotta Golfo Persico: solo navale
   | 'CyberIran'         // Cyber operazioni: riduce difesa avversario
+  | 'DroniIran'         // Droni Shahed kamikaze: attacco Iran
   // ── COALIZIONE ──────────────────────────────────────────────────────────
   | 'ForzeSpeciali'     // Operazioni speciali: alta precisione
   | 'AviazioneTattica'  // Caccia-bombardieri: dominio aereo
   | 'PortaereiBattleGroup' // Carrier strike group: navale potenziato
-  | 'DroniPrecisione'   // UAV da attacco: basso costo, +attacco
+  | 'MissiliCrociera'   // Missili da crociera: precisione chirurgica
   | 'ScudoMissilistico' // Iron Dome/Patriot: solo difesa
   // ── RUSSIA ──────────────────────────────────────────────────────────────
   | 'SottomariniAKULA'  // Sottomarini: sorpresa navale
@@ -121,6 +122,15 @@ export const UNITS: UnitDef[] = [
     cost: 2,
     specialEffect: 'Cyber. Prima del combattimento: -1 alla difesa del territorio bersaglio.',
   },
+  {
+    type: 'DroniIran',
+    label: 'Droni Shahed (kamikaze)',
+    icon: '🛸',
+    faction: 'Iran',
+    attackBonus: 2, defenseBonus: 0,
+    cost: 2,
+    specialEffect: 'Attacco kamikaze. ATK +2. In vittoria: −1 Stabilità difensore. Nessuna perdita unità in caso di sconfitta (usa Convenzionali come surrogato).',
+  },
 
   // ════════════════════════════════════════════════════════════════
   // COALIZIONE
@@ -155,13 +165,14 @@ export const UNITS: UnitDef[] = [
     maxPerTerritory: 1,
   },
   {
-    type: 'DroniPrecisione',
-    label: 'Droni da Attacco (Reaper/Predator)',
-    icon: '🤖',
+    type: 'MissiliCrociera',
+    label: 'Missili da Crociera (Tomahawk/Storm Shadow)',
+    icon: '🎯',
     faction: 'Coalizione',
-    attackBonus: 2, defenseBonus: 0,
-    cost: 2,
-    specialEffect: 'Economici. Attacco +2. Nessun costo unità in caso di sconfitta.',
+    attackBonus: 3, defenseBonus: 0,
+    cost: 3,
+    specialEffect: 'Precisione chirurgica. ATK +3. In vittoria: riduce Nucleare Iran di 1 se bersaglio è Natanz/Fordow/Teheran. Nessuna perdita unità in caso di sconfitta.',
+    maxPerTerritory: 2,
   },
   {
     type: 'ScudoMissilistico',
@@ -241,8 +252,8 @@ export const UNIT_MAP: Record<UnitType, UnitDef> =
 
 // Unità iniziali per fazione (bilanciate per asimmetria)
 export const INITIAL_UNITS: Record<Faction, Partial<Record<UnitType, number>>> = {
-  Iran:       { Convenzionale: 3, IRGC: 2, Proxy: 4, MissileiBalistici: 1, NavaleGolfo: 2, CyberIran: 1 },
-  Coalizione: { Convenzionale: 2, ForzeSpeciali: 2, AviazioneTattica: 2, DroniPrecisione: 3, ScudoMissilistico: 1 },
+  Iran:       { Convenzionale: 3, IRGC: 2, Proxy: 4, MissileiBalistici: 1, NavaleGolfo: 2, CyberIran: 1, DroniIran: 2 },
+  Coalizione: { Convenzionale: 2, ForzeSpeciali: 2, AviazioneTattica: 2, MissiliCrociera: 2, ScudoMissilistico: 1 },
   Russia:     { Convenzionale: 2, SottomariniAKULA: 1, GuerraIbrida: 2 },
   Cina:       { Convenzionale: 2, NavalePLA: 2, CyberCina: 1 },
   Europa:     { Convenzionale: 2, Peacekeeping: 3 },

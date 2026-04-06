@@ -52,6 +52,8 @@ interface SpecialFlags {
   proxyUsed: boolean;         // Iran Proxy → -1 stabilità difensore
   cyberUsed: boolean;         // Iran CyberIran o CyberCina → -1 difesa bersaglio
   peacekeepingPresent: boolean; // Europa Peacekeeping → +1 Opinione, solo difesa
+  droniIranUsed: boolean;     // Iran DroniIran → -1 stabilità difensore, no perdita unità in sconfitta
+  missiliCrociEraUsed: boolean; // Coalizione MissiliCrociera → -1 Nucleare Iran se Natanz/Fordow/Teheran, no perdita unità
 }
 
 function detectSpecialFlags(
@@ -62,12 +64,14 @@ function detectSpecialFlags(
     .filter(([, q]) => q > 0).map(([t]) => t);
 
   return {
-    scudoActive:          defArr.includes('ScudoMissilistico'),
-    forzeSpecialiUsed:    unitTypesUsed.includes('ForzeSpeciali'),
-    guerraIbridaUsed:     unitTypesUsed.includes('GuerraIbrida'),
-    proxyUsed:            unitTypesUsed.includes('Proxy'),
-    cyberUsed:            unitTypesUsed.includes('CyberIran') || unitTypesUsed.includes('CyberCina'),
-    peacekeepingPresent:  defArr.includes('Peacekeeping') || unitTypesUsed.includes('Peacekeeping'),
+    scudoActive:           defArr.includes('ScudoMissilistico'),
+    forzeSpecialiUsed:     unitTypesUsed.includes('ForzeSpeciali'),
+    guerraIbridaUsed:      unitTypesUsed.includes('GuerraIbrida'),
+    proxyUsed:             unitTypesUsed.includes('Proxy'),
+    cyberUsed:             unitTypesUsed.includes('CyberIran') || unitTypesUsed.includes('CyberCina'),
+    peacekeepingPresent:   defArr.includes('Peacekeeping') || unitTypesUsed.includes('Peacekeeping'),
+    droniIranUsed:         unitTypesUsed.includes('DroniIran'),
+    missiliCrociEraUsed:   unitTypesUsed.includes('MissiliCrociera'),
   };
 }
 
@@ -264,6 +268,17 @@ function buildExtraEffects(
     effects.push(`🕊️ Caschi Blu ONU/EU: +1 Opinione Globale`);
   }
 
+  // DroniIran: -1 stabilità difensore in vittoria
+  if (flags.droniIranUsed && won) {
+    effects.push(`🛸 Droni Shahed: −1 Stabilità Interna a ${input.defender} (attacco kamikaze)`);
+  }
+
+  // MissiliCrociera: -1 Nucleare Iran se bersaglio è Natanz/Fordow/Teheran in vittoria
+  const nucleareTargets: TerritoryId[] = ['Natanz', 'Fordow', 'Teheran'];
+  if (flags.missiliCrociEraUsed && won && nucleareTargets.includes(input.territory)) {
+    effects.push(`🎯 Missili da Crociera: −1 Nucleare Iran (bersaglio ${input.territory} colpito con precisione chirurgica)`);
+  }
+
   return effects;
 }
 
@@ -315,6 +330,18 @@ export function resolveCombat(input: CombatInput): CombatOutcome {
   ) {
     unitsLost = Math.max(unitsLost, 1);
     desc += ` ⚡ Guerra Asimmetrica: attaccante perde almeno 1 unità.`;
+  }
+
+  // DroniIran: nessuna perdita unità in caso di sconfitta
+  if (flags.droniIranUsed && (result === 'sconfitta' || result === 'sconfitta_grave')) {
+    unitsLost = 0;
+    desc += ` 🛸 Droni Shahed: nessuna perdita unità (kamikaze surrogati da Convenzionali).`;
+  }
+
+  // MissiliCrociera: nessuna perdita unità in caso di sconfitta
+  if (flags.missiliCrociEraUsed && (result === 'sconfitta' || result === 'sconfitta_grave')) {
+    unitsLost = 0;
+    desc += ` 🎯 Missili da Crociera: nessuna perdita unità in caso di sconfitta.`;
   }
 
   const extraEffects = buildExtraEffects(result, input, flags);
