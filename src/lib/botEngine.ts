@@ -697,6 +697,7 @@ export function applyTerritoryBonuses(
     const terrRecord = territories.find(t => t.territory === territoryId);
     if (!terrRecord) continue;
 
+    // ── 1. Bonus diretti per fazione che controlla il territorio ─────────
     for (const faction of factions) {
       const infKey = infKeys[faction];
       const influence = (terrRecord[infKey] as number) ?? 0;
@@ -723,6 +724,35 @@ export function applyTerritoryBonuses(
           bonusLabel: `${faction} +bonus in ${territoryId} (inf:${influence})`,
           deltas: bonusDelta,
         });
+      }
+    }
+
+    // ── 2. Effetti trasversali (crossFactionEffects) ──────────────────────
+    // Se triggerFaction controlla il territorio, applica delta a targetFaction.
+    if (bonusEntry.crossFactionEffects) {
+      for (const effect of bonusEntry.crossFactionEffects) {
+        const triggerKey = infKeys[effect.triggerFaction];
+        const triggerInfluence = (terrRecord[triggerKey] as number) ?? 0;
+
+        // Attiva solo se triggerFaction supera la soglia di controllo
+        if (triggerInfluence < TERRITORY_CONTROL_THRESHOLD) continue;
+
+        let hasCrossDelta = false;
+        for (const [key, delta] of Object.entries(effect.delta)) {
+          if (delta === 0 || delta === undefined) continue;
+          accumulatedDeltas[key] = (accumulatedDeltas[key] ?? 0) + delta;
+          hasCrossDelta = true;
+        }
+
+        if (hasCrossDelta) {
+          bonusLog.push({
+            faction:        effect.targetFaction,
+            territory:      territoryId,
+            territoryLabel: effect.label,
+            bonusLabel:     effect.label,
+            deltas:         effect.delta,
+          });
+        }
       }
     }
   }

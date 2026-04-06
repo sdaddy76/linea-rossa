@@ -414,6 +414,17 @@ export interface TerritoryBonusEntry {
   label: string;
   /** Bonus per fazione: chiave = Faction, valore = delta GameState */
   bonusByFaction: Partial<Record<Faction, TerritoryBonusDelta>>;
+  /**
+   * Effetti trasversali: se la fazione `triggerFaction` controlla il territorio
+   * (influenza ≥ soglia), applica `delta` alla fazione `targetFaction`.
+   * Usato per penalità geopolitiche (es. blocco Hormuz → -risorse Coalition/Europa).
+   */
+  crossFactionEffects?: Array<{
+    triggerFaction: Faction;
+    targetFaction: Faction;
+    delta: TerritoryBonusDelta;
+    label: string;
+  }>;
 }
 
 /**
@@ -476,11 +487,35 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
     label: 'Controllo Stretto di Hormuz',
     bonusByFaction: {
       Iran:       { risorse_iran: 1, nucleare: 1 },              // leva sul blocco
-      Coalizione: { risorse_coalizione: 1, sanzioni: 1 },       // libertà di navigazione
+      Coalizione: { risorse_coalizione: 1, sanzioni: 1 },        // libertà di navigazione
       Russia:     { risorse_russia: 1 },
-      Cina:       { risorse_cina: 1, stabilita_rotte_cina: 1 }, // rotte BRI
+      Cina:       { risorse_cina: 1, stabilita_rotte_cina: 1 },  // rotte BRI
       Europa:     { risorse_europa: 1 },
     },
+    // Se Iran controlla Hormuz (influenza ≥ 3):
+    //   - Coalizione perde 1 risorse (carburante/logistica bloccata)
+    //   - Europa perde 1 risorse_europa (dipendenza energetica dal Golfo)
+    //   - Iran perde 1 opinione globale (bloccare il commercio = condanna internazionale)
+    crossFactionEffects: [
+      {
+        triggerFaction: 'Iran',
+        targetFaction:  'Coalizione',
+        delta:          { risorse_coalizione: -1 },
+        label:          '🚢 Blocco Hormuz — Coalizione: -1 risorse (logistica bloccata)',
+      },
+      {
+        triggerFaction: 'Iran',
+        targetFaction:  'Europa',
+        delta:          { risorse_europa: -1 },
+        label:          '⛽ Blocco Hormuz — Europa: -1 risorse (crisi energetica)',
+      },
+      {
+        triggerFaction: 'Iran',
+        targetFaction:  'Iran',
+        delta:          { opinione: -1 },
+        label:          '📢 Blocco Hormuz — Iran: -1 opinione globale (condanna internazionale)',
+      },
+    ],
   },
 
   // ── ARABIA SAUDITA: greggio e finanza ────────────────────────────────────
