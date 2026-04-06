@@ -138,7 +138,10 @@ async function applyEndOfTurnMechanics(
       });
   }
 
-  const enrichedStateUpdate = { ...currentStateUpdate, ...filteredBonusState, ...filteredHormuzState };
+  const filteredCardState = Object.fromEntries(
+    Object.entries(currentStateUpdate).filter(([k]) => SAFE_GAME_STATE_KEYS.has(k))
+  ) as Partial<import('@/types/game').GameState>;
+  const enrichedStateUpdate = { ...filteredCardState, ...filteredBonusState, ...filteredHormuzState };
 
   return { enrichedStateUpdate, bonusNotifications, newObjectives: newlyCompleted };
 }
