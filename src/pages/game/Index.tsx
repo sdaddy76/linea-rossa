@@ -829,15 +829,24 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
 
             {/* TAB: PLANCIA */}
             {activeTab === 'plancia' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
-                {TRACKS.map(track => (
-                  <FullTrack
-                    key={track.id}
-                    track={track}
-                    value={trackValues[track.id]}
-                    prevValue={prevValues[track.id]}
+              <div className="space-y-3">
+                {/* ── Track punteggi in tempo reale ── */}
+                {game.status === 'active' && (
+                  <ScoreTrack
+                    gameId={game.id}
+                    factions={players.map(p => p.faction).filter(Boolean) as string[]}
                   />
-                ))}
+                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                  {TRACKS.map(track => (
+                    <FullTrack
+                      key={track.id}
+                      track={track}
+                      value={trackValues[track.id]}
+                      prevValue={prevValues[track.id]}
+                    />
+                  ))}
+                </div>
               </div>
             )}
 
