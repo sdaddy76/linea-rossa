@@ -470,7 +470,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log militare quante unità WagnerGroup sono state schierate. Devono essere ≥ 4.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_RUSS_03',
@@ -540,7 +540,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log militare quante unità SystemsS400 sono state schierate. Devono essere ≥ 2.',
-    attivo:            true,
+    attivo:            false,
   },
   {
     obj_id:            'OBJ_RUSS_08',
@@ -974,7 +974,7 @@ export const TUTTI_GLI_OBIETTIVI: ObiettivoSegreto[] = [
     condizione_op:     null,
     condizione_valore: null,
     condizione_note:   'Conta nel log militare quante unità Peacekeeping sono state schierate. Devono essere ≥ 4.',
-    attivo:            false,
+    attivo:            true,
   },
   {
     obj_id:            'OBJ_EU_09',

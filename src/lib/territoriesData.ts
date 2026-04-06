@@ -31,11 +31,10 @@ export type UnitType =
   | 'DroniPrecisione'   // UAV da attacco: basso costo, +attacco
   | 'ScudoMissilistico' // Iron Dome/Patriot: solo difesa
   // ── RUSSIA ──────────────────────────────────────────────────────────────
-  | 'ArmataCorazzata'   // Carro armato pesante: forza massiccia
   | 'SottomariniAKULA'  // Sottomarini: sorpresa navale
   | 'GuerraIbrida'      // Destabilizzazione: riduce stabilità difensore
-  | 'SystemsS400'       // S-400: contraerea, blocca Aviazione
-  | 'WagnerGroup'       // Wagner: proxy mercenario, sacrificabile
+  // ── EUROPA ──────────────────────────────────────────────────────────────
+  | 'Peacekeeping'      // Caschi Blu ONU/EU: solo difesa
   // ── CINA ────────────────────────────────────────────────────────────────
   | 'NavalePLA'         // Marina PLA: presenza navale
   | 'CyberCina'         // Cyber PLA: sabotaggio infrastrutture
@@ -178,16 +177,6 @@ export const UNITS: UnitDef[] = [
   // RUSSIA
   // ════════════════════════════════════════════════════════════════
   {
-    type: 'ArmataCorazzata',
-    label: 'Armata Corazzata (T-90/T-14)',
-    icon: '🪖',
-    faction: 'Russia',
-    attackBonus: 3, defenseBonus: 3,
-    landOnly: true,
-    cost: 3,
-    specialEffect: 'Forza massiccia. Solo terrestre. Attacco +3, Difesa +3.',
-  },
-  {
     type: 'SottomariniAKULA',
     label: 'Sottomarini Classe AKULA',
     icon: '🤿',
@@ -206,24 +195,20 @@ export const UNITS: UnitDef[] = [
     cost: 2,
     specialEffect: 'Destabilizzazione. In vittoria: -1 Stabilità Interna al difensore.',
   },
+
+
+  // ════════════════════════════════════════════════════════════════
+  // EUROPA
+  // ════════════════════════════════════════════════════════════════
   {
-    type: 'SystemsS400',
-    label: 'Sistema S-400 Triumf',
-    icon: '📡',
-    faction: 'Russia',
-    attackBonus: 0, defenseBonus: 5,
-    cost: 3,
-    specialEffect: 'Contraerea. Difesa +5. Annulla il bonus di AviazioneTattica della Coalizione.',
-    maxPerTerritory: 1,
-  },
-  {
-    type: 'WagnerGroup',
-    label: 'Gruppo Wagner (mercenari)',
-    icon: '💀',
-    faction: 'Russia',
-    attackBonus: 2, defenseBonus: 1,
+    type: 'Peacekeeping',
+    label: 'Caschi Blu ONU/EU',
+    icon: '🕊️',
+    faction: 'Europa',
+    attackBonus: 0, defenseBonus: 2,
     cost: 1,
-    specialEffect: 'Proxy sacrificabile. Se persi in combattimento: nessun costo politico per Russia.',
+    specialEffect: 'Solo difesa. Non può attaccare. Difesa +2. Genera +1 Opinione Globale se presente.',
+    maxPerTerritory: 3,
   },
 
   // ════════════════════════════════════════════════════════════════
@@ -258,9 +243,9 @@ export const UNIT_MAP: Record<UnitType, UnitDef> =
 export const INITIAL_UNITS: Record<Faction, Partial<Record<UnitType, number>>> = {
   Iran:       { Convenzionale: 3, IRGC: 2, Proxy: 4, MissileiBalistici: 1, NavaleGolfo: 2, CyberIran: 1 },
   Coalizione: { Convenzionale: 2, ForzeSpeciali: 2, AviazioneTattica: 2, DroniPrecisione: 3, ScudoMissilistico: 1 },
-  Russia:     { Convenzionale: 3, ArmataCorazzata: 2, SottomariniAKULA: 2, GuerraIbrida: 2, WagnerGroup: 3, SystemsS400: 1 },
+  Russia:     { Convenzionale: 2, SottomariniAKULA: 1, GuerraIbrida: 2 },
   Cina:       { Convenzionale: 2, NavalePLA: 2, CyberCina: 1 },
-  Europa:     { Convenzionale: 3 },
+  Europa:     { Convenzionale: 2, Peacekeeping: 3 },
 };
 
 // Unità per fazione (lookup rapido)

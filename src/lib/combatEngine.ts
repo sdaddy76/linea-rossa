@@ -46,12 +46,12 @@ export interface CombatOutcome {
 
 // ─── Effetti speciali attivi ─────────────────────────────────────────────────
 interface SpecialFlags {
-  s400Active: boolean;      // Russia ha S-400 → blocca AviazioneTattica
-  scudoActive: boolean;     // Coalizione ha ScudoMissilistico → blocca MissileiBalistici
+  scudoActive: boolean;       // Coalizione ha ScudoMissilistico → blocca MissileiBalistici
   forzeSpecialiUsed: boolean; // Coalizione ForzeSpeciali → +1 inf in vittoria
   guerraIbridaUsed: boolean;  // Russia GuerraIbrida → -1 stabilità difensore
   proxyUsed: boolean;         // Iran Proxy → -1 stabilità difensore
   cyberUsed: boolean;         // Iran CyberIran o CyberCina → -1 difesa bersaglio
+  peacekeepingPresent: boolean; // Europa Peacekeeping → +1 Opinione, solo difesa
 }
 
 function detectSpecialFlags(
@@ -62,12 +62,12 @@ function detectSpecialFlags(
     .filter(([, q]) => q > 0).map(([t]) => t);
 
   return {
-    s400Active:           defArr.includes('SystemsS400'),
     scudoActive:          defArr.includes('ScudoMissilistico'),
     forzeSpecialiUsed:    unitTypesUsed.includes('ForzeSpeciali'),
     guerraIbridaUsed:     unitTypesUsed.includes('GuerraIbrida'),
     proxyUsed:            unitTypesUsed.includes('Proxy'),
     cyberUsed:            unitTypesUsed.includes('CyberIran') || unitTypesUsed.includes('CyberCina'),
+    peacekeepingPresent:  defArr.includes('Peacekeeping') || unitTypesUsed.includes('Peacekeeping'),
   };
 }
 
@@ -97,9 +97,9 @@ function calcAttackForce(
       continue;
     }
 
-    // AviazioneTattica Coalizione: bloccata da S-400
-    if (utype === 'AviazioneTattica' && flags.s400Active) {
-      bd.push(`✈️ AviazioneTattica: BLOCCATA da S-400 russo`);
+    // Peacekeeping Europa: non può attaccare
+    if (utype === 'Peacekeeping') {
+      bd.push(`🕊️ Peacekeeping: unità solo difensiva, non contribuisce all'attacco`);
       continue;
     }
 
@@ -259,10 +259,9 @@ function buildExtraEffects(
     effects.push(`🎭 Milizie Proxy: -1 Stabilità Interna a ${input.defender}`);
   }
 
-  // WagnerGroup: nessun costo politico Russia in sconfitta
-  const wagnerUsed = input.unitTypesUsed.includes('WagnerGroup');
-  if (wagnerUsed && !won) {
-    effects.push(`💀 Gruppo Wagner: Russia non perde Stabilità Interna`);
+  // Peacekeeping Europa: genera +1 Opinione Globale se presente
+  if (flags.peacekeepingPresent) {
+    effects.push(`🕊️ Caschi Blu ONU/EU: +1 Opinione Globale`);
   }
 
   return effects;
@@ -305,12 +304,6 @@ export function resolveCombat(input: CombatInput): CombatOutcome {
   const won = result === 'vittoria' || result === 'vittoria_decisiva';
   if (flags.forzeSpecialiUsed && won) {
     infAtk += 1;
-  }
-
-  // Wagner: non perde stabilità Russia
-  const wagnerUsed = input.unitTypesUsed.includes('WagnerGroup');
-  if (wagnerUsed && !won) {
-    stabCh = 0;
   }
 
   // Guerra Asimmetrica: danno aggiuntivo all'attaccante anche in vittoria
