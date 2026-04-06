@@ -1142,14 +1142,14 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     if (!game) return;
 
     const isUnified = game.game_mode === 'unified';
-    const drawN = isUnified ? UNIFIED_DRAW_PER_TURN : CLASSIC_DRAW_PER_TURN;
     const maxHand = isUnified ? UNIFIED_HAND_SIZE : CLASSIC_HAND_SIZE;
 
     // Controlla quante carte ha già in mano — non superare il massimo
     const cardsInHand = deckCards.filter(dc =>
       dc.status === 'in_hand' && dc.held_by_faction === faction
     ).length;
-    const canDraw = Math.max(0, Math.min(drawN, maxHand - cardsInHand));
+    // Top-up: pesca sempre fino a raggiungere maxHand (non solo 1 per turno)
+    const canDraw = Math.max(0, maxHand - cardsInHand);
     if (canDraw === 0) return; // mano già piena
 
     // In modalità classica: pesca solo dal mazzo della propria fazione (faction === dc.faction)
