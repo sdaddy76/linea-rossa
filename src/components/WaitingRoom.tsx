@@ -5,7 +5,7 @@
 // =============================================
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, supabaseAdmin } from '@/integrations/supabase/client';
-import type { Profile } from '@/types/game';
+import type { Profile, BotDifficulty } from '@/types/game';
 
 type Faction = 'Iran' | 'Coalizione' | 'Russia' | 'Cina' | 'Europa';
 
@@ -64,6 +64,8 @@ export default function WaitingRoom({
   const [specialMode, setSpecialMode] = useState<'mixed' | 'separate'>('mixed');
   // Modalità setup iniziale territori
   const [setupMode, setSetupMode] = useState<'base' | 'avanzata'>('base');
+  // Difficoltà bot
+  const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
 
   // ── Configurazioni setup iniziale ────────────────────────────────────────
   // Chiavi: faction name → { territoryId: cubetti }
@@ -223,7 +225,7 @@ export default function WaitingRoom({
           faction,
           player_id: profile.id,
           is_bot: false,
-          bot_difficulty: 'normal',
+          bot_difficulty: botDifficulty,
           turn_order: TURN_ORDER.indexOf(faction) + 1,
           is_ready: true,
         });
@@ -274,7 +276,7 @@ export default function WaitingRoom({
       if (botFactions.length > 0) {
         const botRows = botFactions.map(f => ({
           game_id: gameId, faction: f, player_id: null,
-          is_bot: true, bot_difficulty: 'normal',
+          is_bot: true, bot_difficulty: botDifficulty,
           turn_order: TURN_ORDER.indexOf(f) + 1, is_ready: true,
         }));
         const { error: botErr } = await supabase
@@ -748,6 +750,33 @@ export default function WaitingRoom({
         {/* ── Avvia (solo host) ── */}
         {isHost && (
           <div className="space-y-3">
+            {/* Selettore difficoltà bot */}
+            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
+              <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-2">
+                🤖 Difficoltà Bot
+              </p>
+              <div className="flex gap-2">
+                {(['easy', 'normal', 'hard'] as const).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => setBotDifficulty(d)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors flex-1 ${
+                      botDifficulty === d
+                        ? d === 'easy' ? 'bg-green-900 border-green-500 text-green-300'
+                          : d === 'normal' ? 'bg-yellow-900 border-yellow-500 text-yellow-300'
+                          : 'bg-red-900 border-red-500 text-red-300'
+                        : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-400'
+                    }`}
+                  >
+                    {d === 'easy' ? '🟢 Facile' : d === 'normal' ? '🟡 Normale' : '🔴 Difficile'}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[9px] font-mono text-[#445566] mt-1.5">
+                {botDifficulty === 'easy' ? '⬡ Bot gioca casualmente' : botDifficulty === 'normal' ? '⬡ Bot strategico bilanciato' : '⬡ Bot massimizza la propria strategia'}
+              </p>
+            </div>
+
             {/* Toggle modalità setup territori */}
             <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
               <p className="text-[10px] font-mono font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
