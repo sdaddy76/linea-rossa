@@ -804,30 +804,36 @@ export function applyHormuzBlockade(
   state: GameState,
   militaryUnits: MilitaryUnitRecord[],
 ): HormuzBlockadeResult {
-  // Conta le unità Iran in StrettoHormuz (qualsiasi tipo, qualsiasi quantità)
-  const iranUnitsInHormuz = militaryUnits.filter(
-    u => u.faction === 'Iran' && u.territory === 'StrettoHormuz' && u.quantity > 0,
-  );
+  // Il blocco si attiva SOLO se Iran lo ha esplicitamente dichiarato
+  // (flag special_uses.hormuz_iran = true, impostato dalla carta NI03
+  // "Chiusura Stretto di Hormuz" o da un'azione dedicata).
+  // Avere unità lì non basta: serve l'azione deliberata di Iran.
+  const blockadeDeclared = state.special_uses?.hormuz_iran === true;
 
-  const totalIranUnits = iranUnitsInHormuz.reduce((sum, u) => sum + u.quantity, 0);
-
-  if (totalIranUnits === 0) {
+  if (!blockadeDeclared) {
     return { newState: {}, isActive: false, log: [] };
   }
 
-  // Calcola le penalità con clamping
-  const newRisorseCoalizione = clamp(
-    'risorse_coalizione',
-    (state.risorse_coalizione ?? 5) - 1,
+  // Verifica che Iran abbia ancora unità a Hormuz per mantenere il blocco.
+  // Se le ha perse in combattimento, il blocco decade automaticamente.
+  const iranUnitsInHormuz = militaryUnits.filter(
+    u => u.faction === 'Iran' && u.territory === 'StrettoHormuz' && u.quantity > 0,
   );
-  const newRisorseEuropa = clamp(
-    'risorse_europa',
-    (state.risorse_europa ?? 5) - 1,
-  );
-  const newOpinione = clamp(
-    'opinione',
-    (state.opinione ?? 0) - 1,
-  );
+  const totalIranUnits = iranUnitsInHormuz.reduce((sum, u) => sum + u.quantity, 0);
+
+  if (totalIranUnits === 0) {
+    // Blocco dichiarato ma nessuna unità → reset flag + nessuna penalità
+    return {
+      newState: { special_uses: { ...state.special_uses, hormuz_iran: false } },
+      isActive: false,
+      log: ['⚓ Blocco Hormuz rimosso: Iran ha perso le unità nello Stretto'],
+    };
+  }
+
+  // Blocco attivo: applica penalità con clamping
+  const newRisorseCoalizione = clamp('risorse_coalizione', (state.risorse_coalizione ?? 5) - 1);
+  const newRisorseEuropa     = clamp('risorse_europa',     (state.risorse_europa     ?? 5) - 1);
+  const newOpinione          = clamp('opinione',           (state.opinione           ?? 0) - 1);
 
   const unitTypes = iranUnitsInHormuz.map(u => `${u.quantity}× ${u.unit_type}`).join(', ');
 

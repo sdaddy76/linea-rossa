@@ -559,8 +559,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // ── 3. Applica effetti e calcola prossimo stato ──────────────────
       const { newState: rawNewState, deltas } = applyCardEffects(cardDef as Parameters<typeof applyCardEffects>[0], gameState, myFaction);
 
-      // ── VETO RUSSIA: manuale (gestito da VetoModal) ─────────────────
+      // ── Carta NI03 "Chiusura Stretto di Hormuz": attiva il blocco ───
       let newState = rawNewState;
+      if (cardDef.card_id === 'NI03' && myFaction === 'Iran') {
+        newState = { ...rawNewState, special_uses: { ...gameState.special_uses, hormuz_iran: true } };
+      }
       const russiaIsActive = players.some(p => p.faction === 'Russia');
       const vetoDisponibili = gameState.veto_onu_russia ?? 0;
       if (
@@ -805,8 +808,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // Applica la carta scelta
       const { newState: botRawState, deltas } = applyCardEffects(decision.card, gameState, botFaction);
 
-      // ── VETO RUSSIA: bot Russia usa veto se sanzioni >= 12 ──────────
+      // ── Bot NI03: attiva blocco Hormuz se bot Iran gioca la carta ───
       let botNewState = botRawState;
+      if (decision.card.card_id === 'NI03' && botFaction === 'Iran') {
+        botNewState = { ...botRawState, special_uses: { ...gameState.special_uses, hormuz_iran: true } };
+      }
       const botVetoDisp = gameState.veto_onu_russia ?? 0;
       const botRussiaActive = players.some(p => p.faction === 'Russia');
       if (
@@ -1257,7 +1263,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         newState = { ...gameState, ...result.newState };
         deltas = result.deltas;
 
-        // ── VETO RUSSIA (playCardUnified): manuale o bot ─────────────
+        // ── NI03 (playCardUnified): attiva blocco Hormuz ─────────────
+        if (cardDef.card_id === 'NI03' && myFaction === 'Iran') {
+          newState = { ...newState, special_uses: { ...gameState.special_uses, hormuz_iran: true } };
+        }
         const unifiedVetoDisp = gameState.veto_onu_russia ?? 0;
         const unifiedRussiaActive = players.some(p => p.faction === 'Russia');
         if (
