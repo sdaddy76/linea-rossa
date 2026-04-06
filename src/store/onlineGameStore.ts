@@ -1141,10 +1141,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     const isUnified = game.game_mode === 'unified';
     const maxHand = isUnified ? UNIFIED_HAND_SIZE : CLASSIC_HAND_SIZE;
 
-    // Controlla quante carte ha già in mano — non superare il massimo
-    const cardsInHand = deckCards.filter(dc =>
-      dc.status === 'in_hand' && dc.held_by_faction === faction
-    ).length;
+    // Conta le carte realmente in mano dal DB (fonte di verità assoluta)
+    // Lo store locale può essere desincronizzato → usare il DB evita il bug "4 carte invece di 5"
+    const { count: cardsInHandDB } = await supabase
+      .from('cards_deck')
+      .select('*', { count: 'exact', head: true })
+      .eq('game_id', game.id)
+      .eq('status', 'in_hand')
+      .eq('held_by_faction', faction);
+    const cardsInHand = cardsInHandDB ?? 0;
     // Top-up: pesca sempre fino a raggiungere maxHand (non solo 1 per turno)
     const canDraw = Math.max(0, maxHand - cardsInHand);
     if (canDraw === 0) return; // mano già piena
