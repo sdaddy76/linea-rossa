@@ -704,7 +704,7 @@ export default function WaitingRoom({
             🪑 Tavolo — Fazioni
           </h3>
           <p className="text-[10px] font-mono text-[#334455] mb-3">
-            {isHost ? 'Gestisci le fazioni nel pannello sotto' : 'Seleziona una fazione libera per sederti al tavolo'}
+            {'Seleziona una fazione libera per sederti al tavolo'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {TURN_ORDER.map(faction => {
@@ -730,8 +730,8 @@ export default function WaitingRoom({
               return (
                 <button
                   key={faction}
-                  disabled={!isSelectable || loading || isHost}
-                  onClick={() => isSelectable && !loading && !isHost && chooseFaction(faction)}
+                  disabled={!isSelectable || loading}
+                  onClick={() => isSelectable && !loading && chooseFaction(faction)}
                   className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all group"
                   style={{
                     borderColor,
