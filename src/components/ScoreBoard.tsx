@@ -1,10 +1,10 @@
 // =============================================
 // LINEA ROSSA — ScoreBoard
-// Tab dedicato "🏆 Punteggi":
-//   A) Punteggi live calcolati con calcScores()
+// Tab dedicato "🏆 Punteggi di questa partita":
+//   A) Punteggi live calcolati con calcScores() — dettagliati con trend ↑↓
 //   B) Modalità per fare punti (guida statica per fazione)
 // =============================================
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import type { GameState } from '@/types/game';
 import { calcScores } from '@/lib/botEngine';
 
@@ -19,6 +19,75 @@ const FACTION_META: Record<
   Cina:       { flag: '🇨🇳', color: '#e74c3c', emoji: '💰' },
   Europa:     { flag: '🇪🇺', color: '#2980b9', emoji: '🕊️' },
 };
+
+// ── Dettaglio formula punteggio per fazione ──────────────────────────
+interface ScoreDetail {
+  label: string;
+  value: number;
+  multiplier?: number;
+  sign: '+' | '-';
+  emoji: string;
+}
+
+function buildScoreDetails(faction: string, state: GameState): { details: ScoreDetail[]; total: number } {
+  const nuc  = state.nucleare       ?? 0;
+  const san  = state.sanzioni       ?? 0;
+  const rIra = state.risorse_iran   ?? 0;
+  const rCoa = state.risorse_coalizione ?? 0;
+  const rRus = state.risorse_russia ?? 0;
+  const rCin = state.risorse_cina   ?? 0;
+  const stRu = state.stabilita_russia ?? 0;
+  const stCi = state.stabilita_cina   ?? 0;
+  const stEu = state.stabilita_europa ?? 0;
+  const def  = state.defcon         ?? 0;
+
+  switch (faction) {
+    case 'Iran':
+      return {
+        details: [
+          { label: 'Nucleare', value: nuc,  multiplier: 2, sign: '+', emoji: '☢️' },
+          { label: 'Risorse',  value: rIra, sign: '+', emoji: '💰' },
+          { label: 'Sanzioni', value: san,  sign: '-', emoji: '⚖️' },
+        ],
+        total: Math.round(nuc * 2 + rIra - san),
+      };
+    case 'Coalizione':
+      return {
+        details: [
+          { label: 'Sanzioni',  value: san,  multiplier: 2, sign: '+', emoji: '⚖️' },
+          { label: 'Risorse',   value: rCoa, sign: '+', emoji: '💰' },
+          { label: 'Nucleare',  value: nuc,  sign: '-', emoji: '☢️' },
+        ],
+        total: Math.round(san * 2 + rCoa - nuc),
+      };
+    case 'Russia':
+      return {
+        details: [
+          { label: 'Risorse',   value: rRus, sign: '+', emoji: '💰' },
+          { label: 'Stabilità', value: stRu, sign: '+', emoji: '🛡️' },
+        ],
+        total: Math.round(rRus + stRu),
+      };
+    case 'Cina':
+      return {
+        details: [
+          { label: 'Risorse',   value: rCin, sign: '+', emoji: '💰' },
+          { label: 'Stabilità', value: stCi, sign: '+', emoji: '🛡️' },
+        ],
+        total: Math.round(rCin + stCi),
+      };
+    case 'Europa':
+      return {
+        details: [
+          { label: 'DEFCON',    value: def,  multiplier: 3, sign: '+', emoji: '🌐' },
+          { label: 'Stabilità', value: stEu, sign: '+', emoji: '🕊️' },
+        ],
+        total: Math.round(def * 3 + stEu),
+      };
+    default:
+      return { details: [], total: 0 };
+  }
+}
 
 // ── Modalità per fare punti (statiche, derivate da calcScores) ────────
 const SCORE_MODES: Array<{
@@ -85,6 +154,14 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions 
   // ── Calcola punteggi live ──────────────────────────────────────────
   const scores = useMemo(() => calcScores(gameState), [gameState]);
 
+  // ── Memorizza punteggi precedenti per calcolare il trend ──────────
+  const prevScoresRef = useRef<Record<string, number>>({});
+  const prevScores = prevScoresRef.current;
+  // aggiorna dopo il render
+  React.useEffect(() => {
+    prevScoresRef.current = { ...scores };
+  }, [scores]);
+
   // Filtra e ordina solo fazioni che partecipano alla partita
   const sorted = useMemo(
     () =>
@@ -104,17 +181,32 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions 
       {/* ═══ SEZIONE A: PUNTEGGI LIVE ═══ */}
       <div className="bg-[#0d1117] border border-[#1e3a5f] rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <span className="font-mono text-xs font-bold text-[#00ff88]">🏆 CLASSIFICA LIVE</span>
-          <span className="font-mono text-[10px] text-[#334455]">— aggiornata in tempo reale</span>
+          <span className="font-mono text-sm font-bold text-[#00ff88]">🏆 Punteggi di questa partita</span>
+          <span className="font-mono text-[10px] text-[#334455]">— aggiornati turno per turno</span>
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-3">
           {sorted.map((entry, idx) => {
             const meta = FACTION_META[entry.faction] ?? { flag: '🏳️', color: '#8899aa', emoji: '?' };
             const isMe = entry.faction === myFaction;
             const barWidth = Math.min(100, Math.max(0, (entry.score / MAX_SCORE) * 100));
             const barColor = meta.color;
             const rankColors = ['text-yellow-400', 'text-slate-300', 'text-amber-600'];
+            const prev = prevScores[entry.faction];
+            const trendDiff = prev !== undefined ? entry.score - prev : 0;
+            const trendIcon = trendDiff > 0 ? '↑' : trendDiff < 0 ? '↓' : '→';
+            const trendColor = trendDiff > 0 ? '#00ff88' : trendDiff < 0 ? '#ff4444' : '#8899aa';
+
+            // Dettaglio formula
+            const { details } = buildScoreDetails(entry.faction, gameState);
+
+            // Stringa formula leggibile
+            const formulaStr = details.map((d, i) => {
+              const mul = d.multiplier ? ` (×${d.multiplier} = ${d.value * d.multiplier})` : '';
+              const prefix = i === 0 ? '' : ` ${d.sign} `;
+              const signedVal = d.sign === '-' ? `-${d.value}` : `+${d.value}`;
+              return `${prefix}${d.emoji} ${d.label}: ${d.value}${mul} = ${signedVal}`;
+            }).join('');
 
             return (
               <div
@@ -125,8 +217,8 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions 
                     : 'border-[#1e3a5f] bg-[#0a0e1a]'
                 }`}
               >
-                {/* Riga nome + punteggio */}
-                <div className="flex items-center justify-between mb-1.5">
+                {/* Riga nome + punteggio GRANDE + trend */}
+                <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className={`font-mono text-sm font-bold ${rankColors[idx] ?? 'text-[#8899aa]'}`}>
                       #{idx + 1}
@@ -144,12 +236,29 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions 
                       </span>
                     )}
                   </div>
-                  <span
-                    className="font-mono text-lg font-bold"
-                    style={{ color: isMe ? '#00ff88' : meta.color }}
-                  >
-                    {entry.score} pt
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {/* Trend */}
+                    {prev !== undefined && (
+                      <span className="font-mono text-sm font-bold" style={{ color: trendColor }}>
+                        {trendIcon}{Math.abs(trendDiff) > 0 ? Math.abs(trendDiff) : ''}
+                      </span>
+                    )}
+                    {/* Punteggio GRANDE */}
+                    <span
+                      className="font-mono text-3xl font-black tabular-nums"
+                      style={{ color: isMe ? '#00ff88' : meta.color }}
+                    >
+                      {entry.score}
+                    </span>
+                    <span className="font-mono text-xs text-[#8899aa] self-end mb-1">pt</span>
+                  </div>
+                </div>
+
+                {/* Formula dettagliata */}
+                <div className="font-mono text-[10px] text-[#667788] bg-[#0d1117] rounded px-2 py-1 mb-2 leading-relaxed">
+                  {formulaStr}
+                  {' '}
+                  <span className="text-[#aabbcc] font-bold">→ TOT: {entry.score}</span>
                 </div>
 
                 {/* Barra proporzionale */}

@@ -30,6 +30,7 @@ import { ObjectivesSection } from '@/components/ObjectivesSection';
 import { calcScores } from '@/lib/botEngine';
 import { ScoreTrack } from '@/components/ScoreTrack';
 import ScoreBoard from '@/components/ScoreBoard';
+import GlobalStats from '@/components/GlobalStats';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -371,7 +372,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [showHand, setShowHand] = useState(true);
   const [prevState, setPrevState] = useState<GameState | null>(null);
-  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'mappa' | 'punteggi'>('plancia');
+  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'mappa' | 'punteggi' | 'stats'>('plancia');
   const [showMarket, setShowMarket] = useState(false);
   const [showCombat, setShowCombat] = useState(false);
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
@@ -816,14 +817,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           <div>
             {/* Tab plancia / fazioni */}
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              {(['plancia', 'fazioni', 'mappa', 'punteggi'] as const).map(t => (
+              {((['plancia', 'fazioni', 'mappa', 'punteggi', 'stats'] as const)).map(t => (
                 <button key={t} onClick={() => setActiveTab(t)}
                   className={`px-3 py-1 rounded font-mono text-xs font-bold transition-all ${
                     activeTab === t
                       ? 'bg-[#00ff88] text-[#0a0e1a]'
                       : 'border border-[#1e3a5f] text-[#8899aa] hover:text-white'
                   }`}>
-                  {t === 'plancia' ? '📊 PLANCIA TRACCIATI' : t === 'fazioni' ? '🎭 FAZIONI & RISORSE' : t === 'mappa' ? '🗺 TEATRO OPERATIVO' : '🏆 Punteggi'}
+                  {t === 'plancia' ? '📊 PLANCIA TRACCIATI' : t === 'fazioni' ? '🎭 FAZIONI & RISORSE' : t === 'mappa' ? '🗺 TEATRO OPERATIVO' : t === 'stats' ? '📈 Statistiche Globali' : '🏆 Punteggi'}
                 </button>
               ))}
             </div>
@@ -910,6 +911,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                 myFaction={myFaction ?? null}
                 factions={players.map(p => p.faction).filter(Boolean) as string[]}
               />
+            )}
+
+
+            {/* TAB: STATISTICHE GLOBALI */}
+            {activeTab === 'stats' && (
+              <div className="p-2">
+                <GlobalStats />
+              </div>
             )}
 
             {/* TAB: MAPPA / TEATRO OPERATIVO */}
