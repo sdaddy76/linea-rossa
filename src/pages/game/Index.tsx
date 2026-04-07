@@ -16,6 +16,7 @@ import PlayerActionPanel from '@/components/PlayerActionPanel';
 import type { PlayerActionType, PlayerActionPayload } from '@/components/PlayerActionPanel';
 import type { TerritoryState } from '@/components/TerritoryMap';
 import type { TerritoryId, UnitType } from '@/lib/territoriesData';
+import { INITIAL_UNITS } from '@/lib/territoriesData';
 import type { CombatOutcome } from '@/lib/combatEngine';
 import EventoModal from '@/components/EventoModal';
 import VetoModal from '@/components/VetoModal';
@@ -867,37 +868,49 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             {activeTab === 'plancia' && (
               <div className="space-y-3">
                 {/* ── Pool unità militari del giocatore ── */}
-                {myFaction && Object.keys(myUnitsPool).length > 0 && (
+                {myFaction && (
                   <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#0a0e1a]">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-mono font-bold text-[#8899aa]">🪖 POOL UNITÀ — {myFaction.toUpperCase()}</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-mono font-bold text-[#8899aa]">🪖 UNITÀ DISPONIBILI — {myFaction.toUpperCase()}</span>
+                      <span className="text-[9px] font-mono text-[#334455]">pool di combattimento</span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {(() => {
-                        const UNIT_EMOJI: Record<string, string> = {
-                          SottomariniAKULA: '🤿', GuerraIbrida: '🕵️', Convenzionale: '⚔️',
-                          DroniIran: '🚀', MissiliCrociera: '🎯', Peacekeeping: '🕊️',
-                          NavalePLA: '⛵', CyberCina: '💻', CyberIran: '🔌',
-                          Corazzati: '🛡️', IRGC: '☪️', Proxy: '🗡️',
-                          MissileiBalistici: '💣', NavaleGolfo: '🚢', ForzeSpeciali: '🦅',
-                          AviazioneTattica: '✈️', PortaereiBattleGroup: '🛳️', ScudoMissilistico: '🛡️',
-                        };
-                        return Object.entries(myUnitsPool)
-                          .filter(([, qty]) => (qty as number) > 0)
-                          .map(([unit, qty]) => (
-                            <div key={unit}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-mono"
-                              style={{ borderColor: `${(FACTION_COLORS[myFaction] ?? '#8899aa')}55`, backgroundColor: `${(FACTION_COLORS[myFaction] ?? '#8899aa')}10` }}>
-                              <span>{UNIT_EMOJI[unit] ?? '⚔️'}</span>
-                              <span className="text-[#ccddee]">{unit}</span>
-                              <span className="font-bold" style={{ color: FACTION_COLORS[myFaction] ?? '#00ff88' }}>×{qty as number}</span>
-                            </div>
-                          ));
-                      })()}
-                    </div>
-                    {Object.values(myUnitsPool).every(q => (q as number) === 0) && (
-                      <p className="text-[#334455] font-mono text-xs">Nessuna unità disponibile nel pool</p>
-                    )}
+                    {(() => {
+                      const UNIT_EMOJI: Record<string, string> = {
+                        SottomariniAKULA:'🤿', GuerraIbrida:'🕵️', Convenzionale:'⚔️',
+                        DroniIran:'🚀', MissiliCrociera:'🎯', Peacekeeping:'🕊️',
+                        NavalePLA:'⛵', CyberCina:'💻', CyberIran:'🔌',
+                        Corazzati:'🛡️', IRGC:'☪️', Proxy:'🗡️',
+                        MissileiBalistici:'💣', NavaleGolfo:'🚢', ForzeSpeciali:'🦅',
+                        AviazioneTattica:'✈️', PortaereiBattleGroup:'🛳️', ScudoMissilistico:'🛡️',
+                      };
+                      const initialPool = INITIAL_UNITS[myFaction] ?? {};
+                      const currentPool = myUnitsPool;
+                      // Unità con qty > 0 nel pool corrente
+                      const entries = Object.entries(currentPool).filter(([, q]) => (q as number) > 0);
+                      if (entries.length === 0) {
+                        return <p className="text-[#334455] font-mono text-xs text-center py-2">Nessuna unità nel pool — acquista unità con le carte OP</p>;
+                      }
+                      return (
+                        <div className="flex flex-wrap gap-2">
+                          {entries.map(([unit, qty]) => {
+                            const initQty = (initialPool[unit as UnitType] ?? 0) as number;
+                            const purchased = Math.max(0, (qty as number) - initQty);
+                            const fColor = FACTION_COLORS[myFaction] ?? '#8899aa';
+                            return (
+                              <div key={unit} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-mono"
+                                style={{ borderColor: `${fColor}55`, backgroundColor: `${fColor}10` }}>
+                                <span>{UNIT_EMOJI[unit] ?? '⚔️'}</span>
+                                <span className="text-[#ccddee]">{unit}</span>
+                                <span className="font-bold" style={{ color: fColor }}>×{qty as number}</span>
+                                {purchased > 0 && (
+                                  <span className="text-[9px] text-[#00ff88] font-bold">(+{purchased} acquistate)</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
