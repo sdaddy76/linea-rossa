@@ -333,6 +333,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     }
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
+      // PASSWORD_RECOVERY: non aggiornare la sessione nello store qui
+      // (App.tsx gestisce la navigazione verso il form nuova password)
+      if (_event === 'PASSWORD_RECOVERY') return;
       set({ session });
       if (session?.user) {
         try {

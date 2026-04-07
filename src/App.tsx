@@ -22,9 +22,23 @@ const queryClient = new QueryClient();
 // ------------------------------------------------
 function AppRouter() {
   const { profile, session, game, initAuth, loadGame, resetGame, subscribeToGame, logout } = useOnlineGameStore();
-  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin'>('cover');
+
+  // ── Rilevamento sincrono type=recovery PRIMA di qualsiasi render ──────────
+  // Leggiamo l'URL subito (fuori da useEffect) per impostare il flag prima
+  // che initAuth() + onAuthStateChange possano fare setView('lobby')
+  const detectRecovery = () => {
+    const hash   = window.location.hash;
+    const search = window.location.search;
+    const raw    = hash.startsWith('#') ? hash.slice(1) : search.startsWith('?') ? search.slice(1) : '';
+    const params = new URLSearchParams(raw);
+    return params.get('type') === 'recovery' && !!params.get('access_token');
+  };
+
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin'>(
+    detectRecovery() ? 'auth' : 'cover'  // se link reset → mostra auth direttamente
+  );
   // Flag: siamo in flusso reset password (type=recovery) → non redirezionare a lobby automaticamente
-  const isRecoveryFlow = useRef(false);
+  const isRecoveryFlow = useRef(detectRecovery());
 
   useEffect(() => {
     initAuth();
@@ -59,6 +73,12 @@ function AppRouter() {
 
     // Ascolta cambi di stato auth (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // PASSWORD_RECOVERY: Supabase v2 emette questo evento quando il link di reset è valido
+      if (event === 'PASSWORD_RECOVERY') {
+        isRecoveryFlow.current = true;
+        setView('auth');
+        return;
+      }
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
         // Pulisci l'URL se ancora sporco
         if (window.location.hash.includes('access_token')) {
@@ -115,7 +135,10 @@ function AppRouter() {
   };
 
   // Render basato su view
-  if (view === 'auth') return <AuthPage onPasswordSaved={() => { isRecoveryFlow.current = false; setView('lobby'); }} />;
+  if (view === 'auth') return <AuthPage
+    isRecovery={isRecoveryFlow.current}
+    onPasswordSaved={() => { isRecoveryFlow.current = false; setView('lobby'); }}
+  />;
   if (view === 'admin') return <AdminMigration />;
 
   if (view === 'lobby' && profile) return (

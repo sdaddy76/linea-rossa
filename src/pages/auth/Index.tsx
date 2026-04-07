@@ -10,9 +10,10 @@ const REDIRECT_URL = window.location.origin;
 
 interface AuthPageProps {
   onPasswordSaved?: () => void; // callback dopo reset password riuscito
+  isRecovery?: boolean;         // true se arriviamo da link reset password
 }
 
-export default function AuthPage({ onPasswordSaved }: AuthPageProps = {}) {
+export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps = {}) {
   const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'new-password'>('login');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
@@ -35,26 +36,53 @@ export default function AuthPage({ onPasswordSaved }: AuthPageProps = {}) {
     }
   }, []);
 
-  // Rileva se l'utente arriva da un link di conferma email / reset password
+  // Se isRecovery=true (passato da App.tsx) e non c'è type nell'URL (già pulito),
+  // forziamo subito il mode new-password
   useEffect(() => {
-    const hash = window.location.hash;
-    const search = window.location.search;
+    if (isRecovery && mode === 'login') {
+      setMode('new-password');
+    }
+  }, [isRecovery]);
 
-    if (hash.includes('error=') || search.includes('error=')) {
-      const params = new URLSearchParams(hash.replace('#', '') || search);
+  // Rileva se l'utente arriva da un link di conferma email / reset password
+  // Gira sia su hash (#access_token=...&type=recovery) che su query (?type=recovery)
+  useEffect(() => {
+    const hash   = window.location.hash;
+    const search = window.location.search;
+    const raw    = hash.startsWith('#') ? hash.slice(1) : search.startsWith('?') ? search.slice(1) : '';
+    const params = new URLSearchParams(raw);
+
+    // Errore nel link
+    if (params.get('error')) {
       const desc = params.get('error_description') ?? 'Link non valido o scaduto';
       setError(`❌ ${desc.replace(/\+/g, ' ')}`);
+      return;
     }
-    if (hash.includes('type=signup') || search.includes('type=signup')) {
+
+    const type = params.get('type');
+
+    if (type === 'signup') {
       setMessage('✅ Email confermata! Accedi con le tue credenziali.');
       setMode('login');
       window.history.replaceState({}, document.title, window.location.pathname);
+      return;
     }
-    // Intercetta link di reset password: Supabase invia type=recovery
-    if (hash.includes('type=recovery') || search.includes('type=recovery')) {
+
+    // Intercetta link di reset password: Supabase implicit flow invia
+    // #access_token=...&refresh_token=...&type=recovery
+    if (type === 'recovery') {
       setMessage('');
       setMode('new-password');
-      window.history.replaceState({}, document.title, window.location.pathname);
+      // NON pulire l'URL qui: App.tsx legge ancora access_token per setSession()
+      // window.history.replaceState verrà chiamato da App.tsx dopo setSession()
+      return;
+    }
+
+    // Fallback: controlla anche il session storage (PKCE / link già processato)
+    // Se siamo su view=auth e non c'è type nell'URL, potremmo essere stati portati
+    // qui da App.tsx dopo setView('auth') per recovery → imposta new-password
+    if (!type && window.location.pathname !== '/' && mode === 'login') {
+      // nessuna azione extra
     }
   }, []);
 
