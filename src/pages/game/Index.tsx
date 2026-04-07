@@ -846,6 +846,40 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             {/* TAB: PLANCIA */}
             {activeTab === 'plancia' && (
               <div className="space-y-3">
+                {/* ── Pool unità militari del giocatore ── */}
+                {myFaction && Object.keys(myUnitsPool).length > 0 && (
+                  <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#0a0e1a]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-mono font-bold text-[#8899aa]">🪖 POOL UNITÀ — {myFaction.toUpperCase()}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(() => {
+                        const UNIT_EMOJI: Record<string, string> = {
+                          SottomariniAKULA: '🤿', GuerraIbrida: '🕵️', Convenzionale: '⚔️',
+                          DroniIran: '🚀', MissiliCrociera: '🎯', Peacekeeping: '🕊️',
+                          NavalePLA: '⛵', CyberCina: '💻', CyberIran: '🔌',
+                          Corazzati: '🛡️', IRGC: '☪️', Proxy: '🗡️',
+                          MissileiBalistici: '💣', NavaleGolfo: '🚢', ForzeSpeciali: '🦅',
+                          AviazioneTattica: '✈️', PortaereiBattleGroup: '🛳️', ScudoMissilistico: '🛡️',
+                        };
+                        return Object.entries(myUnitsPool)
+                          .filter(([, qty]) => (qty as number) > 0)
+                          .map(([unit, qty]) => (
+                            <div key={unit}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-mono"
+                              style={{ borderColor: `${(FACTION_COLORS[myFaction] ?? '#8899aa')}55`, backgroundColor: `${(FACTION_COLORS[myFaction] ?? '#8899aa')}10` }}>
+                              <span>{UNIT_EMOJI[unit] ?? '⚔️'}</span>
+                              <span className="text-[#ccddee]">{unit}</span>
+                              <span className="font-bold" style={{ color: FACTION_COLORS[myFaction] ?? '#00ff88' }}>×{qty as number}</span>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                    {Object.values(myUnitsPool).every(q => (q as number) === 0) && (
+                      <p className="text-[#334455] font-mono text-xs">Nessuna unità disponibile nel pool</p>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                   {TRACKS.map(track => (
                     <FullTrack
@@ -1409,35 +1443,45 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   </p>
                 )}
                 {moves.map((move, i) => {
-                  const isEvento = move.card_type === 'Evento';
-                  const fc = isEvento ? '#f59e0b' : (FACTION_COLORS[move.faction] ?? '#8899aa');
+                  const isEvento   = move.card_type === 'Evento';
+                  const isAcquisto = move.card_type === 'Acquisto';
+                  const fc = isEvento   ? '#f59e0b'
+                           : isAcquisto ? '#22c55e'
+                           : (FACTION_COLORS[move.faction] ?? '#8899aa');
                   return (
                     <div key={move.id ?? i}
                       className="p-2.5 rounded-lg"
                       style={{
-                        backgroundColor: isEvento ? '#1c1505' : '#0a0e1a',
-                        border: `1px solid ${isEvento ? '#f59e0b55' : '#1e2a3a'}`,
+                        backgroundColor: isEvento   ? '#1c1505'
+                                       : isAcquisto ? '#061a0e'
+                                       : '#0a0e1a',
+                        border: `1px solid ${isEvento ? '#f59e0b55' : isAcquisto ? '#22c55e55' : '#1e2a3a'}`,
                       }}>
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5">
                           {isEvento ? (
                             <span className="text-sm">🎲</span>
+                          ) : isAcquisto ? (
+                            <span className="text-sm">🏭</span>
                           ) : (
                             <span className="text-sm">{FACTION_FLAGS[move.faction]}</span>
                           )}
                           <span className="font-mono text-xs font-bold" style={{ color: fc }}>
-                            {isEvento ? 'Evento' : move.faction}
+                            {isEvento ? 'Evento' : isAcquisto ? move.faction : move.faction}
                           </span>
                           {isEvento && (
                             <span className="text-[10px] font-mono px-1 rounded" style={{ color: '#f59e0b', backgroundColor: '#f59e0b22' }}>⚡ inizio turno</span>
                           )}
-                          {!isEvento && move.is_bot_move && (
+                          {isAcquisto && (
+                            <span className="text-[10px] font-mono px-1 rounded" style={{ color: '#22c55e', backgroundColor: '#22c55e22' }}>🏭 acquisto</span>
+                          )}
+                          {!isEvento && !isAcquisto && move.is_bot_move && (
                             <span className="text-[10px] text-[#8899aa] font-mono bg-[#8899aa20] px-1 rounded">🤖</span>
                           )}
                         </div>
                         <span className="text-[10px] text-[#334455] font-mono">T{move.turn_number}</span>
                       </div>
-                      <p className="font-mono text-xs font-bold" style={{ color: isEvento ? '#fcd34d' : '#ffffff' }}>{move.card_name}</p>
+                      <p className="font-mono text-xs font-bold" style={{ color: isEvento ? '#fcd34d' : isAcquisto ? '#86efac' : '#ffffff' }}>{move.card_name}</p>
                       {/* Deltas */}
                       <div className="flex flex-wrap gap-1 mt-1">
                         {move.delta_nucleare !== 0 && (

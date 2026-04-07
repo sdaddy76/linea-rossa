@@ -387,7 +387,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         supabase.from('games').select('*').eq('id', gameId).single(),
         supabase.from('game_players').select('*, profile:profiles(*)').eq('game_id', gameId),
         supabase.from('game_state').select('*').eq('game_id', gameId).single(),
-        supabase.from('moves_log').select('*').eq('game_id', gameId).order('created_at', { ascending: false }).limit(20),
+        supabase.from('moves_log').select('*').eq('game_id', gameId).order('created_at', { ascending: false }).limit(50),
         // Carica le carte del giocatore: quelle in mano (in_hand) + quelle ancora
         // disponibili nel mazzo (available). Le carte 'played' non servono all'UI.
         supabase.from('cards_deck').select('*').eq('game_id', gameId)
@@ -1833,6 +1833,21 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           gameState: { ...s.gameState!, [unitsKey]: pool } as typeof gameState,
           notification: `🏭 ${myFaction}: acquistate ${qty}× ${unitType}`,
         }));
+        // ── Inserisci log acquisto unità separato (distinto dalla carta OP) ──
+        const nuovaQty = pool[unitType] ?? qty;
+        supabase.from('moves_log').insert({
+          game_id:      game.id,
+          faction:      myFaction,
+          turn_number:  game.current_turn,
+          player_id:    get().profile?.id ?? null,
+          is_bot_move:  false,
+          card_name:    `Acquisto ${unitType} ×${qty}`,
+          card_type:    'Acquisto',
+          description:  `${unitType} aggiunta al pool — totale: ×${nuovaQty}`,
+          delta_risorse: 0,
+        }).then(({ error: logErr }) => {
+          if (logErr) console.warn('[buyUnit] moves_log non salvato:', logErr.message);
+        });
         console.log('[buyUnit] pool aggiornato, avanzando turno con playCardUnified…');
         // Passa il turno immediatamente — usa snapshot fresco di active_faction
         // (non delegare a playCardUnified il controllo active_faction, poiché

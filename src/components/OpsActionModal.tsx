@@ -155,9 +155,14 @@ export default function OpsActionModal({
   const [atkUnits, setAtkUnits] = useState<string[]>([]);
 
   // ── Unità disponibili per questa fazione ──
-  const myUnits = useMemo(() =>
-    UNITS_BY_FACTION[myFaction] ?? UNITS.filter(u => u.faction === myFaction || u.faction === 'Tutti'),
-    [myFaction]);
+  // Per Russia usiamo una whitelist esplicita per evitare inclusioni indesiderate
+  const RUSSIA_UNITS: UnitType[] = ['Convenzionale', 'SottomariniAKULA', 'GuerraIbrida'];
+  const myUnits = useMemo(() => {
+    if (myFaction === 'Russia') {
+      return UNITS.filter(u => (RUSSIA_UNITS as string[]).includes(u.type));
+    }
+    return UNITS_BY_FACTION[myFaction] ?? UNITS.filter(u => u.faction === myFaction || u.faction === 'Tutti');
+  }, [myFaction]);
 
   // ── Forza attacco calcolata ──
   const atkForce = useMemo(() => {
