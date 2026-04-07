@@ -163,6 +163,8 @@ interface OnlineGameStore {
 
   // Actions
   initAuth: () => Promise<void>;
+  pauseAuthListener: () => void;   // sospende onAuthStateChange (prima di updateUser)
+  resumeAuthListener: () => void;  // riattiva onAuthStateChange (dopo updateUser)
   logout: () => Promise<void>;
   /** Resetta tutto lo stato di gioco (usa quando si torna alla lobby) */
   resetGame: () => void;
@@ -260,6 +262,9 @@ interface OnlineGameStore {
   useVeto: (use: boolean) => Promise<void>;
 }
 
+// Subscription onAuthStateChange — variabile modulo per pause/resume senza re-render
+let _authUnsubscribe: (() => void) | null = null;
+
 export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
   profile: null,
   session: null,
@@ -332,7 +337,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
     }
 
-    supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       // PASSWORD_RECOVERY: Supabase v2 emette questo evento quando arriva un link di reset.
       // Non aggiornare la sessione nello store — App.tsx gestisce la navigazione.
       if (_event === 'PASSWORD_RECOVERY') return;
@@ -355,6 +360,35 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         set({ profile: null, game: null, gameState: null, players: [] });
       }
     });
+    // Salva la funzione di unsubscribe per pause/resume
+    _authUnsubscribe = () => subscription.unsubscribe();
+  },
+
+  pauseAuthListener: () => {
+    if (_authUnsubscribe) {
+      _authUnsubscribe();
+      _authUnsubscribe = null;
+      console.log('[auth] listener sospeso per updateUser');
+    }
+  },
+
+  resumeAuthListener: () => {
+    // Riattiva registrando un nuovo listener (equivalente a initAuth senza getSession)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') return;
+      set({ session });
+      if (session?.user) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles').select('*').eq('id', session.user.id).single();
+          if (profile) set({ profile: profile as Profile });
+        } catch { /* ignora */ }
+      } else {
+        set({ profile: null, game: null, gameState: null, players: [] });
+      }
+    });
+    _authUnsubscribe = () => subscription.unsubscribe();
+    console.log('[auth] listener riattivato');
   },
 
   logout: async () => {

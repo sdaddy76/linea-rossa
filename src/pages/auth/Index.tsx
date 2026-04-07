@@ -4,6 +4,7 @@
 // =============================================
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useOnlineGameStore } from '@/store/onlineGameStore';
 
 // URL base per i redirect email — usa sempre l'origin reale (Vercel in prod, localhost in dev)
 const REDIRECT_URL = window.location.origin;
@@ -14,6 +15,7 @@ interface AuthPageProps {
 }
 
 export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps = {}) {
+  const { pauseAuthListener, resumeAuthListener } = useOnlineGameStore();
   const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'new-password'>('login');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
@@ -130,21 +132,27 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
         if (newPassword.length < 6) { setError('La password deve essere di almeno 6 caratteri.'); setLoading(false); return; }
         if (newPassword !== newPasswordConfirm) { setError('Le password non coincidono.'); setLoading(false); return; }
         setDebugInfo('Aggiornamento password...');
-        const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+        // ── Sospendi il listener onAuthStateChange per liberare il Web Lock ──
+        // updateUser() e onAuthStateChange competono per lo stesso lock Supabase.
+        // Sospendendo il listener, updateUser() può acquisire il lock senza conflitti.
+        pauseAuthListener();
+        let updateError: import('@supabase/supabase-js').AuthError | null = null;
+        try {
+          const { error } = await supabase.auth.updateUser({ password: newPassword });
+          updateError = error ?? null;
+        } finally {
+          // Riattiva sempre il listener, anche in caso di errore
+          resumeAuthListener();
+        }
         if (updateError) {
           console.error('[reset-password] updateUser error:', updateError);
-          // AbortError / Lock stolen = il lock di Supabase è stato interrotto DOPO che
-          // la richiesta era già stata processata dal server → la password è già cambiata.
-          // NON riprovare: un secondo updateUser fallirebbe con 422 "same password".
-          // Trattiamo come successo e mostriamo il messaggio di conferma.
           const isLockError = updateError.message?.includes('aborted')
             || updateError.message?.includes('Lock broken')
             || (updateError as unknown as { name?: string }).name === 'AbortError';
           if (!isLockError) {
-            throw updateError; // errore reale → mostra all'utente
+            throw updateError;
           }
-          // Lock error → la password è quasi certamente già stata cambiata con successo
-          console.warn('[reset-password] lock stolen dopo updateUser — assumo successo');
+          console.warn('[reset-password] lock residuo dopo updateUser — assumo successo');
         }
         setDebugInfo('');
         setMessage('✅ Password aggiornata! Ora puoi accedere con la nuova password.');
