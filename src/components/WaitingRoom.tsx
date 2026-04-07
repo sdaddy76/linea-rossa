@@ -66,6 +66,8 @@ export default function WaitingRoom({
   const [setupMode, setSetupMode] = useState<'base' | 'avanzata'>('base');
   // Difficoltà bot
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
+  // Fazioni forzate a bot dall'host (prima dell'avvio)
+  const [forcedBotFactions, setForcedBotFactions] = useState<Set<Faction>>(new Set());
 
   // ── Configurazioni setup iniziale ────────────────────────────────────────
   // Chiavi: faction name → { territoryId: cubetti }
@@ -172,20 +174,36 @@ export default function WaitingRoom({
     // Ignora click sulla fazione già selezionata
     if (myFactionRef.current === faction) return;
 
-    // Controlla che la fazione non sia già presa da un altro umano
-    const taken = players.find(p =>
-      p.faction === faction &&
-      p.player_id &&
-      p.player_id !== profile.id &&
-      !p.is_bot
+    // Controlla che la fazione non sia già presa (check locale ottimistico)
+    const takenLocal = players.find(p =>
+      p.faction === faction && p.player_id && p.player_id !== profile.id && !p.is_bot
     );
-    if (taken) {
-      setError(`⚠️ ${faction} è già presa da un altro giocatore`);
+    if (takenLocal) {
+      setError(`⚠️ ${faction} è già presa da ${takenLocal.profile?.username ?? 'un altro giocatore'}`);
       return;
     }
 
     setLoading(true); setError('');
     pendingOps.current += 1;
+
+    // ── Verifica lato DB (source of truth) prima di procedere ─────────────
+    // Evita race condition: due giocatori cliccano la stessa fazione simultaneamente
+    const { data: freshPlayers } = await supabase
+      .from('game_players')
+      .select('faction, player_id, is_bot')
+      .eq('game_id', gameId);
+    const takenDB = (freshPlayers ?? []).find(
+      (p: { faction: string; player_id: string | null; is_bot: boolean }) =>
+        p.faction === faction && p.player_id && p.player_id !== profile.id && !p.is_bot
+    );
+    if (takenDB) {
+      setLoading(false);
+      pendingOps.current -= 1;
+      // Aggiorna lo stato locale con i dati freschi
+      await loadPlayers();
+      setError(`⚠️ ${faction} è stata appena scelta da un altro giocatore. Scegli un'altra fazione.`);
+      return;
+    }
     const prevFaction = myFactionRef.current;
     setMyFaction(faction);
     myFactionRef.current = faction;
@@ -266,12 +284,14 @@ export default function WaitingRoom({
     setStarting(true); setError('');
     try {
       console.log('[startGame] step 1 — inserimento bot, mode:', mode);
-      // Fazioni non prese da umani → assegna bot solo in modalità 'solo'
+      // Fazioni non prese da umani → assegna bot
+      // In modalità 'solo': tutte le fazioni libere + quelle forzate dall'host
+      // In modalità 'pubblico': solo le fazioni esplicitamente forzate a bot dall'host
       const takenFactions = new Set(players.filter(p => p.player_id).map(p => p.faction));
       if (myFaction) takenFactions.add(myFaction);
       const botFactions = mode === 'solo'
         ? TURN_ORDER.filter(f => !takenFactions.has(f))
-        : []; // modalità pubblica: nessun bot, i posti restano liberi
+        : TURN_ORDER.filter(f => !takenFactions.has(f) && forcedBotFactions.has(f));
 
       if (botFactions.length > 0) {
         const botRows = botFactions.map(f => ({
@@ -776,6 +796,69 @@ export default function WaitingRoom({
                 {botDifficulty === 'easy' ? '⬡ Bot gioca casualmente' : botDifficulty === 'normal' ? '⬡ Bot strategico bilanciato' : '⬡ Bot massimizza la propria strategia'}
               </p>
             </div>
+
+            {/* ── Assegnazione bot per fazione (partita pubblica con posti liberi) ── */}
+            {(() => {
+              const takenByHumans = new Set(players.filter(p => p.player_id && !p.is_bot).map(p => p.faction));
+              const freeFactions = TURN_ORDER.filter(f => !takenByHumans.has(f));
+              if (freeFactions.length === 0) return null;
+              return (
+                <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
+                  <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-1">
+                    🤖 Assegna Bot alle Fazioni
+                  </p>
+                  <p className="text-[9px] font-mono text-[#334455] mb-3">
+                    Attiva il bot per le fazioni libere — le altre aspetteranno un giocatore umano
+                  </p>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {freeFactions.map(f => {
+                      const info = FACTION_INFO[f];
+                      const isForced = forcedBotFactions.has(f);
+                      return (
+                        <button
+                          key={f}
+                          onClick={() => setForcedBotFactions(prev => {
+                            const next = new Set(prev);
+                            if (next.has(f)) next.delete(f); else next.add(f);
+                            return next;
+                          })}
+                          className="flex items-center justify-between px-3 py-2 rounded-lg border transition-all text-left"
+                          style={{
+                            borderColor: isForced ? info.color + '88' : '#1e3a5f',
+                            backgroundColor: isForced ? info.color + '12' : '#060a10',
+                          }}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">{info.flag}</span>
+                            <span className="font-mono text-xs font-bold" style={{ color: isForced ? info.color : '#445566' }}>{f}</span>
+                          </div>
+                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isForced ? 'text-[#0a0e1a]' : 'text-[#334455] border border-[#1e3a5f]'}`}
+                            style={{ backgroundColor: isForced ? info.color : 'transparent' }}>
+                            {isForced ? '🤖 BOT' : '⏳ libera'}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {freeFactions.length > 1 && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => setForcedBotFactions(new Set(freeFactions as Faction[]))}
+                        className="flex-1 text-[10px] font-mono py-1 rounded border border-[#1e3a5f] text-[#8899aa] hover:border-[#4a9eff] hover:text-[#4a9eff] transition-all"
+                      >
+                        Bot tutte
+                      </button>
+                      <button
+                        onClick={() => setForcedBotFactions(new Set())}
+                        className="flex-1 text-[10px] font-mono py-1 rounded border border-[#1e3a5f] text-[#8899aa] hover:border-[#ff4444] hover:text-[#ff6666] transition-all"
+                      >
+                        Nessun bot
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Toggle modalità setup territori */}
             <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
