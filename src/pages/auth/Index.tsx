@@ -157,6 +157,8 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
       // Mappa messaggi Supabase → testo leggibile
       if (msg.includes('Invalid login credentials') || msg.includes('invalid_grant')) {
         setError('❌ Email o password non corretti.');
+      } else if (msg.includes('New password should be different') || msg.includes('different from the old')) {
+        setError('⚠️ La nuova password deve essere diversa da quella attuale. Scegli una password diversa.');
       } else if (msg.includes('Email not confirmed')) {
         setError('📧 Devi confermare la tua email. Controlla la casella di posta.');
       } else if (msg.includes('User already registered')) {
