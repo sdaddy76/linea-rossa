@@ -260,16 +260,38 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
     if (!joinCode.trim()) { setError('Inserisci il codice partita'); return; }
     setLoading(true); setError('');
     try {
+      // Carica partita + giocatori in un'unica query
       const { data: game, error: gameError } = await supabase
         .from('games')
         .select('*')
         .eq('code', joinCode.trim().toUpperCase())
         .single();
       if (gameError || !game) throw new Error('Partita non trovata con questo codice');
-      if (game.status === 'finished' || game.status === 'active') {
+
+      // Carica i giocatori separatamente (join non disponibile nel client)
+      const { data: gamePlayers } = await supabase
+        .from('game_players')
+        .select('faction, player_id, is_bot, profile:profiles(username)')
+        .eq('game_id', game.id);
+      const players = (gamePlayers ?? []) as { faction: string; player_id: string | null; is_bot: boolean }[];
+
+      if (game.status === 'finished') {
+        // Partita finita → solo spettatore
         onJoinGame(game.id);
         return;
       }
+
+      if (game.status === 'active') {
+        // Partita in corso: rientra se già dentro, altrimenti apri WaitingRoom se ci sono fazioni libere
+        const alreadyIn = players.some(p => p.player_id === profile.id && !p.is_bot);
+        if (alreadyIn) { onJoinGame(game.id); return; }
+        const takenByHumans = new Set(players.filter(p => p.player_id && !p.is_bot).map(p => p.faction));
+        const allFactions = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
+        const hasFree = allFactions.some(f => !takenByHumans.has(f));
+        if (!hasFree) { onJoinGame(game.id); return; } // piena → spettatore
+      }
+
+      // status='lobby' o 'active' con posto libero → apri WaitingRoom per scegliere fazione
       setWaitingGame({
         id: game.id, code: game.code,
         isHost: game.created_by === profile.id,
