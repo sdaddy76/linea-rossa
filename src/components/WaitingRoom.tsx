@@ -786,24 +786,18 @@ export default function WaitingRoom({
             {/* ── Pannello avvio unificato — SEMPRE VISIBILE per l'host ── */}
             <div className="rounded-xl border-2 bg-[#060d18] p-4 space-y-4"
               style={{ borderColor: myFaction ? '#00ff8866' : '#f59e0b66' }}>
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-mono font-bold text-[#8899aa] uppercase tracking-widest">
-                  ⚙️ PANNELLO HOST — Configura & Avvia
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <p className="text-xl font-black font-mono tracking-widest" style={{color:'#00ff88'}}>
+                  🚀 AVVIA PARTITA
                 </p>
                 {!myFaction && (
-                  <span className="text-[9px] font-mono text-[#f59e0b] bg-[#f59e0b15] px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-mono text-[#f59e0b] bg-[#f59e0b15] px-2 py-1 rounded font-bold animate-pulse">
                     ⚠️ Scegli prima la tua fazione
                   </span>
                 )}
               </div>
 
-                {/* Guida rapida host */}
-              <div className="text-[9px] font-mono text-[#445566] space-y-0.5 bg-[#0a0e1a] rounded-lg px-3 py-2">
-                <p className="text-[#8899aa] font-bold">Come fare:</p>
-                <p>1️⃣ Scegli la tua fazione dalla griglia sopra</p>
-                <p>2️⃣ Clicca <span className="text-[#f59e0b]">⏳ libera</span> per assegnare 🤖 BOT alle fazioni vuote</p>
-                <p>3️⃣ Clicca <span className="text-[#00ff88] font-bold">▶ AVVIA PARTITA</span></p>
-              </div>
+
 
               {/* ── Mappa fazioni: umano / bot / libera ── */}
                 <div className="space-y-1.5">
