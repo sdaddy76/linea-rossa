@@ -698,66 +698,78 @@ export default function WaitingRoom({
           )}
         </div>
 
-        {/* ── Scelta fazione ── */}
+        {/* ── Tavolo fazioni — stato live ── */}
         <div className="rounded-xl border border-[#1e3a5f] bg-[#0d1424] p-5">
           <h3 className="text-xs font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-1">
-            Scegli la tua fazione
+            🪑 Tavolo — Fazioni
           </h3>
-          <p className="text-xs font-mono text-[#334455] mb-4">
-            Le fazioni non scelte da nessun giocatore saranno gestite dal bot
+          <p className="text-[10px] font-mono text-[#334455] mb-3">
+            {isHost ? 'Gestisci le fazioni nel pannello sotto' : 'Seleziona una fazione libera per sederti al tavolo'}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {TURN_ORDER.map(faction => {
-              const info = FACTION_INFO[faction];
-              const isMine = myFaction === faction;
-              const takenByOther = takenFactions.has(faction) && !isMine;
-              const takerPlayer = players.find(p => p.faction === faction && p.player_id && p.player_id !== profile.id);
+              const info        = FACTION_INFO[faction];
+              const isMine      = myFaction === faction;
+              const humanPlayer = players.find(p => p.faction === faction && p.player_id && !p.is_bot);
+              const botPlayer   = players.find(p => p.faction === faction && p.is_bot);
+              const takenByOtherHuman = !!humanPlayer && !isMine;
+              const isBot       = !!botPlayer && !humanPlayer;
+              const isFree      = !humanPlayer && !botPlayer && !isMine;
+
+              // Non-host non può selezionare fazioni umane o bot già assegnati dall'host
+              const isSelectable = !takenByOtherHuman && !isBot && !isMine;
+
+              let borderColor = '#1e2a3a';
+              let bgColor     = '#060a10';
+              let labelColor  = '#334455';
+              if (isMine)             { borderColor = info.color + '88'; bgColor = info.color + '15'; labelColor = info.color; }
+              else if (takenByOtherHuman) { borderColor = info.color + '44'; bgColor = info.color + '08'; labelColor = info.color; }
+              else if (isBot)         { borderColor = '#f59e0b44'; bgColor = '#f59e0b08'; labelColor = '#f59e0b'; }
+              else if (isFree)        { borderColor = '#1e3a5f';   bgColor = '#060d18';   labelColor = '#c0cce0'; }
 
               return (
                 <button
                   key={faction}
-                  onClick={() => !takenByOther && !loading && chooseFaction(faction)}
-                  disabled={takenByOther || loading}
-                  title={isMine ? `Fazione attuale — clicca un'altra per cambiare` : takenByOther ? `${faction} è già presa` : `Scegli ${faction}`}
+                  disabled={!isSelectable || loading || isHost}
+                  onClick={() => isSelectable && !loading && !isHost && chooseFaction(faction)}
                   className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all group"
                   style={{
-                    borderColor: isMine ? info.color : takenByOther ? '#1e2a3a' : '#1e3a5f',
-                    background: isMine ? info.color + '15' : takenByOther ? '#060a10' : '#060d18',
-                    opacity: takenByOther ? 0.45 : 1,
-                    boxShadow: isMine ? `0 0 16px ${info.color}30` : 'none',
-                    cursor: takenByOther ? 'not-allowed' : 'pointer',
+                    borderColor,
+                    background: bgColor,
+                    boxShadow: isMine ? `0 0 14px ${info.color}30` : 'none',
+                    cursor: (!isSelectable || isHost) ? 'default' : 'pointer',
+                    opacity: (takenByOtherHuman || isBot) && !isMine ? 0.75 : 1,
                   }}>
-                  {/* Icona fazione */}
                   <span className="text-2xl">{info.flag}</span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-sm" style={{ color: isMine ? info.color : takenByOther ? '#334455' : '#c0cce0' }}>
-                        {faction}
-                      </span>
-                      {isMine && (
-                        <>
-                          <span className="text-[10px] font-mono bg-[#00ff8820] text-[#00ff88] px-1.5 rounded">✓ TU</span>
-                        </>
-                      )}
-                      {takenByOther && (
-                        <span className="text-[10px] font-mono text-[#334455]">
-                          🔒 {takerPlayer?.profile?.username ?? 'preso'}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono font-bold text-sm" style={{ color: labelColor }}>{faction}</span>
+                      {isMine && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#00ff8820] text-[#00ff88]">✓ TU</span>}
+                      {takenByOtherHuman && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: info.color + '20', color: info.color }}>👤 {humanPlayer!.profile?.username ?? 'umano'}</span>}
+                      {isBot && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f59e0b20] text-[#f59e0b]">🤖 BOT</span>}
+                      {isFree && !isHost && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#4a9eff20] text-[#4a9eff]">⬡ LIBERA — clicca per sederti</span>}
+                      {isFree && isHost && <span className="text-[9px] font-mono text-[#334455]">⏳ libera</span>}
                     </div>
-                    <p className="text-[11px] font-mono truncate" style={{ color: takenByOther ? '#223' : '#445566' }}>
-                      {isMine ? (
-                        <span className="group-hover:hidden">{info.desc}</span>
-                      ) : info.desc}
-                      {isMine && (
-                        <span className="hidden group-hover:inline text-[#ff6666]">Clicca per cambiare fazione</span>
-                      )}
+                    <p className="text-[10px] font-mono truncate mt-0.5" style={{ color: '#445566' }}>
+                      {isMine ? <span className="group-hover:hidden">{info.desc}</span> : info.desc}
+                      {isMine && <span className="hidden group-hover:inline text-[#ff6666]">Clicca un'altra fazione per cambiare</span>}
                     </p>
                   </div>
                 </button>
               );
             })}
           </div>
+          {/* Messaggio non-host senza fazione */}
+          {!isHost && !myFaction && (
+            <p className="text-[10px] font-mono text-[#4a9eff] mt-3 text-center">
+              👆 Clicca su una fazione <span className="text-[#4a9eff] font-bold">LIBERA</span> per sederti al tavolo
+            </p>
+          )}
+          {!isHost && myFaction && (
+            <p className="text-[10px] font-mono text-[#00ff88] mt-3 text-center">
+              ✓ Sei seduto come <strong>{myFaction}</strong> — in attesa che l'host avvii la partita
+            </p>
+          )}
         </div>
 
         {/* ── Errori ── */}
@@ -1062,8 +1074,15 @@ export default function WaitingRoom({
         )}
 
         {!isHost && (
-          <div className="text-center text-xs font-mono text-[#334455] py-2">
-            ⏳ In attesa che l'host avvii la partita…
+          <div className="rounded-xl border border-[#1e3a5f] bg-[#0d1424] px-4 py-3 text-center space-y-1">
+            <p className="text-xs font-mono text-[#445566]">
+              {myFaction
+                ? `✓ Sei al tavolo come ${myFaction} — attendi che l'host lanci la partita`
+                : '👆 Seleziona una fazione libera per unirti al tavolo'}
+            </p>
+            <p className="text-[9px] font-mono text-[#334455]">
+              La partita inizierà quando l'host clicca "▶ AVVIA PARTITA"
+            </p>
           </div>
         )}
       </div>
