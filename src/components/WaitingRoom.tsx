@@ -788,7 +788,7 @@ export default function WaitingRoom({
               style={{ borderColor: myFaction ? '#00ff8866' : '#f59e0b66' }}>
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-mono font-bold text-[#8899aa] uppercase tracking-widest">
-                  ⚙️ Configura & Avvia Partita
+                  ⚙️ PANNELLO HOST — Configura & Avvia
                 </p>
                 {!myFaction && (
                   <span className="text-[9px] font-mono text-[#f59e0b] bg-[#f59e0b15] px-2 py-0.5 rounded">
@@ -797,7 +797,15 @@ export default function WaitingRoom({
                 )}
               </div>
 
-                {/* ── Mappa fazioni: umano / bot / libera ── */}
+                {/* Guida rapida host */}
+              <div className="text-[9px] font-mono text-[#445566] space-y-0.5 bg-[#0a0e1a] rounded-lg px-3 py-2">
+                <p className="text-[#8899aa] font-bold">Come fare:</p>
+                <p>1️⃣ Scegli la tua fazione dalla griglia sopra</p>
+                <p>2️⃣ Clicca <span className="text-[#f59e0b]">⏳ libera</span> per assegnare 🤖 BOT alle fazioni vuote</p>
+                <p>3️⃣ Clicca <span className="text-[#00ff88] font-bold">▶ AVVIA PARTITA</span></p>
+              </div>
+
+              {/* ── Mappa fazioni: umano / bot / libera ── */}
                 <div className="space-y-1.5">
                   {TURN_ORDER.map(f => {
                     const info = FACTION_INFO[f];
