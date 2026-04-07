@@ -931,12 +931,19 @@ export default function WaitingRoom({
               )}
             </div>
 
-            {/* ── Pannello avvio unificato ─────────────────────────────────────── */}
-            {myFaction ? (
-              <div className="rounded-xl border border-[#1e3a5f] bg-[#060d18] p-4 space-y-4">
-                <p className="text-[11px] font-mono font-bold text-[#8899aa] uppercase tracking-widest text-center">
+            {/* ── Pannello avvio unificato — SEMPRE VISIBILE per l'host ── */}
+            <div className="rounded-xl border-2 bg-[#060d18] p-4 space-y-4"
+              style={{ borderColor: myFaction ? '#00ff8866' : '#f59e0b66' }}>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-mono font-bold text-[#8899aa] uppercase tracking-widest">
                   ⚙️ Configura & Avvia Partita
                 </p>
+                {!myFaction && (
+                  <span className="text-[9px] font-mono text-[#f59e0b] bg-[#f59e0b15] px-2 py-0.5 rounded">
+                    ⚠️ Scegli prima la tua fazione
+                  </span>
+                )}
+              </div>
 
                 {/* ── Mappa fazioni: umano / bot / libera ── */}
                 <div className="space-y-1.5">
@@ -1039,14 +1046,14 @@ export default function WaitingRoom({
                 {/* ── Bottone avvia unico ── */}
                 <button
                   onClick={() => startGame('pubblico')}
-                  disabled={starting}
+                  disabled={starting || !myFaction}
                   className="w-full py-3 rounded-xl font-black font-mono tracking-widest text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
-                    background: starting ? '#00ff8820' : 'linear-gradient(135deg,#00ff88,#00cc66)',
-                    color: '#0a0e1a',
-                    boxShadow: '0 0 24px #00ff8840',
+                    background: (!myFaction || starting) ? '#1e2a3a' : 'linear-gradient(135deg,#00ff88,#00cc66)',
+                    color: !myFaction ? '#556677' : '#0a0e1a',
+                    boxShadow: myFaction ? '0 0 24px #00ff8840' : 'none',
                   }}>
-                  {starting ? '⏳ AVVIO IN CORSO…' : '▶ AVVIA PARTITA'}
+                  {starting ? '⏳ AVVIO IN CORSO…' : !myFaction ? '⚠️ Scegli prima la tua fazione' : '▶ AVVIA PARTITA'}
                 </button>
                 <p className="text-[9px] font-mono text-[#334455] text-center -mt-2">
                   Le fazioni con 🤖 BOT saranno gestite dall'IA · Le fazioni ⏳ libere restano aperte
@@ -1065,11 +1072,7 @@ export default function WaitingRoom({
                   </button>
                 </div>
               </div>
-            ) : (
-              <div className="py-3 text-center text-[11px] font-mono text-[#334455]">
-                👆 Scegli prima la tua fazione per avviare
-              </div>
-            )}
+            </div>
           </div>
         )}
 
