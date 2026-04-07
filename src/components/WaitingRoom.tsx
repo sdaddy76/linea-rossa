@@ -797,69 +797,6 @@ export default function WaitingRoom({
               </p>
             </div>
 
-            {/* ── Assegnazione bot per fazione (partita pubblica con posti liberi) ── */}
-            {(() => {
-              const takenByHumans = new Set(players.filter(p => p.player_id && !p.is_bot).map(p => p.faction));
-              const freeFactions = TURN_ORDER.filter(f => !takenByHumans.has(f));
-              if (freeFactions.length === 0) return null;
-              return (
-                <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
-                  <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-1">
-                    🤖 Assegna Bot alle Fazioni
-                  </p>
-                  <p className="text-[9px] font-mono text-[#334455] mb-3">
-                    Attiva il bot per le fazioni libere — le altre aspetteranno un giocatore umano
-                  </p>
-                  <div className="grid grid-cols-1 gap-1.5">
-                    {freeFactions.map(f => {
-                      const info = FACTION_INFO[f];
-                      const isForced = forcedBotFactions.has(f);
-                      return (
-                        <button
-                          key={f}
-                          onClick={() => setForcedBotFactions(prev => {
-                            const next = new Set(prev);
-                            if (next.has(f)) next.delete(f); else next.add(f);
-                            return next;
-                          })}
-                          className="flex items-center justify-between px-3 py-2 rounded-lg border transition-all text-left"
-                          style={{
-                            borderColor: isForced ? info.color + '88' : '#1e3a5f',
-                            backgroundColor: isForced ? info.color + '12' : '#060a10',
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg">{info.flag}</span>
-                            <span className="font-mono text-xs font-bold" style={{ color: isForced ? info.color : '#445566' }}>{f}</span>
-                          </div>
-                          <span className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${isForced ? 'text-[#0a0e1a]' : 'text-[#334455] border border-[#1e3a5f]'}`}
-                            style={{ backgroundColor: isForced ? info.color : 'transparent' }}>
-                            {isForced ? '🤖 BOT' : '⏳ libera'}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {freeFactions.length > 1 && (
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => setForcedBotFactions(new Set(freeFactions as Faction[]))}
-                        className="flex-1 text-[10px] font-mono py-1 rounded border border-[#1e3a5f] text-[#8899aa] hover:border-[#4a9eff] hover:text-[#4a9eff] transition-all"
-                      >
-                        Bot tutte
-                      </button>
-                      <button
-                        onClick={() => setForcedBotFactions(new Set())}
-                        className="flex-1 text-[10px] font-mono py-1 rounded border border-[#1e3a5f] text-[#8899aa] hover:border-[#ff4444] hover:text-[#ff6666] transition-all"
-                      >
-                        Nessun bot
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
             {/* Toggle modalità setup territori */}
             <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
               <p className="text-[10px] font-mono font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
@@ -982,107 +919,138 @@ export default function WaitingRoom({
               )}
             </div>
 
-            {/* Sezione avvio — visibile solo quando la fazione è scelta */}
+            {/* ── Pannello avvio unificato ─────────────────────────────────────── */}
             {myFaction ? (
-              <div className="rounded-xl border border-[#1e3a5f] bg-[#060d18] p-4 space-y-3">
+              <div className="rounded-xl border border-[#1e3a5f] bg-[#060d18] p-4 space-y-4">
                 <p className="text-[11px] font-mono font-bold text-[#8899aa] uppercase tracking-widest text-center">
-                  ✅ Fazione scelta: <span style={{ color: FACTION_INFO[myFaction].color }}>{FACTION_INFO[myFaction].flag} {myFaction}</span>
+                  ⚙️ Configura & Avvia Partita
                 </p>
-                <p className="text-[10px] font-mono text-[#445566] text-center">
-                  Come vuoi procedere?
-                </p>
-                <div className="grid grid-cols-1 gap-2">
-                  {/* Pulsante tavolo pubblico — avvia senza bot, posti vuoti aperti */}
-                  <button
-                    onClick={() => startGame('pubblico')}
-                    disabled={starting}
-                    className="w-full py-3 px-4 rounded-xl font-black font-mono tracking-widest text-sm transition-all
-                      disabled:opacity-40 disabled:cursor-not-allowed border-2"
-                    style={{
-                      borderColor: '#22d3ee',
-                      color: '#22d3ee',
-                      background: starting ? '#22d3ee20' : 'transparent',
-                      boxShadow: '0 0 16px #22d3ee30',
-                    }}>
-                    {starting ? '⏳ AVVIO IN CORSO…' : '🌐 APRI TAVOLO PUBBLICO'}
-                  </button>
-                  <p className="text-[9px] font-mono text-[#445566] text-center -mt-1">
-                    Avvia subito — i posti vuoti restano aperti per altri giocatori dalla lobby
-                  </p>
 
-                  {/* Gioca da solo con bot */}
-                  <button
-                    onClick={() => startGame('solo')}
-                    disabled={starting}
-                    className="w-full py-3 rounded-xl font-black font-mono tracking-widest text-sm transition-all
-                      disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{
-                      background: 'linear-gradient(135deg, #00ff88, #00cc66)',
-                      color: '#0a0e1a',
-                      boxShadow: '0 0 24px #00ff8840',
-                    }}>
-                    {starting ? '⏳ AVVIO IN CORSO…' : '🤖 GIOCA DA SOLO (con bot)'}
-                  </button>
-                  {/* Aspetta altri giocatori — comportamento diverso per aperto/riservato */}
-                  <div className="rounded-xl border bg-[#0a0e1a] overflow-hidden"
-                    style={{ borderColor: isPublic ? '#22d3ee44' : '#a78bfa44' }}>
-                    <div className="flex items-center gap-2 px-3 py-2"
-                      style={{ backgroundColor: isPublic ? '#22d3ee0a' : '#a78bfa0a' }}>
-                      <span className="text-base">{isPublic ? '🌐' : '🔒'}</span>
-                      <div>
-                        <p className="text-[11px] font-mono font-bold"
-                          style={{ color: isPublic ? '#22d3ee' : '#a78bfa' }}>
-                          {isPublic ? 'Tavolo aperto — visibile a tutti nel lobby' : 'Tavolo riservato — solo con codice'}
-                        </p>
-                        <p className="text-[9px] font-mono text-[#334455]">
-                          {isPublic
-                            ? 'Chiunque può entrare dalla lista partite. Puoi anche condividere il codice direttamente.'
-                            : 'Solo chi ha il codice può entrare. Condividilo con i tuoi giocatori.'}
-                        </p>
-                      </div>
-                    </div>
-                    {/* Codice da condividere */}
-                    <div className="flex items-center justify-between px-3 py-2 border-t border-[#1e3a5f]">
-                      <div>
-                        <p className="text-[9px] font-mono text-[#445566] uppercase tracking-wider mb-0.5">
-                          {isPublic ? 'Codice (opzionale)' : 'Codice da condividere'}
-                        </p>
-                        <p className="text-lg font-black font-mono tracking-[0.15em]"
-                          style={{ color: isPublic ? '#22d3ee' : '#a78bfa' }}>
-                          {gameCode}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={copyCode}
-                          className="px-3 py-1.5 rounded-lg border font-mono text-xs font-bold transition-all"
-                          style={{
-                            borderColor: copied ? '#00ff88' : '#1e3a5f',
-                            color: copied ? '#00ff88' : '#8899aa',
-                            background: copied ? '#00ff8810' : 'transparent',
-                          }}>
-                          {copied ? '✓ Copiato' : '📋 Copia'}
-                        </button>
-                        {humanPlayers.length > 1 && (
+                {/* ── Mappa fazioni: umano / bot / libera ── */}
+                <div className="space-y-1.5">
+                  {TURN_ORDER.map(f => {
+                    const info = FACTION_INFO[f];
+                    const humanPlayer = players.find(p => p.faction === f && p.player_id && !p.is_bot);
+                    const isMe = f === myFaction;
+                    const isForced = forcedBotFactions.has(f);
+                    const isFree = !humanPlayer && !isMe && !isForced;
+
+                    return (
+                      <div key={f} className="flex items-center justify-between px-3 py-2 rounded-lg border transition-all"
+                        style={{
+                          borderColor: isMe ? info.color + '66'
+                            : humanPlayer ? info.color + '44'
+                            : isForced ? '#f59e0b44'
+                            : '#1e2a3a',
+                          backgroundColor: isMe ? info.color + '10'
+                            : humanPlayer ? info.color + '08'
+                            : isForced ? '#f59e0b08'
+                            : '#060a10',
+                        }}>
+                        {/* Sinistra: flag + nome */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{info.flag}</span>
+                          <span className="font-mono text-xs font-bold"
+                            style={{ color: isMe ? info.color : humanPlayer ? info.color : isForced ? '#f59e0b' : '#334455' }}>
+                            {f}
+                          </span>
+                          {isMe && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#00ff8820] text-[#00ff88]">TU</span>}
+                          {humanPlayer && !isMe && (
+                            <span className="text-[9px] font-mono text-[#8899aa]">
+                              👤 {humanPlayer.profile?.username ?? 'giocatore'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Destra: badge stato + toggle bot se libera */}
+                        {(isMe || humanPlayer) ? (
+                          <span className="text-[9px] font-mono px-2 py-0.5 rounded font-bold"
+                            style={{ color: info.color, backgroundColor: info.color + '20' }}>
+                            ✓ umano
+                          </span>
+                        ) : (
                           <button
-                            onClick={() => startGame('solo')}
-                            disabled={starting}
-                            className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
-                              disabled:opacity-40"
-                            style={{ background: '#3b82f6', color: '#fff' }}>
-                            ▶ Avvia
+                            onClick={() => setForcedBotFactions(prev => {
+                              const next = new Set(prev);
+                              if (next.has(f)) next.delete(f); else next.add(f);
+                              return next;
+                            })}
+                            className="flex items-center gap-1.5 px-2 py-1 rounded-lg border text-[10px] font-mono font-bold transition-all"
+                            style={{
+                              borderColor: isForced ? '#f59e0b88' : '#1e3a5f',
+                              backgroundColor: isForced ? '#f59e0b15' : 'transparent',
+                              color: isForced ? '#f59e0b' : '#445566',
+                            }}>
+                            <span>{isForced ? '🤖' : '⏳'}</span>
+                            <span>{isForced ? 'BOT' : 'libera'}</span>
                           </button>
                         )}
                       </div>
-                    </div>
-                    {humanPlayers.length === 1 && (
-                      <div className="px-3 py-2 border-t border-[#1e3a5f]">
-                        <p className="text-[9px] font-mono text-[#334455]">
-                          ⏳ {humanPlayers.length} giocatore connesso — il pulsante "Avvia" apparirà quando entrerà almeno un altro giocatore
-                        </p>
+                    );
+                  })}
+                  {/* Scorciatoie bot/libera */}
+                  {(() => {
+                    const freeFactions = TURN_ORDER.filter(f => {
+                      const hp = players.find(p => p.faction === f && p.player_id && !p.is_bot);
+                      return !hp && f !== myFaction;
+                    }) as Faction[];
+                    if (freeFactions.length === 0) return null;
+                    return (
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => setForcedBotFactions(new Set(freeFactions))}
+                          className="flex-1 text-[9px] font-mono py-1 rounded border border-[#1e3a5f] text-[#8899aa] hover:text-[#f59e0b] hover:border-[#f59e0b44] transition-all">
+                          🤖 Bot tutte le fazioni libere
+                        </button>
+                        <button onClick={() => setForcedBotFactions(new Set())}
+                          className="flex-1 text-[9px] font-mono py-1 rounded border border-[#1e3a5f] text-[#8899aa] hover:text-[#ef4444] hover:border-[#ef444444] transition-all">
+                          ⏳ Lascia tutte libere
+                        </button>
                       </div>
-                    )}
+                    );
+                  })()}
+                </div>
+
+                {/* ── Riepilogo configurazione ── */}
+                {(() => {
+                  const botCount = forcedBotFactions.size;
+                  const humanCount = players.filter(p => p.player_id && !p.is_bot).length;
+                  const freeCount = 5 - humanCount - botCount;
+                  return (
+                    <div className="flex items-center justify-center gap-4 py-1 text-[10px] font-mono">
+                      <span className="text-[#00ff88]">👤 {humanCount} umani</span>
+                      <span className="text-[#f59e0b]">🤖 {botCount} bot</span>
+                      {freeCount > 0 && <span className="text-[#445566]">⏳ {freeCount} libere</span>}
+                    </div>
+                  );
+                })()}
+
+                {/* ── Bottone avvia unico ── */}
+                <button
+                  onClick={() => startGame('pubblico')}
+                  disabled={starting}
+                  className="w-full py-3 rounded-xl font-black font-mono tracking-widest text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    background: starting ? '#00ff8820' : 'linear-gradient(135deg,#00ff88,#00cc66)',
+                    color: '#0a0e1a',
+                    boxShadow: '0 0 24px #00ff8840',
+                  }}>
+                  {starting ? '⏳ AVVIO IN CORSO…' : '▶ AVVIA PARTITA'}
+                </button>
+                <p className="text-[9px] font-mono text-[#334455] text-center -mt-2">
+                  Le fazioni con 🤖 BOT saranno gestite dall'IA · Le fazioni ⏳ libere restano aperte
+                </p>
+
+                {/* Codice condivisione */}
+                <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-[#1e2a3a] bg-[#0a0e1a]">
+                  <div>
+                    <p className="text-[9px] font-mono text-[#445566] uppercase tracking-wider mb-0.5">Codice partita</p>
+                    <p className="text-base font-black font-mono tracking-[0.15em] text-[#22d3ee]">{gameCode}</p>
                   </div>
+                  <button onClick={copyCode}
+                    className="px-3 py-1.5 rounded-lg border font-mono text-xs font-bold transition-all"
+                    style={{ borderColor: copied ? '#00ff88' : '#1e3a5f', color: copied ? '#00ff88' : '#8899aa' }}>
+                    {copied ? '✓ Copiato' : '📋 Copia'}
+                  </button>
                 </div>
               </div>
             ) : (
