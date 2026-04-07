@@ -131,21 +131,35 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
       } else if (mode === 'new-password') {
         if (newPassword.length < 6) { setError('La password deve essere di almeno 6 caratteri.'); setLoading(false); return; }
         if (newPassword !== newPasswordConfirm) { setError('Le password non coincidono.'); setLoading(false); return; }
+        setDebugInfo('Verifica sessione...');
+
+        // ── Verifica che la sessione di recovery sia ancora valida ──────────
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession) {
+          setError('⏱️ Il link di reset password è scaduto. Clicca "Torna al login" e richiedi un nuovo link.');
+          setLoading(false);
+          return;
+        }
+
         setDebugInfo('Aggiornamento password...');
         // ── Sospendi il listener onAuthStateChange per liberare il Web Lock ──
-        // updateUser() e onAuthStateChange competono per lo stesso lock Supabase.
-        // Sospendendo il listener, updateUser() può acquisire il lock senza conflitti.
         pauseAuthListener();
         let updateError: import('@supabase/supabase-js').AuthError | null = null;
         try {
           const { error } = await supabase.auth.updateUser({ password: newPassword });
           updateError = error ?? null;
         } finally {
-          // Riattiva sempre il listener, anche in caso di errore
           resumeAuthListener();
         }
         if (updateError) {
           console.error('[reset-password] updateUser error:', updateError);
+          // 403 = token recovery scaduto nel frattempo
+          if (updateError.status === 403 || updateError.message?.includes('not authorized')
+              || updateError.message?.includes('JWT') || updateError.message?.includes('session')) {
+            setError('⏱️ La sessione è scaduta. Richiedi un nuovo link di reset dalla pagina di login.');
+            setLoading(false);
+            return;
+          }
           const isLockError = updateError.message?.includes('aborted')
             || updateError.message?.includes('Lock broken')
             || (updateError as unknown as { name?: string }).name === 'AbortError';
@@ -158,7 +172,6 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
         setMessage('✅ Password aggiornata con successo!');
         setNewPassword(''); setNewPasswordConfirm('');
         // Reload completo: evita tutti i problemi di lock/stato residuo.
-        // Supabase ha già salvato la nuova sessione in localStorage → l'app riparte loggata.
         setTimeout(() => {
           window.location.replace(window.location.origin);
         }, 1500);
