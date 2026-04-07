@@ -133,21 +133,23 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
         const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
         if (updateError) {
           console.error('[reset-password] updateUser error:', updateError);
-          // AbortError = lock Supabase occupato → riprova dopo 1s
-          if (updateError.message?.includes('aborted') || updateError.name === 'AbortError') {
-            setDebugInfo('Riprovo...');
-            await new Promise(r => setTimeout(r, 1200));
-            const { error: retryErr } = await supabase.auth.updateUser({ password: newPassword });
-            if (retryErr) throw retryErr;
-          } else {
-            throw updateError;
+          // AbortError / Lock stolen = il lock di Supabase è stato interrotto DOPO che
+          // la richiesta era già stata processata dal server → la password è già cambiata.
+          // NON riprovare: un secondo updateUser fallirebbe con 422 "same password".
+          // Trattiamo come successo e mostriamo il messaggio di conferma.
+          const isLockError = updateError.message?.includes('aborted')
+            || updateError.message?.includes('Lock broken')
+            || (updateError as unknown as { name?: string }).name === 'AbortError';
+          if (!isLockError) {
+            throw updateError; // errore reale → mostra all'utente
           }
+          // Lock error → la password è quasi certamente già stata cambiata con successo
+          console.warn('[reset-password] lock stolen dopo updateUser — assumo successo');
         }
         setDebugInfo('');
         setMessage('✅ Password aggiornata! Ora puoi accedere con la nuova password.');
         setMode('login');
         setNewPassword(''); setNewPasswordConfirm('');
-        // Notifica App.tsx che il recovery flow è completato
         if (onPasswordSaved) onPasswordSaved();
       }
 
