@@ -42,6 +42,7 @@ interface Props {
   gameState: GameState;
   territories: TerritoryRecord[];
   militaryUnits: MilitaryUnitRecord[];
+  unitPool?: Partial<Record<UnitType, number>>; // pool unità acquistate
   onBuyUnits:    (unitType: string, qty: number, opSpent: number) => Promise<void>;
   onInfluence:   (territory: string, opSpent: number) => Promise<void>;
   onAttack:      (params: {
@@ -132,7 +133,7 @@ const RESULT_LABEL: Record<CombatResult['result'], string> = {
 export default function OpsActionModal({
   card, myFaction, gameState, territories, militaryUnits,
   onBuyUnits, onInfluence, onAttack, onCancel, loading,
-  initialStep,
+  initialStep, unitPool = {},
 }: Props & { initialStep?: 'choose' | 'buy' | 'influence' | 'attack' }) {
   const fColor = FACTION_COLORS[myFaction] ?? '#8899aa';
   const opPoints = card.op_points;
@@ -276,9 +277,15 @@ export default function OpsActionModal({
                     <p className="text-[10px] font-mono text-[#8899aa]">{u.specialEffect}</p>
                   </div>
                 </div>
-                <div className="text-right shrink-0 ml-2">
+                <div className="text-right shrink-0 ml-2 space-y-0.5">
                   <p className="font-black font-mono text-sm" style={{ color: fColor }}>{u.cost} OP</p>
                   <p className="text-[10px] font-mono text-[#556677]">per unità</p>
+                  {/* Mostra quante ne hai già nel pool */}
+                  {((unitPool[u.type as UnitType] ?? 0) > 0) && (
+                    <p className="text-[10px] font-mono text-[#00ff88]">
+                      pool: ×{unitPool[u.type as UnitType]}
+                    </p>
+                  )}
                 </div>
               </div>
               {/* Selettore quantità */}
@@ -436,30 +443,59 @@ export default function OpsActionModal({
         {/* Scegli unità da impiegare */}
         {atkTerritory && (
           <>
-            <p className="text-[10px] font-mono font-bold uppercase text-[#8899aa] mb-2">
-              Unità da impiegare (opzionale, aumentano la forza)
+            <p className="text-[10px] font-mono font-bold uppercase text-[#8899aa] mb-1">
+              Unità da impiegare (solo dal tuo pool)
             </p>
+            {/* Mostra pool totale compatto */}
+            <div className="flex flex-wrap gap-1 mb-2">
+              {myUnits.map(u => {
+                const inPool = unitPool[u.type as UnitType] ?? 0;
+                const inUse  = atkUnits.filter(x => x === u.type).length;
+                return (
+                  <span key={u.type} className="text-[9px] font-mono px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: inPool > 0 ? '#00ff8815' : '#0a0e1a', color: inPool > 0 ? '#00ff88' : '#334455', border: `1px solid ${inPool > 0 ? '#00ff8840' : '#1e2a3a'}` }}>
+                    {u.icon} ×{inPool - inUse > 0 ? inPool - inUse : 0} disponibili
+                  </span>
+                );
+              })}
+            </div>
             <div className="space-y-1.5 max-h-[22vh] overflow-y-auto mb-3">
               {myUnits.map(u => {
-                const active = atkUnits.includes(u.type);
+                const inPool    = unitPool[u.type as UnitType] ?? 0;
+                const usedCount = atkUnits.filter(x => x === u.type).length;
+                const canAdd    = usedCount < inPool; // non puoi usare più di quelle che hai
+                const active    = usedCount > 0;
+                const disabled  = inPool === 0;
                 return (
                   <button key={u.type}
-                    onClick={() => setAtkUnits(prev =>
-                      active ? prev.filter(x => x !== u.type) : [...prev, u.type])}
+                    disabled={disabled}
+                    onClick={() => {
+                      if (active) {
+                        // Rimuovi una unità di questo tipo
+                        setAtkUnits(prev => { const i = prev.lastIndexOf(u.type); return i >= 0 ? [...prev.slice(0,i), ...prev.slice(i+1)] : prev; });
+                      } else if (canAdd) {
+                        setAtkUnits(prev => [...prev, u.type]);
+                      }
+                    }}
                     className="w-full p-2.5 rounded-xl flex items-center gap-3 text-left transition-all"
                     style={{
-                      backgroundColor: active ? '#ff444415' : '#0a0e1a',
-                      border: `1px solid ${active ? '#ff444460' : '#1e2a3a'}`,
+                      backgroundColor: disabled ? '#06080f' : active ? '#ff444415' : '#0a0e1a',
+                      border: `1px solid ${disabled ? '#0f1520' : active ? '#ff444460' : '#1e2a3a'}`,
+                      opacity: disabled ? 0.4 : 1,
+                      cursor: disabled ? 'not-allowed' : 'pointer',
                     }}>
                     <span className="text-base">{u.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold font-mono text-xs text-white truncate">{u.label}</p>
+                      <p className="font-bold font-mono text-xs truncate" style={{ color: disabled ? '#334455' : 'white' }}>{u.label}</p>
+                      <p className="text-[9px] font-mono" style={{ color: disabled ? '#223' : '#556677' }}>
+                        {disabled ? 'Non nel pool — acquista prima' : `Pool: ×${inPool} · Usate: ×${usedCount}`}
+                      </p>
                     </div>
                     <span className="font-black font-mono text-xs shrink-0"
-                      style={{ color: active ? '#ff6644' : '#556677' }}>
+                      style={{ color: active ? '#ff6644' : disabled ? '#223' : '#556677' }}>
                       +{u.attackBonus} ATK
                     </span>
-                    {active && <span className="text-[#ff4444] text-sm">✓</span>}
+                    {active && <span className="text-[#ff4444] text-sm font-bold">×{usedCount}</span>}
                   </button>
                 );
               })}

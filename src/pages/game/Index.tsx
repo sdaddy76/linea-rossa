@@ -1396,6 +1396,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   territories={terrRecords}
                   initialStep={opsInitialStep}
                   militaryUnits={unitRecords}
+                  unitPool={myUnitsPool}
                   loading={loading}
                   onCancel={() => { setShowOpsModal(false); setSelectedUnifiedCard(null); }}
                   onBuyUnits={async (unitType, qty, _opSpent) => {
