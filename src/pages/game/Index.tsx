@@ -509,6 +509,20 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             useOnlineGameStore.setState(s => ({
               gameState: { ...s.gameState!, ...updates },
             }));
+            // ── Inserisce l'evento in moves_log (non bloccante) ──────────────
+            supabase.from('moves_log').insert({
+              game_id:     game.id,
+              turn_number: turnNum,
+              faction:     'Neutrale',
+              player_id:   profile?.id ?? null,
+              is_bot_move: false,
+              card_id:     evento.event_id,
+              card_name:   evento.event_name,
+              card_type:   'Evento',
+              description: evento.description,
+            }).then(({ error: logErr }) => {
+              if (logErr) console.warn('[evento] moves_log non salvato:', logErr.message);
+            });
             setTimeout(() => setEventoCorrente(evento), 400);
           }
           applicandoEventoRef.current = false;
@@ -1395,23 +1409,35 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   </p>
                 )}
                 {moves.map((move, i) => {
-                  const fc = FACTION_COLORS[move.faction] ?? '#8899aa';
+                  const isEvento = move.card_type === 'Evento';
+                  const fc = isEvento ? '#f59e0b' : (FACTION_COLORS[move.faction] ?? '#8899aa');
                   return (
                     <div key={move.id ?? i}
-                      className="p-2.5 rounded-lg bg-[#0a0e1a] border border-[#1e2a3a]">
+                      className="p-2.5 rounded-lg"
+                      style={{
+                        backgroundColor: isEvento ? '#1c1505' : '#0a0e1a',
+                        border: `1px solid ${isEvento ? '#f59e0b55' : '#1e2a3a'}`,
+                      }}>
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-sm">{FACTION_FLAGS[move.faction]}</span>
+                          {isEvento ? (
+                            <span className="text-sm">🎲</span>
+                          ) : (
+                            <span className="text-sm">{FACTION_FLAGS[move.faction]}</span>
+                          )}
                           <span className="font-mono text-xs font-bold" style={{ color: fc }}>
-                            {move.faction}
+                            {isEvento ? 'Evento' : move.faction}
                           </span>
-                          {move.is_bot_move && (
+                          {isEvento && (
+                            <span className="text-[10px] font-mono px-1 rounded" style={{ color: '#f59e0b', backgroundColor: '#f59e0b22' }}>⚡ inizio turno</span>
+                          )}
+                          {!isEvento && move.is_bot_move && (
                             <span className="text-[10px] text-[#8899aa] font-mono bg-[#8899aa20] px-1 rounded">🤖</span>
                           )}
                         </div>
                         <span className="text-[10px] text-[#334455] font-mono">T{move.turn_number}</span>
                       </div>
-                      <p className="font-mono text-xs text-white font-bold">{move.card_name}</p>
+                      <p className="font-mono text-xs font-bold" style={{ color: isEvento ? '#fcd34d' : '#ffffff' }}>{move.card_name}</p>
                       {/* Deltas */}
                       <div className="flex flex-wrap gap-1 mt-1">
                         {move.delta_nucleare !== 0 && (
