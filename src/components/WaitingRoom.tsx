@@ -68,7 +68,7 @@ export default function WaitingRoom({
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
   // Fazioni forzate a bot dall'host (prima dell'avvio)
   const [forcedBotFactions, setForcedBotFactions] = useState<Set<Faction>>(new Set());
-  const [hostTab, setHostTab] = useState<'tavolo' | 'setup'>('setup');
+  const [showSetup, setShowSetup] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // ── Configurazioni setup iniziale ────────────────────────────────────────
@@ -628,6 +628,18 @@ export default function WaitingRoom({
                   {isPublic ? '🌐 Tavolo aperto' : '🔒 Tavolo riservato'}
                 </span>
                 <span className="text-[#00ff88] font-mono font-black text-sm tracking-wider">{gameCode}</span>
+                {isHost && (
+                  <button
+                    onClick={() => setShowSetup(v => !v)}
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all"
+                    style={{
+                      backgroundColor: showSetup ? '#00ff8820' : '#1e3a5f',
+                      color: showSetup ? '#00ff88' : '#8899aa',
+                      border: `1px solid ${showSetup ? '#00ff8844' : '#2a4a7f'}`,
+                    }}>
+                    ⚙️ Setup
+                  </button>
+                )}
               </div>
               <p className="text-xs font-mono text-[#445566]">
                 {isHost ? 'Sei l\'host — avvia quando tutti sono pronti' : 'In attesa che l\'host avvii la partita…'}
@@ -781,80 +793,16 @@ export default function WaitingRoom({
           </div>
         )}
 
-        {/* ── Avvia (solo host) ── */}
-        {isHost && (
-          <div className="space-y-3">
-            {/* Tab selector */}
-            <div className="flex rounded-xl overflow-hidden border border-[#1e3a5f]">
-              <button
-                onClick={() => setHostTab('tavolo')}
-                className="flex-1 py-2.5 text-xs font-mono font-bold transition-all"
-                style={{
-                  backgroundColor: hostTab === 'tavolo' ? '#1e3a5f' : 'transparent',
-                  color: hostTab === 'tavolo' ? '#ffffff' : '#445566',
-                }}>
-                🪑 TAVOLO
-              </button>
-              <button
-                onClick={() => setHostTab('setup')}
-                className="flex-1 py-2.5 text-xs font-mono font-bold transition-all relative"
-                style={{
-                  backgroundColor: hostTab === 'setup' ? '#00ff8820' : 'transparent',
-                  color: hostTab === 'setup' ? '#00ff88' : '#445566',
-                  borderLeft: '1px solid #1e3a5f',
-                }}>
-                ⚙️ SETUP
-                {!myFaction && (
-                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#f59e0b]" />
-                )}
-              </button>
-            </div>
-
-            {/* Tab TAVOLO: solo visualizzazione fazioni */}
-            {hostTab === 'tavolo' && (
-              <div className="rounded-xl border border-[#1e3a5f] bg-[#0d1424] p-4">
-                <p className="text-[10px] font-mono text-[#445566] mb-3">
-                  Stato attuale del tavolo — vai in ⚙️ SETUP per gestire bot e avviare
-                </p>
-                <div className="space-y-2">
-                  {TURN_ORDER.map(f => {
-                    const info = FACTION_INFO[f];
-                    const humanP = players.find(p => p.faction === f && p.player_id && !p.is_bot);
-                    const isMe = f === myFaction;
-                    const botP = players.find(p => p.faction === f && p.is_bot);
-                    return (
-                      <div key={f} className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                        style={{
-                          borderColor: isMe ? info.color + '88' : humanP ? info.color + '44' : botP ? '#f59e0b44' : '#1e2a3a',
-                          backgroundColor: isMe ? info.color + '12' : humanP ? info.color + '08' : botP ? '#f59e0b08' : '#060a10',
-                        }}>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{info.flag}</span>
-                          <span className="font-mono text-sm font-bold" style={{ color: isMe ? info.color : humanP ? info.color : botP ? '#f59e0b' : '#445566' }}>{f}</span>
-                        </div>
-                        <div>
-                          {isMe && <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#00ff8820] text-[#00ff88]">👤 TU</span>}
-                          {humanP && !isMe && <span className="text-[9px] font-mono px-2 py-0.5 rounded" style={{ backgroundColor: info.color + '20', color: info.color }}>👤 {humanP.profile?.username ?? 'giocatore'}</span>}
-                          {botP && !humanP && !isMe && <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-[#f59e0b20] text-[#f59e0b]">🤖 BOT</span>}
-                          {!humanP && !botP && !isMe && <span className="text-[9px] font-mono text-[#334455]">⏳ libera</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Tab SETUP: assegna bot + avvia */}
-            {hostTab === 'setup' && (
+        {/* ── Pannello Setup (solo host, solo se showSetup) ── */}
+        {isHost && showSetup && (
               <div className="rounded-xl border-2 border-[#00ff8844] bg-[#060d18] p-4 space-y-4">
                 <p className="text-sm font-mono font-bold text-[#00ff88]">⚙️ Setup Partita</p>
 
                 {/* Step 1: scegli fazione */}
                 {!myFaction && (
                   <div className="rounded-lg border border-[#f59e0b44] bg-[#f59e0b08] p-3">
-                    <p className="text-[10px] font-mono text-[#f59e0b] font-bold mb-2">1️⃣ Prima scegli la tua fazione (vai in 🪑 TAVOLO)</p>
-                    <p className="text-[9px] font-mono text-[#556677]">Torna al tab TAVOLO e clicca su una fazione per sederti</p>
+                    <p className="text-[10px] font-mono text-[#f59e0b] font-bold mb-2">1️⃣ Prima scegli la tua fazione</p>
+                    <p className="text-[9px] font-mono text-[#556677]">Chiudi il Setup e clicca su una fazione libera per sederti</p>
                   </div>
                 )}
 
@@ -1127,8 +1075,6 @@ export default function WaitingRoom({
                   </button>
                 </div>
               </div>
-            )}
-          </div>
         )}
 
 
