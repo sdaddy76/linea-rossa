@@ -200,6 +200,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   const createGame = async () => {
     if (!profile?.id) { setError('Sessione non valida — effettua di nuovo il login'); return; }
     setLoading(true); setError('');
+    // Timeout di sicurezza: se dopo 12s non risponde, sblocca il bottone
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      setError('⏱️ Timeout — il server non risponde. Riprova tra qualche secondo.');
+    }, 12000);
     try {
       // Codice: se riservata e l'host ne ha inserito uno → usalo (uppercase)
       // altrimenti genera automatico
@@ -251,6 +256,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore nella creazione');
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };
