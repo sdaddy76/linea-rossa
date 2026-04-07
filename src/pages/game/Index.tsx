@@ -29,6 +29,7 @@ import ObjectivesModal from '@/components/ObjectivesModal';
 import { ObjectivesSection } from '@/components/ObjectivesSection';
 import { calcScores } from '@/lib/botEngine';
 import { ScoreTrack } from '@/components/ScoreTrack';
+import ScoreBoard from '@/components/ScoreBoard';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -370,7 +371,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [showHand, setShowHand] = useState(true);
   const [prevState, setPrevState] = useState<GameState | null>(null);
-  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'mappa'>('plancia');
+  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'mappa' | 'punteggi'>('plancia');
   const [showMarket, setShowMarket] = useState(false);
   const [showCombat, setShowCombat] = useState(false);
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
@@ -815,14 +816,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           <div>
             {/* Tab plancia / fazioni */}
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              {(['plancia', 'fazioni', 'mappa'] as const).map(t => (
+              {(['plancia', 'fazioni', 'mappa', 'punteggi'] as const).map(t => (
                 <button key={t} onClick={() => setActiveTab(t)}
                   className={`px-3 py-1 rounded font-mono text-xs font-bold transition-all ${
                     activeTab === t
                       ? 'bg-[#00ff88] text-[#0a0e1a]'
                       : 'border border-[#1e3a5f] text-[#8899aa] hover:text-white'
                   }`}>
-                  {t === 'plancia' ? '📊 PLANCIA TRACCIATI' : t === 'fazioni' ? '🎭 FAZIONI & RISORSE' : '🗺 TEATRO OPERATIVO'}
+                  {t === 'plancia' ? '📊 PLANCIA TRACCIATI' : t === 'fazioni' ? '🎭 FAZIONI & RISORSE' : t === 'mappa' ? '🗺 TEATRO OPERATIVO' : '🏆 Punteggi'}
                 </button>
               ))}
             </div>
@@ -830,13 +831,6 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             {/* TAB: PLANCIA */}
             {activeTab === 'plancia' && (
               <div className="space-y-3">
-                {/* ── Track punteggi in tempo reale ── */}
-                {game.status === 'active' && (
-                  <ScoreTrack
-                    gameId={game.id}
-                    factions={players.map(p => p.faction).filter(Boolean) as string[]}
-                  />
-                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
                   {TRACKS.map(track => (
                     <FullTrack
@@ -853,13 +847,6 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             {/* TAB: FAZIONI */}
             {activeTab === 'fazioni' && (
               <div className="space-y-3">
-                {/* ── Track punteggi in tempo reale ── */}
-                {game.status === 'active' && (
-                  <ScoreTrack
-                    gameId={game.id}
-                    factions={players.map(p => p.faction).filter(Boolean) as string[]}
-                  />
-                )}
 
                 {/* Header info turno attivo */}
                 <div className="flex items-center gap-3 p-2 rounded-lg border border-[#1e3a5f] bg-[#0d1117]">
@@ -914,6 +901,15 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   })}
                 </div>
               </div>
+            )}
+
+            {/* TAB: PUNTEGGI */}
+            {activeTab === 'punteggi' && (
+              <ScoreBoard
+                gameState={gameState}
+                myFaction={myFaction ?? null}
+                factions={players.map(p => p.faction).filter(Boolean) as string[]}
+              />
             )}
 
             {/* TAB: MAPPA / TEATRO OPERATIVO */}
