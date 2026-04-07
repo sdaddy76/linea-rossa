@@ -154,11 +154,14 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
           }
           console.warn('[reset-password] lock residuo dopo updateUser — assumo successo');
         }
-        setDebugInfo('');
-        setMessage('✅ Password aggiornata! Ora puoi accedere con la nuova password.');
-        setMode('login');
+        setDebugInfo('✅ Password aggiornata! Reindirizzamento...');
+        setMessage('✅ Password aggiornata con successo!');
         setNewPassword(''); setNewPasswordConfirm('');
-        if (onPasswordSaved) onPasswordSaved();
+        // Reload completo: evita tutti i problemi di lock/stato residuo.
+        // Supabase ha già salvato la nuova sessione in localStorage → l'app riparte loggata.
+        setTimeout(() => {
+          window.location.replace(window.location.origin);
+        }, 1500);
       }
 
     } catch (err: unknown) {
