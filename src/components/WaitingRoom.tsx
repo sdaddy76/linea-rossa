@@ -68,6 +68,7 @@ export default function WaitingRoom({
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
   // Fazioni forzate a bot dall'host (prima dell'avvio)
   const [forcedBotFactions, setForcedBotFactions] = useState<Set<Faction>>(new Set());
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // ── Configurazioni setup iniziale ────────────────────────────────────────
   // Chiavi: faction name → { territoryId: cubetti }
@@ -782,155 +783,6 @@ export default function WaitingRoom({
         {/* ── Avvia (solo host) ── */}
         {isHost && (
           <div className="space-y-3">
-            {/* Selettore difficoltà bot */}
-            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
-              <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-2">
-                🤖 Difficoltà Bot
-              </p>
-              <div className="flex gap-2">
-                {(['easy', 'normal', 'hard'] as const).map(d => (
-                  <button
-                    key={d}
-                    onClick={() => setBotDifficulty(d)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors flex-1 ${
-                      botDifficulty === d
-                        ? d === 'easy' ? 'bg-green-900 border-green-500 text-green-300'
-                          : d === 'normal' ? 'bg-yellow-900 border-yellow-500 text-yellow-300'
-                          : 'bg-red-900 border-red-500 text-red-300'
-                        : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-400'
-                    }`}
-                  >
-                    {d === 'easy' ? '🟢 Facile' : d === 'normal' ? '🟡 Normale' : '🔴 Difficile'}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[9px] font-mono text-[#445566] mt-1.5">
-                {botDifficulty === 'easy' ? '⬡ Bot gioca casualmente' : botDifficulty === 'normal' ? '⬡ Bot strategico bilanciato' : '⬡ Bot massimizza la propria strategia'}
-              </p>
-            </div>
-
-            {/* Toggle modalità setup territori */}
-            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
-              <p className="text-[10px] font-mono font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
-                🗺️ Modalità Setup
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setSetupMode('base')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold border transition-all ${
-                    setupMode === 'base'
-                      ? 'bg-[#1a6eb520] border-[#1a6eb5] text-[#4a9eff]'
-                      : 'bg-transparent border-[#1e3a5f] text-[#445566] hover:border-[#2a4a7f]'
-                  }`}
-                >
-                  ⚡ BASE
-                  <p className="text-[10px] font-normal mt-0.5 text-[#667788]">Iran 3🟢 + Coal 4🔵</p>
-                </button>
-                <button
-                  onClick={() => setSetupMode('avanzata')}
-                  className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold border transition-all ${
-                    setupMode === 'avanzata'
-                      ? 'bg-[#2d8a4e20] border-[#2d8a4e] text-[#4ade80]'
-                      : 'bg-transparent border-[#1e3a5f] text-[#445566] hover:border-[#2a4a7f]'
-                  }`}
-                >
-                  📣 AVANZATA
-                  <p className="text-[10px] font-normal mt-0.5 text-[#667788]">+7 cubi iniziali</p>
-                </button>
-              </div>
-              {setupMode === 'avanzata' && (
-                <div className="mt-2 text-[10px] text-[#445566] space-y-0.5 font-mono">
-                  <p>🇮🇷 Iran → Libano +1, Siria +1</p>
-                  <p>🇺🇸 Coalizione → Arabia Saudita +2, Iraq +1, Yemen +2</p>
-                  <p>🇪🇺 Europa → Turchia +1, Libano +1</p>
-                </div>
-              )}
-            </div>
-
-            {/* Toggle modalità mazzo */}
-            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060d18]">
-              <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-2">
-                🎴 Modalità mazzo
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setGameMode('classic')}
-                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
-                  style={{
-                    backgroundColor: gameMode === 'classic' ? '#22c55e20' : 'transparent',
-                    border: `1px solid ${gameMode === 'classic' ? '#22c55e' : '#1e3a5f'}`,
-                    color: gameMode === 'classic' ? '#22c55e' : '#556677',
-                  }}>
-                  🃏 Classico
-                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
-                    Mazzo per fazione
-                  </span>
-                </button>
-                <button
-                  onClick={() => setGameMode('unified')}
-                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
-                  style={{
-                    backgroundColor: gameMode === 'unified' ? '#f9731620' : 'transparent',
-                    border: `1px solid ${gameMode === 'unified' ? '#f97316' : '#1e3a5f'}`,
-                    color: gameMode === 'unified' ? '#f97316' : '#556677',
-                  }}>
-                  🎴 Unificato
-                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
-                    Mazzo unico condiviso
-                  </span>
-                </button>
-              </div>
-              {gameMode === 'unified' && (
-                <p className="text-[10px] font-mono text-[#f97316] mt-2 leading-relaxed">
-                  ✦ Carte altrui: usa come OP → evento si attiva auto<br/>
-                  ✦ Carte tue: scegli evento <em>oppure</em> OP
-                </p>
-              )}
-            </div>
-
-            {/* Toggle speciali separate */}
-            <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#050d18]">
-              <p className="text-xs font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
-                ✦ Carte Speciali
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setSpecialMode('mixed')}
-                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
-                  style={{
-                    backgroundColor: specialMode === 'mixed' ? '#22c55e20' : 'transparent',
-                    border: `1px solid ${specialMode === 'mixed' ? '#22c55e' : '#1e3a5f'}`,
-                    color: specialMode === 'mixed' ? '#22c55e' : '#556677',
-                  }}>
-                  🃏 Nel mazzo
-                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
-                    Mischiate con le base
-                  </span>
-                </button>
-                <button
-                  onClick={() => setSpecialMode('separate')}
-                  className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
-                  style={{
-                    backgroundColor: specialMode === 'separate' ? '#a855f720' : 'transparent',
-                    border: `1px solid ${specialMode === 'separate' ? '#a855f7' : '#1e3a5f'}`,
-                    color: specialMode === 'separate' ? '#a855f7' : '#556677',
-                  }}>
-                  ✦ Mazzo separato
-                  <span className="block text-[9px] font-normal mt-0.5 opacity-70">
-                    Sbloccate da eventi
-                  </span>
-                </button>
-              </div>
-              {specialMode === 'separate' && (
-                <p className="text-[10px] font-mono text-[#a855f7] mt-2 leading-relaxed">
-                  ✦ Le carte speciali (SE_) formano un mazzo a parte<br/>
-                  ✦ Gioca come evento una carta con <strong>✦</strong> per pescarne 1<br/>
-                  ✦ Trigger Iran: Centrifughe Avanzate, Sito Segreto, Soglia Zero<br/>
-                  ✦ Trigger Coal: Stuxnet 2.0, Strike Chirurgico, Op. Freedom
-                </p>
-              )}
-            </div>
-
             {/* ── Pannello avvio unificato — SEMPRE VISIBILE per l'host ── */}
             <div className="rounded-xl border-2 bg-[#060d18] p-4 space-y-4"
               style={{ borderColor: myFaction ? '#00ff8866' : '#f59e0b66' }}>
@@ -1072,6 +924,170 @@ export default function WaitingRoom({
                   </button>
                 </div>
               </div>
+
+            {/* ── Accordion Opzioni Avanzate ── */}
+            <div className="rounded-xl border border-[#1e3a5f] bg-[#050d18]">
+              <button onClick={() => setShowAdvanced(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3">
+                <span className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest">
+                  ⚙️ Opzioni Avanzate
+                </span>
+                <span className="text-[#556677] font-mono text-sm">{showAdvanced ? '▲' : '▼'}</span>
+              </button>
+              {showAdvanced && (
+                <div className="px-3 pb-3 space-y-3 border-t border-[#1e2a3a] pt-3">
+
+                  {/* Selettore difficoltà bot */}
+                  <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060e1a]">
+                    <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-2">
+                      🤖 Difficoltà Bot
+                    </p>
+                    <div className="flex gap-2">
+                      {(['easy', 'normal', 'hard'] as const).map(d => (
+                        <button
+                          key={d}
+                          onClick={() => setBotDifficulty(d)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors flex-1 ${
+                            botDifficulty === d
+                              ? d === 'easy' ? 'bg-green-900 border-green-500 text-green-300'
+                                : d === 'normal' ? 'bg-yellow-900 border-yellow-500 text-yellow-300'
+                                : 'bg-red-900 border-red-500 text-red-300'
+                              : 'bg-slate-800 border-slate-600 text-slate-400 hover:border-slate-400'
+                          }`}
+                        >
+                          {d === 'easy' ? '🟢 Facile' : d === 'normal' ? '🟡 Normale' : '🔴 Difficile'}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[9px] font-mono text-[#445566] mt-1.5">
+                      {botDifficulty === 'easy' ? '⬡ Bot gioca casualmente' : botDifficulty === 'normal' ? '⬡ Bot strategico bilanciato' : '⬡ Bot massimizza la propria strategia'}
+                    </p>
+                  </div>
+
+                  {/* Toggle modalità setup territori */}
+                  <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060e1a]">
+                    <p className="text-[10px] font-mono font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
+                      🗺️ Modalità Setup
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSetupMode('base')}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold border transition-all ${
+                          setupMode === 'base'
+                            ? 'bg-[#1a6eb520] border-[#1a6eb5] text-[#4a9eff]'
+                            : 'bg-transparent border-[#1e3a5f] text-[#445566] hover:border-[#2a4a7f]'
+                        }`}
+                      >
+                        ⚡ BASE
+                        <p className="text-[10px] font-normal mt-0.5 text-[#667788]">Iran 3🟢 + Coal 4🔵</p>
+                      </button>
+                      <button
+                        onClick={() => setSetupMode('avanzata')}
+                        className={`flex-1 py-2 px-3 rounded-lg text-xs font-mono font-bold border transition-all ${
+                          setupMode === 'avanzata'
+                            ? 'bg-[#2d8a4e20] border-[#2d8a4e] text-[#4ade80]'
+                            : 'bg-transparent border-[#1e3a5f] text-[#445566] hover:border-[#2a4a7f]'
+                        }`}
+                      >
+                        📣 AVANZATA
+                        <p className="text-[10px] font-normal mt-0.5 text-[#667788]">+7 cubi iniziali</p>
+                      </button>
+                    </div>
+                    {setupMode === 'avanzata' && (
+                      <div className="mt-2 text-[10px] text-[#445566] space-y-0.5 font-mono">
+                        <p>🇮🇷 Iran → Libano +1, Siria +1</p>
+                        <p>🇺🇸 Coalizione → Arabia Saudita +2, Iraq +1, Yemen +2</p>
+                        <p>🇪🇺 Europa → Turchia +1, Libano +1</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Toggle modalità mazzo */}
+                  <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060e1a]">
+                    <p className="text-[10px] font-mono font-bold text-[#8899aa] uppercase tracking-widest mb-2">
+                      🎴 Modalità mazzo
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setGameMode('classic')}
+                        className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: gameMode === 'classic' ? '#22c55e20' : 'transparent',
+                          border: `1px solid ${gameMode === 'classic' ? '#22c55e' : '#1e3a5f'}`,
+                          color: gameMode === 'classic' ? '#22c55e' : '#556677',
+                        }}>
+                        🃏 Classico
+                        <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                          Mazzo per fazione
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setGameMode('unified')}
+                        className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: gameMode === 'unified' ? '#f9731620' : 'transparent',
+                          border: `1px solid ${gameMode === 'unified' ? '#f97316' : '#1e3a5f'}`,
+                          color: gameMode === 'unified' ? '#f97316' : '#556677',
+                        }}>
+                        🎴 Unificato
+                        <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                          Mazzo unico condiviso
+                        </span>
+                      </button>
+                    </div>
+                    {gameMode === 'unified' && (
+                      <p className="text-[10px] font-mono text-[#f97316] mt-2 leading-relaxed">
+                        ✦ Carte altrui: usa come OP → evento si attiva auto<br/>
+                        ✦ Carte tue: scegli evento <em>oppure</em> OP
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Toggle speciali separate */}
+                  <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060e1a]">
+                    <p className="text-xs font-bold text-[#4a9eff] uppercase tracking-widest mb-2">
+                      ✦ Carte Speciali
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setSpecialMode('mixed')}
+                        className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: specialMode === 'mixed' ? '#22c55e20' : 'transparent',
+                          border: `1px solid ${specialMode === 'mixed' ? '#22c55e' : '#1e3a5f'}`,
+                          color: specialMode === 'mixed' ? '#22c55e' : '#556677',
+                        }}>
+                        🃏 Nel mazzo
+                        <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                          Mischiate con le base
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setSpecialMode('separate')}
+                        className="py-2 px-3 rounded-lg font-mono text-xs font-bold transition-all"
+                        style={{
+                          backgroundColor: specialMode === 'separate' ? '#a855f720' : 'transparent',
+                          border: `1px solid ${specialMode === 'separate' ? '#a855f7' : '#1e3a5f'}`,
+                          color: specialMode === 'separate' ? '#a855f7' : '#556677',
+                        }}>
+                        ✦ Mazzo separato
+                        <span className="block text-[9px] font-normal mt-0.5 opacity-70">
+                          Sbloccate da eventi
+                        </span>
+                      </button>
+                    </div>
+                    {specialMode === 'separate' && (
+                      <p className="text-[10px] font-mono text-[#a855f7] mt-2 leading-relaxed">
+                        ✦ Le carte speciali (SE_) formano un mazzo a parte<br/>
+                        ✦ Gioca come evento una carta con <strong>✦</strong> per pescarne 1<br/>
+                        ✦ Trigger Iran: Centrifughe Avanzate, Sito Segreto, Soglia Zero<br/>
+                        ✦ Trigger Coal: Stuxnet 2.0, Strike Chirurgico, Op. Freedom
+                      </p>
+                    )}
+                  </div>
+
+                </div>
+              )}
             </div>
           </div>
         )}
