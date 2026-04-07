@@ -1827,10 +1827,48 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         const pool = { ...((gameState[unitsKey] as Record<string, number>) ?? {}) };
         pool[unitType] = (pool[unitType] ?? 0) + qty;
         await supabase.from('game_state').update({ [unitsKey]: pool }).eq('game_id', game.id);
+        // Aggiorna lo stato locale prima di chiamare playCardUnified per evitare
+        // che il guard active_faction scatti prima che Supabase realtime aggiorni
         set(s => ({
           gameState: { ...s.gameState!, [unitsKey]: pool } as typeof gameState,
           notification: `🏭 ${myFaction}: acquistate ${qty}× ${unitType}`,
         }));
+        console.log('[buyUnit] pool aggiornato, avanzando turno con playCardUnified…');
+        // Passa il turno immediatamente — usa snapshot fresco di active_faction
+        // (non delegare a playCardUnified il controllo active_faction, poiché
+        //  il realtime potrebbe aver già cambiato active_faction prima che arrivi qui)
+        try {
+          await playCardUnified(cardId, 'ops');
+        } catch (buyErr: unknown) {
+          console.error('[buyUnit] playCardUnified fallita, fallback turno manuale:', buyErr);
+          // Fallback: avanza il turno manualmente se playCardUnified non riesce
+          const freshState = get().gameState;
+          const freshGame  = get().game;
+          if (freshGame && freshState && freshState.active_faction === myFaction) {
+            const nextFact = nextFaction(myFaction);
+            const nextTurn = nextFact === 'Iran' ? freshGame.current_turn + 1 : freshGame.current_turn;
+            await supabase.from('game_state').update({ active_faction: nextFact }).eq('game_id', freshGame.id);
+            await supabase.from('games').update({ current_turn: nextTurn }).eq('id', freshGame.id);
+            // Marca carta come giocata
+            await supabase.from('cards_deck').update({
+              status: 'played',
+              played_at_turn: freshGame.current_turn,
+              held_by_faction: null,
+              play_mode: 'ops',
+            }).eq('card_id', cardId);
+            set(s => ({
+              gameState: { ...s.gameState!, active_faction: nextFact } as typeof freshState,
+              game: { ...s.game!, current_turn: nextTurn },
+              deckCards: s.deckCards.filter(dc => dc.card_id !== cardId),
+              loading: false,
+            }));
+            const nextPlayer = get().players.find(p => p.faction === nextFact);
+            if (nextPlayer?.is_bot) setTimeout(() => get().runBotTurn(), 2000);
+          } else {
+            set({ loading: false });
+          }
+        }
+        return; // loading già gestito da playCardUnified o dal fallback sopra
 
       } else if (action === 'influence') {
         const { territory = '', opSpent = 1 } = params;
@@ -1886,11 +1924,13 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         return;
       }
 
-      // Per buy e influence: marca la carta come giocata e passa il turno
+      // Per influence: marca la carta come giocata e passa il turno
       await playCardUnified(cardId, 'ops');
-      set({ loading: false });
     } catch (err: unknown) {
       set({ error: err instanceof Error ? err.message : 'Errore azione OP', loading: false });
+    } finally {
+      // Garantisce sempre il reset di loading, anche se playCardUnified esce in anticipo
+      set({ loading: false });
     }
   },
 
