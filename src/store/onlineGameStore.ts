@@ -1017,7 +1017,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         filter: `game_id=eq.${gameId}`,
       }, payload => {
         const newMove = payload.new as MoveLog;
-        set(s => ({ moves: [newMove, ...s.moves].slice(0, 30) }));
+        set(s => ({ moves: [newMove, ...s.moves].slice(0, 50) }));
       })
       .subscribe();
 

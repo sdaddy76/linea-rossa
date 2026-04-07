@@ -451,12 +451,32 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     const turnNum = game.current_turn;
 
     // Evento già registrato per questo turno → mostra il modale a tutti
+    // E inserisce in moves_log se non ancora presente (idempotente via upsert)
     if (gameState.last_event_turn === turnNum && gameState.last_event_id) {
       import('@/data/eventi').then(({ getEventoById }) => {
         const ev = getEventoById(gameState.last_event_id!) as EventoCard | undefined;
         if (ev && eventoCorrente?.event_id !== ev.event_id) {
           setTimeout(() => setEventoCorrente(ev), 400);
         }
+        // Inserisci nel log per TUTTI (host e non-host) — upsert su (game_id, turn_number, card_type, card_id)
+        // In caso di duplicato Supabase ignora silenziosamente (onConflict: ignore)
+        import('@/integrations/supabase/client').then(({ supabase }) => {
+          if (!ev) return;
+          supabase.from('moves_log').upsert({
+            game_id:     game.id,
+            turn_number: turnNum,
+            faction:     'Neutrale',
+            player_id:   profile?.id ?? null,
+            is_bot_move: false,
+            card_id:     ev.event_id,
+            card_name:   ev.event_name,
+            card_type:   'Evento',
+            description: ev.description,
+          }, { onConflict: 'game_id,turn_number,card_id', ignoreDuplicates: true })
+            .then(({ error: logErr }) => {
+              if (logErr && logErr.code !== '23505') console.warn('[evento] moves_log upsert:', logErr.message);
+            });
+        });
       });
       return;
     }
