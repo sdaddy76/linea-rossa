@@ -8,7 +8,11 @@ import { supabase } from '@/integrations/supabase/client';
 // URL base per i redirect email — usa sempre l'origin reale (Vercel in prod, localhost in dev)
 const REDIRECT_URL = window.location.origin;
 
-export default function AuthPage() {
+interface AuthPageProps {
+  onPasswordSaved?: () => void; // callback dopo reset password riuscito
+}
+
+export default function AuthPage({ onPasswordSaved }: AuthPageProps = {}) {
   const [mode, setMode] = useState<'login' | 'register' | 'reset' | 'new-password'>('login');
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
@@ -102,6 +106,8 @@ export default function AuthPage() {
         setMessage('✅ Password aggiornata! Ora puoi accedere con la nuova password.');
         setMode('login');
         setNewPassword(''); setNewPasswordConfirm('');
+        // Notifica App.tsx che il recovery flow è completato
+        if (onPasswordSaved) onPasswordSaved();
       }
 
     } catch (err: unknown) {

@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useOnlineGameStore } from "@/store/onlineGameStore";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,6 +23,8 @@ const queryClient = new QueryClient();
 function AppRouter() {
   const { profile, session, game, initAuth, loadGame, resetGame, subscribeToGame, logout } = useOnlineGameStore();
   const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin'>('cover');
+  // Flag: siamo in flusso reset password (type=recovery) → non redirezionare a lobby automaticamente
+  const isRecoveryFlow = useRef(false);
 
   useEffect(() => {
     initAuth();
@@ -45,7 +47,8 @@ function AppRouter() {
           if (!error && data.session) {
             window.history.replaceState({}, document.title, window.location.pathname);
             if (type === 'recovery') {
-              setView('auth'); // tornerà alla pagina auth in modalità new-password
+              isRecoveryFlow.current = true; // blocca redirect automatico a lobby
+              setView('auth'); // AuthPage rileverà type=recovery e mostrerà il form nuova password
             } else {
               setView('lobby');
             }
@@ -68,12 +71,21 @@ function AppRouter() {
   }, []);
 
   // Quando cambia la sessione/profilo, reindirizza
+  // ECCEZIONE: se siamo in flusso reset password (recovery), non redirezionare a lobby
   useEffect(() => {
     if (session && profile && (view === 'auth' || view === 'cover')) {
+      if (isRecoveryFlow.current) {
+        // L'utente sta scegliendo la nuova password — non redirezionare
+        return;
+      }
       setView('lobby');
     }
     if (!session && view === 'lobby') {
       setView('cover');
+    }
+    // Quando il profilo è pronto e non siamo più in recovery, resetta il flag
+    if (!isRecoveryFlow.current && session && profile && view === 'lobby') {
+      isRecoveryFlow.current = false;
     }
   }, [session, profile]);
 
@@ -103,7 +115,7 @@ function AppRouter() {
   };
 
   // Render basato su view
-  if (view === 'auth') return <AuthPage />;
+  if (view === 'auth') return <AuthPage onPasswordSaved={() => { isRecoveryFlow.current = false; setView('lobby'); }} />;
   if (view === 'admin') return <AdminMigration />;
 
   if (view === 'lobby' && profile) return (

@@ -284,7 +284,14 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
 
   // ── ENTRA IN TAVOLO APERTO ────────────────────────────────────────────────
   const joinOpen = async (game: GameWithPlayers) => {
-    if (game.status === 'active') { onJoinGame(game.id); return; }
+    const humanPs = (game._players ?? []).filter(p => !p.is_bot && p.player_id);
+    const alreadyInGame = humanPs.some(p => p.player_id === profile.id);
+    if (game.status === 'active' && alreadyInGame) {
+      // Già in partita → rientra direttamente
+      onJoinGame(game.id);
+      return;
+    }
+    // Lobby o partita attiva con fazione libera → apri WaitingRoom per scegliere la fazione
     setWaitingGame({
       id: game.id, code: game.code,
       isHost: game.created_by === profile.id,
@@ -336,6 +343,13 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
     const isActive      = game.status === 'active';
     const isLobby       = game.status === 'lobby';
     const isMine        = game.created_by === profile.id;
+    // Sono già in questa partita come giocatore?
+    const alreadyIn     = humanPlayers.some(p => p.player_id === profile.id);
+    // Ci sono ancora fazioni libere (non prese da umani)?
+    const allFactions: string[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
+    const hasFreeFaction = allFactions.some(f => !takenFactions.has(f));
+    // Posso unirmi: partita attiva, non sono già dentro, c'è una fazione libera
+    const canJoinActive = isActive && !alreadyIn && hasFreeFaction;
 
     return (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3
@@ -405,12 +419,35 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
               👁 Spettatore
             </button>
           ) : isActive ? (
-            <button
-              onClick={() => joinOpen(game)}
-              className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
-                border border-[#00ff8840] text-[#00ff88] hover:bg-[#00ff8812]">
-              {isMine ? '↩ Rientra' : '👁 Guarda'}
-            </button>
+            <>
+              {/* Già dentro → Rientra */}
+              {alreadyIn && (
+                <button
+                  onClick={() => joinOpen(game)}
+                  className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
+                    border border-[#00ff8840] text-[#00ff88] hover:bg-[#00ff8812]">
+                  ↩ Rientra
+                </button>
+              )}
+              {/* Non dentro + fazione libera → Unisciti alla partita in corso */}
+              {canJoinActive && (
+                <button
+                  onClick={() => joinOpen(game)}
+                  className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all"
+                  style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#0a0e1a' }}>
+                  ⚔️ Unisciti
+                </button>
+              )}
+              {/* Non dentro + partita piena → solo spettatore */}
+              {!alreadyIn && !canJoinActive && (
+                <button
+                  onClick={() => onJoinGame(game.id)}
+                  className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
+                    border border-[#334455] text-[#8899aa] hover:border-[#556677] hover:text-white">
+                  👁 Guarda
+                </button>
+              )}
+            </>
           ) : (
             <button
               onClick={() => joinOpen(game)}
