@@ -50,19 +50,20 @@ function AppRouter() {
     const search = window.location.search;
     const raw = hash.startsWith('#') ? hash.slice(1) : search.startsWith('?') ? search.slice(1) : '';
     const params = new URLSearchParams(raw);
-    const accessToken = params.get('access_token');
+    const accessToken  = params.get('access_token');
     const refreshToken = params.get('refresh_token');
-    const type = params.get('type'); // 'signup' | 'recovery' | 'magiclink'
+    const type         = params.get('type'); // 'signup' | 'recovery' | 'magiclink'
 
     if (accessToken && refreshToken) {
       // Imposta la sessione manualmente dal token nell'URL
+      // NOTA: setSession fa scattare onAuthStateChange nello store (un solo listener)
       supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         .then(({ data, error }) => {
           if (!error && data.session) {
             window.history.replaceState({}, document.title, window.location.pathname);
             if (type === 'recovery') {
-              isRecoveryFlow.current = true; // blocca redirect automatico a lobby
-              setView('auth'); // AuthPage rileverà type=recovery e mostrerà il form nuova password
+              isRecoveryFlow.current = true;
+              setView('auth');
             } else {
               setView('lobby');
             }
@@ -71,23 +72,10 @@ function AppRouter() {
         .catch(() => { /* ignora */ });
     }
 
-    // Ascolta cambi di stato auth (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // PASSWORD_RECOVERY: Supabase v2 emette questo evento quando il link di reset è valido
-      if (event === 'PASSWORD_RECOVERY') {
-        isRecoveryFlow.current = true;
-        setView('auth');
-        return;
-      }
-      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-        // Pulisci l'URL se ancora sporco
-        if (window.location.hash.includes('access_token')) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    // ── NON registrare un secondo onAuthStateChange qui ──────────────────────
+    // L'unico listener autorizzato è quello in initAuth() (onlineGameStore.ts).
+    // Due listener contemporanei causano conflitti sul Web Lock di Supabase
+    // → AbortError durante updateUser() (reset password).
   }, []);
 
   // Quando cambia la sessione/profilo, reindirizza

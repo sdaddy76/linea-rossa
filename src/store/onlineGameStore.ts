@@ -333,9 +333,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     }
 
     supabase.auth.onAuthStateChange(async (_event, session) => {
-      // PASSWORD_RECOVERY: non aggiornare la sessione nello store qui
-      // (App.tsx gestisce la navigazione verso il form nuova password)
+      // PASSWORD_RECOVERY: Supabase v2 emette questo evento quando arriva un link di reset.
+      // Non aggiornare la sessione nello store — App.tsx gestisce la navigazione.
       if (_event === 'PASSWORD_RECOVERY') return;
+
+      // Pulisci l'URL se ancora sporco (access_token nell'hash)
+      if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+
       set({ session });
       if (session?.user) {
         try {

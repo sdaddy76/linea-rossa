@@ -129,8 +129,21 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
       } else if (mode === 'new-password') {
         if (newPassword.length < 6) { setError('La password deve essere di almeno 6 caratteri.'); setLoading(false); return; }
         if (newPassword !== newPasswordConfirm) { setError('Le password non coincidono.'); setLoading(false); return; }
+        setDebugInfo('Aggiornamento password...');
         const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('[reset-password] updateUser error:', updateError);
+          // AbortError = lock Supabase occupato → riprova dopo 1s
+          if (updateError.message?.includes('aborted') || updateError.name === 'AbortError') {
+            setDebugInfo('Riprovo...');
+            await new Promise(r => setTimeout(r, 1200));
+            const { error: retryErr } = await supabase.auth.updateUser({ password: newPassword });
+            if (retryErr) throw retryErr;
+          } else {
+            throw updateError;
+          }
+        }
+        setDebugInfo('');
         setMessage('✅ Password aggiornata! Ora puoi accedere con la nuova password.');
         setMode('login');
         setNewPassword(''); setNewPasswordConfirm('');
@@ -150,9 +163,12 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
         setError('⚠️ Email già registrata. Prova ad accedere.');
       } else if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed to fetch')) {
         setError('🌐 Errore di rete. Controlla la connessione e riprova.');
-      } else if (name === 'AbortError' || msg.includes('aborted')) {
-        // AbortError durante login = problema reale (non ignorare)
-        setError('⏱️ Richiesta interrotta. Riprova tra qualche secondo.');
+      } else if (name === 'AbortError' || msg.includes('aborted') || msg.includes('Lock broken')) {
+        if (mode === 'new-password') {
+          setError('⏱️ Errore temporaneo. Riprova a cliccare "Salva nuova password".');
+        } else {
+          setError('⏱️ Richiesta interrotta. Riprova tra qualche secondo.');
+        }
       } else {
         setError(`⚠️ ${msg}`);
       }
