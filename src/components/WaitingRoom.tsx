@@ -68,7 +68,7 @@ export default function WaitingRoom({
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
   // Fazioni forzate a bot dall'host (prima dell'avvio)
   const [forcedBotFactions, setForcedBotFactions] = useState<Set<Faction>>(new Set());
-  const [showSetup, setShowSetup] = useState(false);
+  const [showSetup, setShowSetup] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   // ── Configurazioni setup iniziale ────────────────────────────────────────
