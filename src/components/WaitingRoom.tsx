@@ -798,18 +798,16 @@ export default function WaitingRoom({
               <div className="rounded-xl border-2 border-[#00ff8844] bg-[#060d18] p-4 space-y-4">
                 <p className="text-sm font-mono font-bold text-[#00ff88]">⚙️ Setup Partita</p>
 
-                {/* Step 1: scegli fazione */}
                 {!myFaction && (
-                  <div className="rounded-lg border border-[#f59e0b44] bg-[#f59e0b08] p-3">
-                    <p className="text-[10px] font-mono text-[#f59e0b] font-bold mb-2">1️⃣ Prima scegli la tua fazione</p>
-                    <p className="text-[9px] font-mono text-[#556677]">Chiudi il Setup e clicca su una fazione libera per sederti</p>
+                  <div className="rounded-lg border border-[#f59e0b44] bg-[#f59e0b08] px-3 py-2 text-[10px] font-mono text-[#f59e0b]">
+                    ⚠️ Scegli prima la tua fazione dalla griglia qui sopra, poi torna qui ad avviare.
                   </div>
                 )}
 
-                {/* Step 2: assegna bot alle fazioni libere */}
+                {/* Assegna bot e avvia */}
                 <div>
-                  <p className="text-[10px] font-mono text-[#8899aa] font-bold uppercase tracking-widest mb-2">
-                    {myFaction ? '1️⃣' : '2️⃣'} Assegna Bot alle Fazioni Libere
+                  <p className="text-[10px] font-mono text-[#8899aa] mb-2">
+                    Clicca sulle fazioni <span className="text-[#f59e0b] font-bold">libere</span> per assegnare un 🤖 Bot, poi premi Avvia.
                   </p>
                   <div className="space-y-1.5">
                     {TURN_ORDER.map(f => {
