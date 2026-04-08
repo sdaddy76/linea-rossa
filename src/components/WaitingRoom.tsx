@@ -37,10 +37,14 @@ interface WaitingRoomProps {
   isHost: boolean;                          // chi ha creato la partita
   onGameStart: (faction: string | null) => void; // callback quando status → active
   onLeave: () => void;
+  initialFaction?: string;   // fazione pre-scelta dal setup
+  initialBots?: Set<string>; // bot pre-assegnati dal setup
+  autoStart?: boolean;       // avvia automaticamente dopo chooseFaction
 }
 
 export default function WaitingRoom({
   gameId, gameCode, gameName, isPublic, profile, isHost, onGameStart, onLeave,
+  initialFaction, initialBots, autoStart,
 }: WaitingRoomProps) {
   const [players, setPlayers] = useState<LobbyPlayer[]>([]);
   const [myFaction, setMyFaction] = useState<Faction | null>(null);
@@ -167,6 +171,31 @@ export default function WaitingRoom({
   // re-subscribe indesiderati che causano eventi "catch-up" da Supabase
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameId, loadPlayers]);
+
+  // ── Auto-setup da props initialFaction/initialBots/autoStart ────────
+  const autoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (initialFaction && isHost && !myFactionRef.current) {
+      chooseFaction(initialFaction as Faction);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFaction, isHost]);
+
+  useEffect(() => {
+    if (initialBots && initialBots.size > 0) {
+      setForcedBotFactions(new Set(initialBots) as Set<Faction>);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialBots]);
+
+  useEffect(() => {
+    if (autoStart && myFaction && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      setTimeout(() => startGame('solo'), 1500);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart, myFaction]);
 
   // ── Scelta fazione ────────────────────────────────────────────────
   // ── Scelta fazione ────────────────────────────────────────────────

@@ -53,9 +53,15 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   const [joinCode, setJoinCode]     = useState('');
   const [tab, setTab]               = useState<'create' | 'join'>('create');
 
+  // ── Setup pre-creazione ────────────────────────────────────────────────────
+  const [setupFaction, setSetupFaction] = useState<string | null>(null);
+  const [setupBots, setSetupBots] = useState<Set<string>>(new Set());
+  const [showPreSetup, setShowPreSetup] = useState(false);
+
   // ── Sala d'attesa ────────────────────────────────────────────────────────
   const [waitingGame, setWaitingGame] = useState<{
     id: string; code: string; name?: string; isHost: boolean; isPublic: boolean;
+    autoStart?: boolean; hostFaction?: string; hostBots?: Set<string>;
   } | null>(null);
 
   // ── Lista tavoli ─────────────────────────────────────────────────────────
@@ -197,7 +203,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   useEffect(() => { loadGames(); }, [loadGames]);
 
   // ── CREA PARTITA ──────────────────────────────────────────────────────────
-  const createGame = async () => {
+  const createGame = async (mode: 'solo' | 'apri' = 'apri') => {
+    if (!setupFaction) { setError('Scegli prima la tua fazione'); return; }
     if (!profile?.id) { setError('Sessione non valida — effettua di nuovo il login'); return; }
     setLoading(true); setError('');
     // Timeout di sicurezza: se dopo 12s non risponde, sblocca il bottone
@@ -252,7 +259,14 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       if (gameError) throw new Error(gameError.message ?? 'Errore nella creazione');
       if (!game) throw new Error('Partita non creata');
 
-      setWaitingGame({ id: game.id, code: game.code, isHost: true, isPublic: game.is_public ?? isPublic });
+      setWaitingGame({
+        id: game.id, code: game.code, isHost: true, isPublic: game.is_public ?? isPublic,
+        autoStart: mode === 'solo',
+        hostFaction: setupFaction ?? undefined,
+        hostBots: mode === 'solo'
+          ? new Set(['Iran','Coalizione','Russia','Cina','Europa'].filter(f => f !== setupFaction))
+          : setupBots,
+      });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore nella creazione');
     } finally {
@@ -338,6 +352,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
         isHost={waitingGame.isHost}
         onGameStart={(faction) => onJoinGame(waitingGame.id, faction)}
         onLeave={() => { setWaitingGame(null); loadGames(); }}
+        initialFaction={waitingGame.hostFaction}
+        initialBots={waitingGame.hostBots}
+        autoStart={waitingGame.autoStart}
       />
     );
   }
@@ -697,18 +714,96 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                 </div>
               )}
 
-              <button
-                onClick={createGame}
-                disabled={loading}
-                className="w-full py-3.5 rounded-xl font-black font-mono tracking-widest text-sm
-                  transition-all disabled:opacity-40"
-                style={{
-                  background: 'linear-gradient(135deg, #00ff88, #00cc66)',
-                  color: '#0a0e1a',
-                  boxShadow: '0 0 30px #00ff8840',
-                }}>
-                {loading ? '⏳ CREAZIONE…' : '🚀 CREA PARTITA'}
-              </button>
+              {/* Fase B: schermata setup fazione+bot */}
+              {showPreSetup ? (
+                <div className="space-y-3">
+                  {/* Scegli fazione */}
+                  <div className="rounded-xl border border-[#1e3a5f] bg-[#060d18] p-4">
+                    <p className="text-xs font-mono font-bold text-[#8899aa] uppercase mb-3">Scegli la tua fazione</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {(['Iran','Coalizione','Russia','Cina','Europa'] as const).map(f => {
+                        const COLORS: Record<string,string> = {Iran:'#ef4444',Coalizione:'#3b82f6',Russia:'#8b5cf6',Cina:'#f59e0b',Europa:'#22d3ee'};
+                        const FLAGS: Record<string,string> = {Iran:'🇮🇷',Coalizione:'🇺🇸',Russia:'🇷🇺',Cina:'🇨🇳',Europa:'🇪🇺'};
+                        const sel = setupFaction === f;
+                        return (
+                          <button key={f} onClick={() => setSetupFaction(f)}
+                            className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all"
+                            style={{ borderColor: sel ? COLORS[f]+'88' : '#1e3a5f', backgroundColor: sel ? COLORS[f]+'15' : '#060d18' }}>
+                            <span className="text-2xl">{FLAGS[f]}</span>
+                            <span className="font-mono font-bold text-sm" style={{ color: sel ? COLORS[f] : '#8899aa' }}>{f}</span>
+                            {sel && <span className="ml-auto text-[9px] font-mono px-2 py-0.5 rounded bg-[#00ff8820] text-[#00ff88]">✓ TU</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Assegna bot alle altre fazioni */}
+                  {setupFaction && (
+                    <div className="rounded-xl border border-[#1e3a5f] bg-[#060d18] p-4">
+                      <p className="text-xs font-mono font-bold text-[#8899aa] uppercase mb-3">Assegna Bot (opzionale)</p>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {(['Iran','Coalizione','Russia','Cina','Europa'] as const).filter(f => f !== setupFaction).map(f => {
+                          const COLORS: Record<string,string> = {Iran:'#ef4444',Coalizione:'#3b82f6',Russia:'#8b5cf6',Cina:'#f59e0b',Europa:'#22d3ee'};
+                          const FLAGS: Record<string,string> = {Iran:'🇮🇷',Coalizione:'🇺🇸',Russia:'🇷🇺',Cina:'🇨🇳',Europa:'🇪🇺'};
+                          const isBot = setupBots.has(f);
+                          return (
+                            <button key={f}
+                              onClick={() => setSetupBots(prev => { const n = new Set(prev); isBot ? n.delete(f) : n.add(f); return n; })}
+                              className="flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all"
+                              style={{ borderColor: isBot ? '#f59e0b88' : '#1e3a5f', backgroundColor: isBot ? '#f59e0b12' : '#060a10' }}>
+                              <div className="flex items-center gap-2">
+                                <span>{FLAGS[f]}</span>
+                                <span className="font-mono text-xs font-bold" style={{ color: isBot ? '#f59e0b' : '#8899aa' }}>{f}</span>
+                              </div>
+                              <span className="text-[10px] font-mono font-bold px-2 py-1 rounded"
+                                style={{ backgroundColor: isBot ? '#f59e0b' : '#1e2a3a', color: isBot ? '#0a0e1a' : '#445566' }}>
+                                {isBot ? '🤖 BOT' : '⏳ libera'}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => setSetupBots(new Set((['Iran','Coalizione','Russia','Cina','Europa'] as const).filter(f => f !== setupFaction)))}
+                          className="flex-1 text-[9px] font-mono py-1.5 rounded border border-[#f59e0b44] text-[#f59e0b]">🤖 Bot tutte</button>
+                        <button onClick={() => setSetupBots(new Set())}
+                          className="flex-1 text-[9px] font-mono py-1.5 rounded border border-[#1e3a5f] text-[#445566]">✕ Nessun bot</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pulsanti azione */}
+                  <div className="grid grid-cols-1 gap-2">
+                    <button onClick={() => createGame('solo')} disabled={!setupFaction || loading}
+                      className="w-full py-3 rounded-xl font-black font-mono text-sm disabled:opacity-40"
+                      style={{ background: 'linear-gradient(135deg,#00ff88,#00cc66)', color: '#0a0e1a' }}>
+                      {loading ? '⏳ AVVIO…' : '🤖 GIOCA DA SOLO (con bot)'}
+                    </button>
+                    <button onClick={() => createGame('apri')} disabled={!setupFaction || loading}
+                      className="w-full py-3 rounded-xl font-black font-mono text-sm border-2 border-[#22d3ee44] text-[#22d3ee] disabled:opacity-40"
+                      style={{ background: 'transparent' }}>
+                      {loading ? '⏳ CREAZIONE…' : '🌐 APRI TAVOLO AD ALTRI'}
+                    </button>
+                    <button onClick={() => setShowPreSetup(false)}
+                      className="text-[10px] font-mono text-[#334455] hover:text-[#8899aa] transition-colors">← Indietro</button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setError(''); setShowPreSetup(true); }}
+                  disabled={loading}
+                  className="w-full py-3.5 rounded-xl font-black font-mono tracking-widest text-sm
+                    transition-all disabled:opacity-40"
+                  style={{
+                    background: 'linear-gradient(135deg, #00ff88, #00cc66)',
+                    color: '#0a0e1a',
+                    boxShadow: '0 0 30px #00ff8840',
+                  }}>
+                  Continua → Scegli Fazione
+                </button>
+              )}
             </div>
           )}
 
