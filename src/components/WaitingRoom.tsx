@@ -628,7 +628,7 @@ export default function WaitingRoom({
                   {isPublic ? '🌐 Tavolo aperto' : '🔒 Tavolo riservato'}
                 </span>
                 <span className="text-[#00ff88] font-mono font-black text-sm tracking-wider">{gameCode}</span>
-                {isHost && (
+                {isCreator && (
                   <button
                     onClick={() => setShowSetup(v => !v)}
                     className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold transition-all"
@@ -642,7 +642,7 @@ export default function WaitingRoom({
                 )}
               </div>
               <p className="text-xs font-mono text-[#445566]">
-                {isHost ? 'Sei l\'host — avvia quando tutti sono pronti' : 'In attesa che l\'host avvii la partita…'}
+                {isCreator ? 'Sei l\'host — avvia quando tutti sono pronti' : 'In attesa che l\'host avvii la partita…'}
               </p>
             </div>
             <button onClick={leaveGame}
@@ -761,8 +761,8 @@ export default function WaitingRoom({
                       {isMine && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#00ff8820] text-[#00ff88]">✓ TU</span>}
                       {takenByOtherHuman && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: info.color + '20', color: info.color }}>👤 {humanPlayer!.profile?.username ?? 'umano'}</span>}
                       {isBot && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#f59e0b20] text-[#f59e0b]">🤖 BOT</span>}
-                      {isFree && !isHost && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#4a9eff20] text-[#4a9eff]">⬡ LIBERA — clicca per sederti</span>}
-                      {isFree && isHost && <span className="text-[9px] font-mono text-[#334455]">⏳ libera</span>}
+                      {isFree && !isCreator && <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[#4a9eff20] text-[#4a9eff]">⬡ LIBERA — clicca per sederti</span>}
+                      {isFree && isCreator && <span className="text-[9px] font-mono text-[#334455]">⏳ libera</span>}
                     </div>
                     <p className="text-[10px] font-mono truncate mt-0.5" style={{ color: '#445566' }}>
                       {isMine ? <span className="group-hover:hidden">{info.desc}</span> : info.desc}
@@ -774,12 +774,12 @@ export default function WaitingRoom({
             })}
           </div>
           {/* Messaggio non-host senza fazione */}
-          {!isHost && !myFaction && (
+          {!isCreator && !myFaction && (
             <p className="text-[10px] font-mono text-[#4a9eff] mt-3 text-center">
               👆 Clicca su una fazione <span className="text-[#4a9eff] font-bold">LIBERA</span> per sederti al tavolo
             </p>
           )}
-          {!isHost && myFaction && (
+          {!isCreator && myFaction && (
             <p className="text-[10px] font-mono text-[#00ff88] mt-3 text-center">
               ✓ Sei seduto come <strong>{myFaction}</strong> — in attesa che l'host avvii la partita
             </p>
@@ -794,7 +794,7 @@ export default function WaitingRoom({
         )}
 
         {/* ── Pannello Setup (solo host, solo se showSetup) ── */}
-        {isHost && showSetup && (
+        {isCreator && showSetup && (
               <div className="rounded-xl border-2 border-[#00ff8844] bg-[#060d18] p-4 space-y-4">
                 <p className="text-sm font-mono font-bold text-[#00ff88]">⚙️ Setup Partita</p>
 
@@ -1076,7 +1076,7 @@ export default function WaitingRoom({
         )}
 
 
-        {!isHost && (
+        {!isCreator && (
           <div className="rounded-xl border border-[#1e3a5f] bg-[#0d1424] px-4 py-3 text-center space-y-1">
             <p className="text-xs font-mono text-[#445566]">
               {myFaction
