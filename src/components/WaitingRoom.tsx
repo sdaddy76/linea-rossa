@@ -71,6 +71,14 @@ export default function WaitingRoom({
   // Difficoltà bot
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
   // Fazioni forzate a bot dall'host (prima dell'avvio)
+  // isCreator: verificato dal DB — true se questo utente ha creato la partita
+  const [isCreator, setIsCreator] = useState(isHost);
+
+  // Verifica dal DB se questo utente è il creator (fallback se isHost è sbagliato)
+  useEffect(() => {
+    supabase.from('games').select('created_by').eq('id', gameId).single()
+      .then(({ data }) => { if (data?.created_by === profile.id) setIsCreator(true); });
+  }, [gameId, profile.id]);
   const [forcedBotFactions, setForcedBotFactions] = useState<Set<Faction>>(new Set());
   const [showSetup, setShowSetup] = useState(true);
   const [showAdvanced, setShowAdvanced] = useState(false);
