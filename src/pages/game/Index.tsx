@@ -463,19 +463,19 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
         // In caso di duplicato Supabase ignora silenziosamente (onConflict: ignore)
         import('@/integrations/supabase/client').then(({ supabase }) => {
           if (!ev) return;
-          supabase.from('moves_log').upsert({
+          supabase.from('moves_log').insert({
             game_id:     game.id,
             turn_number: turnNum,
-            faction:     'Neutrale',
+            faction:     'Iran',
             player_id:   profile?.id ?? null,
             is_bot_move: false,
             card_id:     ev.event_id,
             card_name:   ev.event_name,
             card_type:   'Evento',
             description: ev.description,
-          }, { onConflict: 'game_id,turn_number,card_id', ignoreDuplicates: true })
+          })
             .then(({ error: logErr }) => {
-              if (logErr && logErr.code !== '23505') console.warn('[evento] moves_log upsert:', logErr.message);
+              if (logErr && logErr.code !== '23505') console.warn('[evento] moves_log insert:', logErr.message);
             });
         });
       });
