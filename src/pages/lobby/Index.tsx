@@ -154,7 +154,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       .eq('is_public', true)
       .in('status', ['lobby', 'active'])
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(8);
     if (!openRes.error) {
       openData = openRes.data as Game[];
     } else {
@@ -173,22 +173,31 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       .from('games')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(10);
+      .limit(5);
 
     // Carica giocatori per ogni partita trovata
-    const allGames = [...(openData ?? []), ...(recentData ?? [])];
+    // LIMIT 8 per evitare URL troppo lungo (502 Bad Gateway con 20+ ID)
+    const openGamesLimited = (openData ?? []).slice(0, 8);
+    const recentGamesLimited = (recentData ?? []).slice(0, 5);
+    const allGames = [...openGamesLimited, ...recentGamesLimited];
     const uniqueIds = [...new Set(allGames.map((g) => g.id))];
 
     let playersMap: Record<string, { faction: Faction; is_bot: boolean; player_id: string | null }[]> = {};
     if (uniqueIds.length > 0) {
-      const { data: playersData } = await supabase
-        .from('game_players')
-        .select('game_id, faction, is_bot, player_id')
-        .in('game_id', uniqueIds);
-      (playersData ?? []).forEach((p) => {
-        if (!playersMap[p.game_id]) playersMap[p.game_id] = [];
-        playersMap[p.game_id].push(p as { faction: Faction; is_bot: boolean; player_id: string | null });
-      });
+      // Spezza in batch da 8 per evitare URL troppo lungo → 502
+      const BATCH = 8;
+      const allPlayersData: typeof playersMap[string][] = [];
+      for (let i = 0; i < uniqueIds.length; i += BATCH) {
+        const batchIds = uniqueIds.slice(i, i + BATCH);
+        const { data: batchData } = await supabase
+          .from('game_players')
+          .select('game_id, faction, is_bot, player_id')
+          .in('game_id', batchIds);
+        (batchData ?? []).forEach((p) => {
+          if (!playersMap[p.game_id]) playersMap[p.game_id] = [];
+          playersMap[p.game_id].push(p as { faction: Faction; is_bot: boolean; player_id: string | null });
+        });
+      }
     }
 
     const enrich = (g: Game): GameWithPlayers => ({
