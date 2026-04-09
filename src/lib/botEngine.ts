@@ -446,12 +446,12 @@ export function applyCardEffects(
   const risorseKey   = `risorse_${faction.toLowerCase()}`   as keyof GameState;
   const stabilitaKey = `stabilita_${faction.toLowerCase()}` as keyof GameState;
 
-  const curNucleare  = state.nucleare;
-  const curSanzioni  = state.sanzioni;
-  const curOpinione  = state.opinione;
-  const curDefcon    = state.defcon;
-  const curRisorse   = state[risorseKey]   as number;
-  const curStabilita = state[stabilitaKey] as number;
+  const curNucleare  = state.nucleare  ?? 8;
+  const curSanzioni  = state.sanzioni  ?? 5;
+  const curOpinione  = state.opinione  ?? 0;
+  const curDefcon    = state.defcon    ?? 3;
+  const curRisorse   = (state[risorseKey]   as number) ?? 5;
+  const curStabilita = (state[stabilitaKey] as number) ?? 5;
 
   const dNucleare  = card.effects.nucleare?.(curNucleare)  ?? 0;
   const dSanzioni  = card.effects.sanzioni?.(curSanzioni)  ?? 0;
@@ -502,9 +502,9 @@ export function applyCardEffects(
 
   const newState: Partial<GameState> = {
     nucleare: Math.max(1, Math.min(15, curNucleare + dNucleare)),
-    sanzioni: Math.max(1, Math.min(20, curSanzioni + dSanzioni)),
+    sanzioni: Math.max(1, Math.min(10, curSanzioni + dSanzioni)),
     opinione: Math.max(-10, Math.min(10, curOpinione + dOpinione)),
-    defcon:   Math.max(1, Math.min(10, curDefcon + dDefcon)),
+    defcon:   Math.max(1, Math.min( 5, curDefcon + dDefcon)),
     ...newStateFazioni,
   };
 
@@ -603,9 +603,9 @@ export const TERRITORY_CONTROL_THRESHOLD = 3;
 const STATE_LIMITS: Record<string, [number, number]> = {
   // ── globali ──────────────────────────────────────────────────────
   nucleare:                         [1, 15],
-  sanzioni:                         [1, 20],   // DB aggiornato: BETWEEN 1 AND 20
+  sanzioni:                         [1, 10],   // DB: BETWEEN 1 AND 10
   opinione:                         [-10, 10],
-  defcon:                           [1, 10],   // DB aggiornato: BETWEEN 1 AND 10
+  defcon:                           [1,  5],   // DB: BETWEEN 1 AND 5
   // ── risorse per fazione ─────────────────────────────────────────
   risorse_iran:                     [1, 10],
   risorse_coalizione:               [1, 10],   // DB reale: BETWEEN 1 AND 10 (add_faction_tracks usava game_states sbagliato)

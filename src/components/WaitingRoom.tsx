@@ -77,7 +77,7 @@ export default function WaitingRoom({
   // Verifica dal DB se questo utente è il creator (fallback se isHost è sbagliato)
   useEffect(() => {
     supabase.from('games').select('created_by').eq('id', gameId).single()
-      .then(({ data }) => { if (data?.created_by === profile.id) setIsCreator(true); });
+      .then(({ data }) => { if (data?.created_by && profile?.id && data.created_by === profile.id) setIsCreator(true); });
   }, [gameId, profile.id]);
   const [forcedBotFactions, setForcedBotFactions] = useState<Set<Faction>>(new Set());
   const [showSetup, setShowSetup] = useState(true);

@@ -658,8 +658,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           if (k.startsWith('risorse_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
-          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
-          if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(20, v))];
+          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
+          if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
           return [k, v];
         })
@@ -913,8 +913,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           if (k.startsWith('risorse_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
-          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
-          if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(20, v))];
+          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
+          if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
           return [k, v];
         })
@@ -1761,12 +1761,12 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
         // sanzioni +1 su qualsiasi attacco Iran
         const curSanzioni = gs['sanzioni'] ?? 0;
-        iranSpecialUpdates['sanzioni'] = Math.min(15, curSanzioni + 1);
+        iranSpecialUpdates['sanzioni'] = Math.min(10, Math.max(1, curSanzioni + 1));
         iranAttackNoteSuffix += ' sanzioni+1';
 
         if (nuclearTargets.includes(territory)) {
           const curNuc    = gs['nucleare'] ?? 0;
-          iranSpecialUpdates['nucleare']                 = Math.max(0, curNuc - 1);
+          iranSpecialUpdates['nucleare']                 = Math.max(1, curNuc - 1);
           // Iran guadagna simpatia internazionale (opinione -2)
           iranSpecialUpdates['opinione'] = Math.max(-10, (gs['opinione'] ?? 0) - 2);
           iranAttackNoteSuffix += ' nucleare-1 tecnologia_nucleare-1 opinione-2';
@@ -2057,7 +2057,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
               obj_id:    o.obj_id,
               completato: false,
               punteggio:  0,
-            }))
+            })),
+            { onConflict: 'game_id,faction,obj_id', ignoreDuplicates: true }
           );
         }
       } catch (e) {
