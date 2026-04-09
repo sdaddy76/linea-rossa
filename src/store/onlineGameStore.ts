@@ -547,14 +547,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
             .delete()
             .eq('game_id', game.id)
             .eq('faction', faction as string);
-          const { error: objErr } = await supabase.from('game_objectives').insert(
+          const { error: objErr } = await supabase.from('game_objectives').upsert(
             localObs.map(o => ({
               game_id:    game.id,
               faction:    faction as string,
               obj_id:     o.obj_id,
               completato: false,
               punteggio:  0,
-            }))
+            })),
+            { onConflict: 'game_id,faction,obj_id', ignoreDuplicates: true }
           );
           if (objErr) {
             console.warn(`[startGame] game_objectives insert warn (${faction}):`, objErr.message);
@@ -2022,7 +2023,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
         // Inserisci i nuovi obiettivi
         if (localObs.length > 0) {
-          await supabase.from('game_objectives').insert(
+          await supabase.from('game_objectives').upsert(
             localObs.map(o => ({
               game_id:   game.id,
               faction,

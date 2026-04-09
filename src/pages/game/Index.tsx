@@ -534,7 +534,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             supabase.from('moves_log').insert({
               game_id:     game.id,
               turn_number: turnNum,
-              faction:     'Neutrale',
+              faction:     'Iran',
               player_id:   profile?.id ?? null,
               is_bot_move: false,
               card_id:     evento.event_id,
