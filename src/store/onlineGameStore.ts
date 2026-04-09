@@ -651,7 +651,20 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
       // ─────────────────────────────────────────────────────────────────
 
-      const merged = { ...gameState, ...newState } as GameState;
+      // Clamp difensivo: evita NaN/out-of-range per violazioni check constraint
+      const safeNewState = Object.fromEntries(
+        Object.entries(newState).map(([k, v]) => {
+          if (typeof v === 'number' && isNaN(v)) return [k, gameState[k as keyof typeof gameState] ?? 5];
+          if (k.startsWith('risorse_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
+          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(20, v))];
+          if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
+          return [k, v];
+        })
+      );
+      const merged = { ...gameState, ...safeNewState } as GameState;
       const winCheck = checkWinCondition(merged, game.current_turn, game.max_turns);
 
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(myFaction);
@@ -893,7 +906,20 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // ─────────────────────────────────────────────────────────────────
 
       const newState = botNewState;
-      const merged = { ...gameState, ...newState } as GameState;
+      // Clamp difensivo: evita NaN/out-of-range per violazioni check constraint
+      const safeNewState = Object.fromEntries(
+        Object.entries(newState).map(([k, v]) => {
+          if (typeof v === 'number' && isNaN(v)) return [k, gameState[k as keyof typeof gameState] ?? 5];
+          if (k.startsWith('risorse_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
+          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(20, v))];
+          if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
+          return [k, v];
+        })
+      );
+      const merged = { ...gameState, ...safeNewState } as GameState;
       const winCheck = checkWinCondition(merged, game.current_turn, game.max_turns);
       const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(botFaction);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
@@ -1885,6 +1911,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           turn_number:  game.current_turn,
           player_id:    get().profile?.id ?? null,
           is_bot_move:  false,
+          card_id:      `BUY_${unitType}_${Date.now()}`,
           card_name:    `Acquisto ${unitType} ×${qty}`,
           card_type:    'Acquisto',
           description:  `${unitType} aggiunta al pool — totale: ×${nuovaQty}`,

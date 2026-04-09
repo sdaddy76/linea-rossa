@@ -492,8 +492,8 @@ export function applyCardEffects(
     const fk = f.toLowerCase();
     const rKey = `risorse_${fk}`   as keyof GameState;
     const sKey = `stabilita_${fk}` as keyof GameState;
-    const curR = state[rKey] as number;
-    const curS = state[sKey] as number;
+    const curR = (state[rKey] as number) ?? 5;
+    const curS = (state[sKey] as number) ?? 5;
     const dr = risorseDeltas[fk]   ?? 0;
     const ds = stabilitaDeltas[fk] ?? 0;
     if (dr !== 0) (newStateFazioni as Record<string, number>)[rKey] = Math.max(1, Math.min(10, curR + dr));
