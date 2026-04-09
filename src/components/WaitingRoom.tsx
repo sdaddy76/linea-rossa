@@ -200,7 +200,8 @@ export default function WaitingRoom({
   useEffect(() => {
     if (autoStart && myFaction && !autoStartedRef.current) {
       autoStartedRef.current = true;
-      setTimeout(() => startGame('solo'), 1500);
+      // delay 1800ms: lascia tempo a chooseFaction di completare la sincronizzazione
+      setTimeout(() => startGame('solo'), 1800);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, myFaction]);

@@ -207,11 +207,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
     if (!setupFaction) { setError('Scegli prima la tua fazione'); return; }
     if (!profile?.id) { setError('Sessione non valida — effettua di nuovo il login'); return; }
     setLoading(true); setError('');
-    // Timeout di sicurezza: se dopo 12s non risponde, sblocca il bottone
+    // Timeout di sicurezza: protegge SOLO la creazione del tavolo nel DB (non startGame)
     const safetyTimer = setTimeout(() => {
       setLoading(false);
       setError('⏱️ Timeout — il server non risponde. Riprova tra qualche secondo.');
-    }, 12000);
+    }, 30000);
     try {
       // Codice: se riservata e l'host ne ha inserito uno → usalo (uppercase)
       // altrimenti genera automatico
@@ -259,6 +259,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       if (gameError) throw new Error(gameError.message ?? 'Errore nella creazione');
       if (!game) throw new Error('Partita non creata');
 
+      // Tavolo creato nel DB: ferma il safetyTimer (startGame può durare altri 10-15s)
+      clearTimeout(safetyTimer);
       setWaitingGame({
         id: game.id, code: game.code, isHost: true, isPublic: game.is_public ?? isPublic,
         autoStart: mode === 'solo',
@@ -268,9 +270,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
           : setupBots,
       });
     } catch (err: unknown) {
+      clearTimeout(safetyTimer);
       setError(err instanceof Error ? err.message : 'Errore nella creazione');
     } finally {
-      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };
