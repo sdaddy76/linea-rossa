@@ -372,7 +372,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
     label: 'Presenza Militare',
     bonusByFaction: {
       Iran:       { risorse_iran: 1, stabilita_iran: 1 },       // IRGC e proxy
-      Russia:     { risorse_russia: 1, risorse_russia: 1 }, // basi aeree
+      Russia:     { risorse_russia: 2 }, // basi aeree
       Coalizione: { sanzioni: 1 },                              // pressione diplomatica
       Europa:     { stabilita_europa: 1, opinione: 1 },
       Cina:       { risorse_cina: 1 },
@@ -424,7 +424,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
       Coalizione: { risorse_coalizione: 1 },
       Iran:       { risorse_iran: 1 },                          // contro-pressione
       Russia:     { risorse_russia: 1 },
-      Cina:       { risorse_cina: 1, risorse_cina: 1 },
+      Cina:       { risorse_cina: 2 },
       Europa:     { risorse_europa: 1 },
     },
   },
@@ -433,9 +433,9 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   EmiratiArabi: {
     label: 'Hub Finanziario',
     bonusByFaction: {
-      Coalizione: { risorse_coalizione: 1, risorse_coalizione: 1 },
+      Coalizione: { risorse_coalizione: 2 },
       Iran:       { risorse_iran: 1 },
-      Cina:       { risorse_cina: 1, risorse_cina: 1 },
+      Cina:       { risorse_cina: 2 },
       Russia:     { risorse_russia: 1 },
       Europa:     { risorse_europa: 1, stabilita_europa: 1 },
     },
@@ -489,7 +489,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Turchia: {
     label: 'Crocevia NATO-Russia',
     bonusByFaction: {
-      Coalizione: { risorse_coalizione: 1, risorse_coalizione: 1 },
+      Coalizione: { risorse_coalizione: 2 },
       Russia:     { risorse_russia: 1 },
       Europa:     { stabilita_europa: 1 },
       Iran:       { risorse_iran: 1 },
@@ -501,9 +501,9 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
   Egitto: {
     label: 'Canale di Suez',
     bonusByFaction: {
-      Coalizione: { risorse_coalizione: 1, risorse_coalizione: 1 },
+      Coalizione: { risorse_coalizione: 2 },
       Russia:     { risorse_russia: 1 },
-      Cina:       { risorse_cina: 1, risorse_cina: 1 },
+      Cina:       { risorse_cina: 2 },
       Europa:     { risorse_europa: 1 },
       Iran:       { risorse_iran: 1 },
     },
@@ -514,7 +514,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
     label: 'Stabilizzatore Regionale',
     bonusByFaction: {
       Coalizione: { stabilita_coalizione: 1, risorse_coalizione: 1 },
-      Europa:     { stabilita_europa: 1, stabilita_europa: 1 },
+      Europa:     { stabilita_europa: 2 },
       Iran:       { risorse_iran: 1 },
       Russia:     { risorse_russia: 1 },
       Cina:       { risorse_cina: 1 },
@@ -552,7 +552,7 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
       Coalizione: { risorse_coalizione: 1, stabilita_coalizione: 1 },
       Iran:       { stabilita_iran: 1 },
       Russia:     { risorse_russia: 1 },
-      Cina:       { risorse_cina: 1, risorse_cina: 1 },
+      Cina:       { risorse_cina: 2 },
       Europa:     { risorse_europa: 1 },
     },
   },

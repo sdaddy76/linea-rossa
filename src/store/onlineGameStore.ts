@@ -304,7 +304,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         // Consuma 1 veto e NON aumenta le sanzioni
         newState = {
           ...gameState,
-          veto_onu_russia: (gameState.veto_onu_russia ?? 1) - 1,
+          veto_onu_russia: Math.max(0, (gameState.veto_onu_russia ?? 1) - 1),
         };
         await supabase.from('game_state').update({ veto_onu_russia: newState.veto_onu_russia }).eq('game_id', game.id);
         set(s => ({
@@ -672,6 +672,12 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
           if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
+          // tracciati fazione estesi: tutti BETWEEN 1 AND 10
+          const extendedTracks = new Set(['tecnologia_nucleare_iran','influenza_diplomatica_coalizione',
+            'tecnologia_avanzata_coalizione','supporto_pubblico_coalizione','influenza_militare_russia',
+            'stabilita_economica_russia','influenza_commerciale_cina','cyber_warfare_cina',
+            'influenza_diplomatica_europa','aiuti_umanitari_europa','coesione_ue_europa','stabilita_rotte_cina']);
+          if (extendedTracks.has(k) && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           return [k, v];
         })
       );
@@ -910,7 +916,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         botFaction !== 'Russia'
       ) {
         // Russia è un bot: usa veto automaticamente solo se sanzioni alte
-        if ((gameState.sanzioni ?? 0) >= 12) {
+        if ((gameState.sanzioni ?? 0) >= 7) {  // soglia 7 su max 10
           botNewState = { ...botRawState, sanzioni: gameState.sanzioni, veto_onu_russia: botVetoDisp - 1 };
         }
       }
@@ -929,6 +935,12 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
           if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
+          // tracciati fazione estesi: tutti BETWEEN 1 AND 10
+          const extendedTracks = new Set(['tecnologia_nucleare_iran','influenza_diplomatica_coalizione',
+            'tecnologia_avanzata_coalizione','supporto_pubblico_coalizione','influenza_militare_russia',
+            'stabilita_economica_russia','influenza_commerciale_cina','cyber_warfare_cina',
+            'influenza_diplomatica_europa','aiuti_umanitari_europa','coesione_ue_europa','stabilita_rotte_cina']);
+          if (extendedTracks.has(k) && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           return [k, v];
         })
       );
@@ -1531,7 +1543,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const risorseKey = `risorse_${myFaction.toLowerCase()}` as
         'risorse_iran' | 'risorse_coalizione' | 'risorse_russia' | 'risorse_cina' | 'risorse_europa';
       const risorseAttuali: number = gameState[risorseKey] ?? 0;
-      const nuoveRisorse = Math.min(10, risorseAttuali + quantita);
+      const risorseMax = risorseKey === 'risorse_coalizione' ? 15 : risorseKey === 'risorse_cina' ? 12 : 10;
+      const nuoveRisorse = Math.min(risorseMax, risorseAttuali + quantita);
 
       // Aggiorna game_state: risorse +quantita
       const stateUpdate: Partial<GameState> = { [risorseKey]: nuoveRisorse };
@@ -1781,7 +1794,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           const curNuc    = gs['nucleare'] ?? 0;
           iranSpecialUpdates['nucleare']                 = Math.max(1, curNuc - 1);
           // Iran guadagna simpatia internazionale (opinione -2)
-          iranSpecialUpdates['opinione'] = Math.max(-10, (gs['opinione'] ?? 0) - 2);
+          iranSpecialUpdates['opinione'] = Math.max(-10, Math.min(10, (gs['opinione'] ?? 0) - 2));
           iranAttackNoteSuffix += ' nucleare-1 tecnologia_nucleare-1 opinione-2';
         }
 
@@ -1792,7 +1805,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           iranSpecialUpdates['stabilita_iran']     = Math.max(1, curStabIran - 1);
           iranSpecialUpdates['forze_militari_iran'] = Math.max(0, curForze - 1);
           // Iran guadagna ancora più simpatia internazionale (opinione -3)
-          iranSpecialUpdates['opinione'] = Math.max(-10, (gs['opinione'] ?? 0) - 3);
+          iranSpecialUpdates['opinione'] = Math.max(-10, Math.min(10, (gs['opinione'] ?? 0) - 3));
           iranAttackNoteSuffix += ' stabilita_iran-1 forze_militari-1 opinione-3';
         }
 

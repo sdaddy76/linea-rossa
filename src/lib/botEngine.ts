@@ -627,6 +627,18 @@ const STATE_LIMITS: Record<string, [number, number]> = {
   // ── tracciati fazione estesi (add_faction_tracks.sql) ───────────
   veto_onu_russia:                  [0,  3],   // BETWEEN 0 AND 3
   stabilita_rotte_cina:             [1, 10],
+  // ── tracciati extra fazione (add_faction_tracks.sql) — BETWEEN 1 AND 10 ──
+  tecnologia_nucleare_iran:         [1, 10],
+  influenza_diplomatica_coalizione: [1, 10],
+  tecnologia_avanzata_coalizione:   [1, 10],
+  supporto_pubblico_coalizione:     [1, 10],
+  influenza_militare_russia:        [1, 10],
+  stabilita_economica_russia:       [1, 10],
+  influenza_commerciale_cina:       [1, 10],
+  cyber_warfare_cina:               [1, 10],
+  influenza_diplomatica_europa:     [1, 10],
+  aiuti_umanitari_europa:           [1, 10],
+  coesione_ue_europa:               [1, 10],
 };
 
 function clamp(key: string, value: number): number {
