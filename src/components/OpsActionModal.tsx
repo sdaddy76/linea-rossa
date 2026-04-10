@@ -86,7 +86,7 @@ function resolveCombat(atkForce: number, defForce: number): CombatResult {
   if (diff >= 6) {
     result = 'vittoria_decisiva';
     inf_change_atk = 2; inf_change_def = -2; defcon_change = -1;
-    attackerUnitsLost = 0; stabilityChange = -1;
+    attackerUnitsLost = 0; stabilityChange = 0;
     description = `Vittoria Decisiva! +2 influenza per l'attaccante, -2 per il difensore.`;
   } else if (diff >= 2) {
     result = 'vittoria';
@@ -101,13 +101,13 @@ function resolveCombat(atkForce: number, defForce: number): CombatResult {
   } else if (diff >= -4) {
     result = 'sconfitta';
     inf_change_atk = -1; inf_change_def = 1; defcon_change = 0;
-    attackerUnitsLost = 1; stabilityChange = 1;
-    description = `Sconfitta. -1 influenza attaccante, +1 difensore.`;
+    attackerUnitsLost = 1; stabilityChange = -1;
+    description = `Sconfitta. -1 influenza attaccante, +1 difensore, -1 stabilità.`;
   } else {
     result = 'sconfitta_grave';
     inf_change_atk = -2; inf_change_def = 2; defcon_change = 1;
-    attackerUnitsLost = 2; stabilityChange = 2;
-    description = `Sconfitta Grave! -2 influenza, +2 per il difensore. DEFCON +1.`;
+    attackerUnitsLost = 2; stabilityChange = -2;
+    description = `Sconfitta Grave! -2 influenza, +2 per il difensore, -2 stabilità. DEFCON +1.`;
   }
 
   return { roll_atk, roll_def, atk_total, def_total, result, inf_change_atk, inf_change_def,

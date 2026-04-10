@@ -129,7 +129,7 @@ function calcAttackForce(
   }
 
   // ── Bonus situazionali ──────────────────────────────────────────────────────
-  if (input.gameState.defcon <= 6) {
+  if (input.gameState.defcon <= 3) {
     force += 1;
     bd.push(`DEFCON ≤ 3 (escalation): +1 → ${force}`);
   }
@@ -208,7 +208,7 @@ function calcDefenseForce(
   }
 
   // DEFCON 3: unità navali difensive +1 ciascuna
-  if (input.gameState.defcon <= 6 && tDef?.isNaval) {
+  if (input.gameState.defcon <= 3 && tDef?.isNaval) {
     const navTypes: UnitType[] = ['NavaleGolfo','PortaereiBattleGroup','SottomariniAKULA','NavalePLA'];
     let bonus = 0;
     for (const nt of navTypes) {

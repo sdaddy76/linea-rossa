@@ -1702,7 +1702,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const existingQty = existingUnit?.quantity ?? 0;
 
       // Upsert con quantità sommata
-      await Promise.all([
+      await withTimeout(Promise.all([
         supabase.from('military_units').upsert({
           game_id: game.id,
           faction: myFaction,
@@ -1715,7 +1715,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         supabase.from('game_state').update({
           [unitsKey]: newPool,
         }).eq('game_id', game.id),
-      ]);
+      ]), 8000, 'deployUnit');
 
       // Aggiorna stato locale
       const updatedGameState = { ...gameState, [unitsKey]: newPool } as typeof gameState;
@@ -1758,14 +1758,14 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const newAtk  = Math.min(5, Math.max(0, curAtk + infChangeAtk));
       const newDef  = Math.min(5, Math.max(0, curDef + infChangeDef));
 
-      await supabase.from('territories').upsert({
+      await withTimeout(supabase.from('territories').upsert({
         game_id: game.id,
         territory,
         ...(terrRec ?? {}),
         [infKey]: newAtk,
         [defKey]: newDef,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'game_id,territory' });
+      }, { onConflict: 'game_id,territory' }), 8000, 'attackTerritory-territories');
 
       // 2. Aggiorna DEFCON e stabilità interna
       const newDefcon   = Math.max(1, Math.min(5, (gameState.defcon ?? 3) + defconChange));
@@ -1825,11 +1825,11 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         pool[ut] = Math.max(0, (pool[ut] ?? 0) - 1);
       }
 
-      await supabase.from('game_state').update({
+      await withTimeout(supabase.from('game_state').update({
         defcon: newDefcon,
         [stabKey]: newStab,
         [unitsKey]: pool,
-      }).eq('game_id', game.id);
+      }).eq('game_id', game.id), 8000, 'attackTerritory-gamestate');
 
       // 4. Scrivi combat_log (includi extra_effects)
       const logEntry = {
@@ -1888,10 +1888,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // Passa il turno su DB (altrimenti gli altri client non vedono il cambio via realtime)
       const nextFact = nextFaction(myFaction);
       const nextTurnNum = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
-      await Promise.all([
+      await withTimeout(Promise.all([
         supabase.from('game_state').update({ active_faction: nextFact }).eq('game_id', game.id),
         supabase.from('games').update({ current_turn: nextTurnNum }).eq('id', game.id),
-      ]);
+      ]), 8000, 'attackTerritory-nextTurn');
       set(s => ({
         gameState: { ...s.gameState!, active_faction: nextFact },
         game: { ...s.game!, current_turn: nextTurnNum },
@@ -1922,7 +1922,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         const unitsKey = `units_${myFaction.toLowerCase()}` as keyof typeof gameState;
         const pool = { ...((gameState[unitsKey] as Record<string, number>) ?? {}) };
         pool[unitType] = (pool[unitType] ?? 0) + qty;
-        await supabase.from('game_state').update({ [unitsKey]: pool }).eq('game_id', game.id);
+        await withTimeout(supabase.from('game_state').update({ [unitsKey]: pool }).eq('game_id', game.id), 8000, 'buyUnit-pool');
         // Aggiorna lo stato locale prima di chiamare playCardUnified per evitare
         // che il guard active_faction scatti prima che Supabase realtime aggiorni
         set(s => ({
