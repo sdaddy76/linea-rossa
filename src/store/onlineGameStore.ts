@@ -105,8 +105,17 @@ async function applyEndOfTurnMechanics(
     // forze militari per fazione
     'forze_militari_iran', 'forze_militari_coalizione', 'forze_militari_russia',
     'forze_militari_cina', 'forze_militari_europa',
-    // tracciati russia (veto_onu_russia esiste in add_faction_tracks.sql)
+    // tracciati russia (add_faction_tracks.sql)
     'veto_onu_russia',
+    'influenza_militare_russia', 'stabilita_economica_russia',
+    // tracciati coalizione (add_faction_tracks.sql)
+    'influenza_diplomatica_coalizione', 'supporto_pubblico_coalizione', 'tecnologia_avanzata_coalizione',
+    // tracciati cina (add_faction_tracks.sql)
+    'influenza_commerciale_cina', 'stabilita_rotte_cina', 'cyber_warfare_cina',
+    // tracciati europa (add_faction_tracks.sql)
+    'influenza_diplomatica_europa', 'aiuti_umanitari_europa', 'coesione_ue_europa',
+    // tracciati iran (add_faction_tracks.sql)
+    'tecnologia_nucleare_iran',
   ]);
 
   const filteredBonusState = Object.fromEntries(
@@ -305,7 +314,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         }));
       } else {
         // Non usa il veto: le sanzioni aumentano normalmente
-        const newSanzioni = gameState.sanzioni + vetoPending.sanzioniDelta;
+        const newSanzioni = Math.max(1, Math.min(10, (gameState.sanzioni ?? 5) + vetoPending.sanzioniDelta));
         newState = { ...gameState, sanzioni: newSanzioni };
         await supabase.from('game_state').update({ sanzioni: newSanzioni }).eq('game_id', game.id);
         set(s => ({
@@ -639,7 +648,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         const sanzioniDelta = (rawNewState.sanzioni ?? gameState.sanzioni) - gameState.sanzioni;
         if (players.find(p => p.faction === 'Russia')?.is_bot) {
           // Bot Russia: usa veto automaticamente solo se sanzioni alte
-          if ((gameState.sanzioni ?? 0) >= 12) {
+          if ((gameState.sanzioni ?? 0) >= 7) {  // soglia 7 su max 10
             newState = { ...rawNewState, sanzioni: gameState.sanzioni, veto_onu_russia: vetoDisponibili - 1 };
           }
           // altrimenti newState rimane rawNewState (sanzioni aumentano)
@@ -655,7 +664,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const safeNewState = Object.fromEntries(
         Object.entries(newState).map(([k, v]) => {
           if (typeof v === 'number' && isNaN(v)) return [k, gameState[k as keyof typeof gameState] ?? 5];
-          if (k.startsWith('risorse_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k === 'risorse_coalizione' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
+          if (k === 'risorse_cina'        && typeof v === 'number') return [k, Math.max(1, Math.min(12, v))];
+          if (k.startsWith('risorse_')   && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
           if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
@@ -910,7 +921,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const safeNewState = Object.fromEntries(
         Object.entries(newState).map(([k, v]) => {
           if (typeof v === 'number' && isNaN(v)) return [k, gameState[k as keyof typeof gameState] ?? 5];
-          if (k.startsWith('risorse_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
+          if (k === 'risorse_coalizione' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
+          if (k === 'risorse_cina'        && typeof v === 'number') return [k, Math.max(1, Math.min(12, v))];
+          if (k.startsWith('risorse_')   && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
           if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
@@ -1373,7 +1386,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           const unifiedSanzioniDelta = (newState.sanzioni ?? gameState.sanzioni) - gameState.sanzioni;
           const russiaPlayer = players.find(p => p.faction === 'Russia');
           if (russiaPlayer?.is_bot) {
-            if ((gameState.sanzioni ?? 0) >= 12) {
+            if ((gameState.sanzioni ?? 0) >= 7) {  // soglia 7 su max 10
               newState = { ...newState, sanzioni: gameState.sanzioni, veto_onu_russia: unifiedVetoDisp - 1 };
               (deltas as Record<string, number>).sanzioni = 0;
             }
@@ -1742,9 +1755,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }, { onConflict: 'game_id,territory' });
 
       // 2. Aggiorna DEFCON e stabilità interna
-      const newDefcon   = Math.max(1, Math.min(10, gameState.defcon + defconChange));
+      const newDefcon   = Math.max(1, Math.min(5, (gameState.defcon ?? 3) + defconChange));
       const stabKey     = `stabilita_${myFaction.toLowerCase()}` as keyof typeof gameState;
-      const newStab     = Math.max(1, ((gameState[stabKey] as number) ?? 5) + stabilityChange);
+      const newStab     = Math.max(1, Math.min(10, ((gameState[stabKey] as number) ?? 5) + stabilityChange));
 
       // ─── Effetti speciali attacchi Coalizione su territori iraniani ───────
       const iranTargets = ['Iran', 'Natanz', 'Fordow', 'Teheran'];
@@ -1776,7 +1789,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           // Teheran/Iran: stabilita_iran -1, forze_militari_iran -1
           const curStabIran = gs['stabilita_iran'] ?? 0;
           const curForze    = gs['forze_militari_iran'] ?? 0;
-          iranSpecialUpdates['stabilita_iran']     = Math.max(0, curStabIran - 1);
+          iranSpecialUpdates['stabilita_iran']     = Math.max(1, curStabIran - 1);
           iranSpecialUpdates['forze_militari_iran'] = Math.max(0, curForze - 1);
           // Iran guadagna ancora più simpatia internazionale (opinione -3)
           iranSpecialUpdates['opinione'] = Math.max(-10, (gs['opinione'] ?? 0) - 3);

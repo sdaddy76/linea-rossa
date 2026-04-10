@@ -594,8 +594,8 @@ export const TERRITORY_CONTROL_THRESHOLD = 3;
 /**
  * Limiti esatti dai CHECK constraints del DB Supabase (game_state).
  * ATTENZIONE: il DB reale è stato aggiornato con migration manuali:
- *   - defcon:   1-10  (commit 75f2dc4: scala DEFCON estesa 5→10)
- *   - sanzioni: 1-20  (commit c9c7288: sanzioni 1-20)
+ *   - defcon:   1-5   (DB reale: BETWEEN 1 AND 5)
+ *   - sanzioni: 1-10  (DB reale: BETWEEN 1 AND 10)
  *   - risorse_coalizione: 1-15 (add_faction_tracks.sql)
  *   - risorse_cina:       1-12 (add_faction_tracks.sql)
  * Tutti gli altri campi: 1-10 salvo eccezioni indicate.
@@ -608,9 +608,9 @@ const STATE_LIMITS: Record<string, [number, number]> = {
   defcon:                           [1,  5],   // DB: BETWEEN 1 AND 5
   // ── risorse per fazione ─────────────────────────────────────────
   risorse_iran:                     [1, 10],
-  risorse_coalizione:               [1, 10],   // DB reale: BETWEEN 1 AND 10 (add_faction_tracks usava game_states sbagliato)
+  risorse_coalizione:               [1, 15],   // DB: ALTER aggiunge BETWEEN 1 AND 15
   risorse_russia:                   [1, 10],
-  risorse_cina:                     [1, 10],   // DB reale: BETWEEN 1 AND 10 (add_faction_tracks usava game_states sbagliato)
+  risorse_cina:                     [1, 12],   // DB: ALTER aggiunge BETWEEN 1 AND 12
   risorse_europa:                   [1, 10],
   // ── stabilità per fazione ───────────────────────────────────────
   stabilita_iran:                   [1, 10],
@@ -619,10 +619,10 @@ const STATE_LIMITS: Record<string, [number, number]> = {
   stabilita_cina:                   [1, 10],
   stabilita_europa:                 [1, 10],
   // ── forze militari (add_military_tracks + add_missing_columns) ──
-  forze_militari_iran:              [1, 10],
+  forze_militari_iran:              [0, 20],  // no CHECK nel DB
   forze_militari_coalizione:        [1, 10],
   forze_militari_russia:            [1, 10],
-  forze_militari_cina:              [1, 10],
+  forze_militari_cina:              [0, 20],  // no CHECK nel DB
   forze_militari_europa:            [1, 10],
   // ── tracciati fazione estesi (add_faction_tracks.sql) ───────────
   veto_onu_russia:                  [0,  3],   // BETWEEN 0 AND 3
