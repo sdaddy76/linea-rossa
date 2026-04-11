@@ -72,12 +72,12 @@ const TERR_DEF: TerrDef[] = [
   { id: 'Siria', label: 'SIRIA',
     pts: [[531,308],[545,347],[556,376],[527,396],[558,428],[608,408],[712,354],
           [725,292],[761,263],[704,265],[618,270],[554,272]],
-    cubeAnchor: [625, 332], cubeOffsetY: 28, maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [625, 332], cubeOffsetY: 28, maxSlots: 4, pvPerRound: 1, type: 'normale' },
 
   { id: 'Libano', label: 'LIBANO',
     pts: [[523,325],[528,353],[546,354],[547,366],[529,386],[508,404],
           [495,404],[436,382],[437,364]],
-    cubeAnchor: [494, 369], cubeOffsetY: 0, cubeOffsetX: -90, maxSlots: 2, pvPerRound: 1, type: 'normale' },
+    cubeAnchor: [494, 369], cubeOffsetY: 0, cubeOffsetX: -90, maxSlots: 4, pvPerRound: 1, type: 'normale' },
 
   { id: 'Israele', label: 'ISRAELE',
     pts: [[492,406],[512,406],[509,470],[488,530],[464,468]],
@@ -147,7 +147,7 @@ const TERR_DEF: TerrDef[] = [
   { id: 'Yemen', label: 'YEMEN',
     pts: [[1105,913],[1139,977],[1086,1022],[790,1026],[787,990],[802,955],
           [903,970],[950,978],[993,929]],
-    cubeAnchor: [976, 982], cubeOffsetY: -22, maxSlots: 2, pvPerRound: 1, type: 'normale', isNaval: true },
+    cubeAnchor: [976, 982], cubeOffsetY: -22, maxSlots: 4, pvPerRound: 1, type: 'normale', isNaval: true },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────
