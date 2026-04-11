@@ -200,13 +200,7 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions 
             // Dettaglio formula
             const { details } = buildScoreDetails(entry.faction, gameState);
 
-            // Stringa formula leggibile
-            const formulaStr = details.map((d, i) => {
-              const mul = d.multiplier ? ` (×${d.multiplier} = ${d.value * d.multiplier})` : '';
-              const prefix = i === 0 ? '' : ` ${d.sign} `;
-              const signedVal = d.sign === '-' ? `-${d.value}` : `+${d.value}`;
-              return `${prefix}${d.emoji} ${d.label}: ${d.value}${mul} = ${signedVal}`;
-            }).join('');
+            // Formula: ogni termine su riga separata, chiara e senza parentesi doppie
 
             return (
               <div
@@ -254,11 +248,33 @@ const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions 
                   </div>
                 </div>
 
-                {/* Formula dettagliata */}
-                <div className="font-mono text-[10px] text-[#667788] bg-[#0d1117] rounded px-2 py-1 mb-2 leading-relaxed">
-                  {formulaStr}
-                  {' '}
-                  <span className="text-[#aabbcc] font-bold">→ TOT: {entry.score}</span>
+                {/* Formula dettagliata — una riga per termine */}
+                <div className="font-mono text-[10px] bg-[#0d1117] rounded px-2 py-1.5 mb-2 space-y-0.5">
+                  {details.map((d, i) => {
+                    const contribution = d.multiplier
+                      ? d.value * d.multiplier
+                      : d.value;
+                    const signed = d.sign === '-' ? -contribution : contribution;
+                    return (
+                      <div key={i} className="flex items-center justify-between gap-2">
+                        <span className="text-[#556677]">
+                          {d.emoji} {d.label}
+                        </span>
+                        <span className="flex items-center gap-1 text-right">
+                          <span className="text-[#445566]">
+                            {d.value}{d.multiplier ? ` ×${d.multiplier}` : ''}
+                          </span>
+                          <span className={`font-bold ${signed >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]'}`}>
+                            {signed >= 0 ? '+' : ''}{signed}
+                          </span>
+                        </span>
+                      </div>
+                    );
+                  })}
+                  <div className="flex items-center justify-between gap-2 border-t border-[#1e3a5f] pt-1 mt-1">
+                    <span className="text-[#667788]">Totale</span>
+                    <span className="font-black text-[#aabbcc]">{entry.score} pt</span>
+                  </div>
                 </div>
 
                 {/* Barra proporzionale */}
