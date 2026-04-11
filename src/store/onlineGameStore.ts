@@ -490,6 +490,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     const { game, players } = get();
     if (!game) return;
     set({ loading: true });
+    try {
 
     // 1. Aggiorna stato partita ad "active"
     await supabase.from('games').update({ status: 'active', started_at: new Date().toISOString() }).eq('id', game.id);
@@ -577,13 +578,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
     // 5. Ricarica tutto (stato + mazzo + territori appena creati)
     await get().loadGame(game.id);
-    set({ loading: false });
 
     // 5. Se il primo turno è di un bot, eseguilo
     const state = get().gameState;
     const firstPlayer = players.find(p => p.faction === state?.active_faction);
     if (firstPlayer?.is_bot) {
       setTimeout(() => get().runBotTurn(), 1500);
+    }
+    } catch (err: unknown) {
+      console.error('[startGame] errore:', err instanceof Error ? err.message : err);
+      set({ error: err instanceof Error ? err.message : 'Errore avvio partita' });
+    } finally {
+      set({ loading: false });
     }
   },
 
@@ -1165,6 +1171,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     const { game, players } = get();
     if (!game) return;
     set({ loading: true });
+    try {
 
     // 1. Costruisce il mazzo unificato mescolato
     const unified = getUnifiedDeck();
@@ -1223,10 +1230,13 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     // 3. Segna game_mode = 'unified' sulla partita
     await supabase.from('games').update({ game_mode: 'unified' }).eq('id', game.id);
 
-    set(s => ({
-      game: { ...s.game!, game_mode: 'unified' },
-      loading: false,
-    }));
+    set(s => ({ game: { ...s.game!, game_mode: 'unified' } }));
+    } catch (err: unknown) {
+      console.error('[initUnifiedDeck]', err instanceof Error ? err.message : err);
+      set({ error: err instanceof Error ? err.message : 'Errore mazzo unificato' });
+    } finally {
+      set({ loading: false });
+    }
   },
 
   drawCards: async (faction: Faction) => {
@@ -1645,13 +1655,13 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const cur = terrRec ? ((terrRec as unknown) as Record<string, number>)[infKey] ?? 0 : 0;
       const next = Math.min(5, Math.max(0, cur + delta));
 
-      await supabase.from('territories').upsert({
+      await withTimeout(supabase.from('territories').upsert({
         game_id: game.id,
         territory,
         ...(terrRec ?? {}),
         [infKey]: next,
         updated_at: new Date().toISOString(),
-      }, { onConflict: 'game_id,territory' });
+      }, { onConflict: 'game_id,territory' }), 8000, 'addInfluence');
 
       // Aggiorna locale
       const updTerr = terrRec
@@ -1810,9 +1820,10 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         }
 
         if (Object.keys(iranSpecialUpdates).length > 0) {
-          await supabase.from('game_state')
-            .update(iranSpecialUpdates)
-            .eq('game_id', game.id);
+          await withTimeout(
+            supabase.from('game_state').update(iranSpecialUpdates).eq('game_id', game.id),
+            8000, 'iranSpecialUpdates'
+          );
         }
       }
       // ─────────────────────────────────────────────────────────────────────
@@ -1847,7 +1858,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         defcon_change: defconChange,
         description,
       };
-      await supabase.from('combat_log').insert(logEntry);
+      await withTimeout(supabase.from('combat_log').insert(logEntry), 8000, 'combat_log');
 
       // 5. Aggiorna stato locale
       const updatedGs = {
