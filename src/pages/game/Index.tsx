@@ -58,14 +58,14 @@ const TRACKS: TrackDef[] = [
     ],
   },
   {
-    id: 'sanzioni', label: 'Sanzioni / Stabilità', icon: '💰', min: 1, max: 20, color: '#3b82f6',
-    getValue: s => s.sanzioni, winLabel: 'COLLASSO', winValue: 20, winDir: 'up',
+    id: 'sanzioni', label: 'Sanzioni / Stabilità', icon: '💰', min: 1, max: 10, color: '#3b82f6',
+    getValue: s => s.sanzioni, winLabel: 'COLLASSO', winValue: 10, winDir: 'up',
     zones: [
-      { from: 1,  to: 4,  color: '#22c55e', bg: '#22c55e22', label: 'Lievi' },
-      { from: 5,  to: 8,  color: '#84cc16', bg: '#84cc1622', label: 'Moderate' },
-      { from: 9,  to: 12, color: '#f59e0b', bg: '#f59e0b22', label: 'Gravi' },
-      { from: 13, to: 16, color: '#f97316', bg: '#f9731622', label: 'Severe' },
-      { from: 17, to: 20, color: '#ef4444', bg: '#ef444433', label: 'Totali' },
+      { from: 1,  to: 2,  color: '#22c55e', bg: '#22c55e22', label: 'Lievi' },
+      { from: 3,  to: 4,  color: '#84cc16', bg: '#84cc1622', label: 'Moderate' },
+      { from: 5,  to: 6,  color: '#f59e0b', bg: '#f59e0b22', label: 'Gravi' },
+      { from: 7,  to: 8,  color: '#f97316', bg: '#f9731622', label: 'Severe' },
+      { from: 9,  to: 10, color: '#ef4444', bg: '#ef444433', label: 'Totali' },
     ],
   },
   {

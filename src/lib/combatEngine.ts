@@ -226,13 +226,16 @@ function calcDefenseForce(
     bd.push(`⚡ Guerra Asimmetrica (Iran in casa): +3 → ${force}`);
   }
 
-  // IRGC in Iran: difesa bonus casa
+  // IRGC in Iran: bonus addizionale in territorio di casa
+  // Nota: il defenseBonus=2 è già stato contato nel loop unità sopra.
+  // Qui si aggiunge solo il bonus extra in casa (differenza con il bonus base):
+  // specialEffect dice "Difesa +5 totale in Iran" → defenseBonus=2 (base) + 3 (extra casa) = 5
   if (input.defender === 'Iran') {
     const irgcQty = input.defenderUnitsInTerritory['IRGC'] ?? 0;
     if (irgcQty > 0 && input.territory === 'Iran') {
-      // già calcolato come defenseBonus ma doppio in casa
-      force += irgcQty;
-      bd.push(`🦅 IRGC in casa (bonus doppio): +${irgcQty} → ${force}`);
+      // Extra = +3 per unità (totale 5 = 2 base già contato + 3 qui)
+      force += irgcQty * 3;
+      bd.push(`🦅 IRGC in casa (bonus extra +3/unità): +${irgcQty * 3} → ${force}`);
     }
   }
 

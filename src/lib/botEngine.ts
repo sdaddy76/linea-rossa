@@ -548,8 +548,9 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout',
       message: '☢️ Iran ha raggiunto la capacità nucleare! Breakout completato.' };
   }
-  // Coalizione vince: sanzioni al massimo (20) → Iran collassa
-  if (state.sanzioni >= 20) {
+  // Coalizione vince: sanzioni al massimo (10) → Iran collassa
+  // NOTA: DB CHECK sanzioni BETWEEN 1 AND 10 — soglia 10 (non 20!)
+  if (state.sanzioni >= 10) {
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'collasso',
       message: '🏴 Le sanzioni hanno paralizzato il regime iraniano!' };
   }

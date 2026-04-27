@@ -379,7 +379,7 @@ export default function WaitingRoom({
       };
       await tryUpdate({ turno_corrente: 1 }); // opzionale — ignorato se colonna assente (PGRST204/42703)
       await tryUpdate({ current_turn: 1 });   // alias alternativo — ignorato se colonna assente
-      await tryUpdate({ defcon: 10 });
+      await tryUpdate({ defcon: 5 });  // DB: BETWEEN 1 AND 5 — valore iniziale = DEFCON 5 (pace)
       await tryUpdate({ opinione: 0 });
       await tryUpdate({ forze_militari_iran: 5, forze_militari_coalizione: 5 });
       await tryUpdate({ forze_militari_russia: 5, forze_militari_cina: 5, forze_militari_europa: 5 });
