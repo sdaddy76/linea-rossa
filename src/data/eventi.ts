@@ -42,8 +42,6 @@ export interface EventoCard {
   turn_order: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[];
   /** Fazione/i che fanno avanzare il segnalino turni (1 o 2 fazioni) */
   turn_advancers: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[];
-  turn_order: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[];  // ordine turno per questo round (5 fazioni)
-  turn_advancers: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[]; // fazione/i che avanzano il segnalino (1 o 2)
   severity: 'low' | 'medium' | 'high' | 'critical'; // impatto visivo
 }
 

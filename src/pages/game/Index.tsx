@@ -404,6 +404,11 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
 
   const [eventoCorrente, setEventoCorrente] = useState<EventoCard | null>(null);
   const applicandoEventoRef = useRef(false); // lock anti-race tra tab multipli
+  // ── Anti-doppio evento ──────────────────────────────────────────────────────
+  // Traccia quale turno è già stato mostrato all'utente.
+  // chiudiEvento() NON resetta questo ref — impedisce che gameState re-trigger
+  // mostri di nuovo lo stesso evento dopo che l'utente lo ha già confermato.
+  const shownEventTurnRef = useRef<number>(-1);
   const [showObjectives, setShowObjectives] = useState(false);
 
   // Carica territori e unità a inizio partita
@@ -457,7 +462,9 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     if (gameState.last_event_turn === turnNum && gameState.last_event_id) {
       import('@/data/eventi').then(({ getEventoById }) => {
         const ev = getEventoById(gameState.last_event_id!) as EventoCard | undefined;
-        if (ev && eventoCorrente?.event_id !== ev.event_id) {
+        // ── Fix doppio evento: mostra SOLO se questo turno non è già stato mostrato ──
+        if (ev && shownEventTurnRef.current !== turnNum) {
+          shownEventTurnRef.current = turnNum;
           setTimeout(() => setEventoCorrente(ev), 400);
         }
       });
@@ -510,7 +517,10 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           if (error) {
             // Se le colonne last_event_* non esistono, mostriamo solo il modale localmente
             console.warn('[evento] update fallito (colonne mancanti?):', error.message);
-            setTimeout(() => setEventoCorrente(evento), 400);
+            if (shownEventTurnRef.current !== turnNum) {
+              shownEventTurnRef.current = turnNum;
+              setTimeout(() => setEventoCorrente(evento), 400);
+            }
           } else {
             useOnlineGameStore.setState(s => ({
               gameState: { ...s.gameState!, ...updates },
@@ -529,7 +539,10 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             }).then(({ error: logErr }) => {
               if (logErr) console.warn('[evento] moves_log non salvato:', logErr.message);
             });
-            setTimeout(() => setEventoCorrente(evento), 400);
+            if (shownEventTurnRef.current !== turnNum) {
+              shownEventTurnRef.current = turnNum;
+              setTimeout(() => setEventoCorrente(evento), 400);
+            }
           }
           applicandoEventoRef.current = false;
         });
@@ -540,6 +553,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
       gameState?.last_event_turn, gameState?.last_event_id]);
 
   // Chiude il modale (solo UI, gli effetti sono già applicati nel DB)
+  // NOTA: shownEventTurnRef NON viene resettato qui — impedisce re-apertura
   const chiudiEvento = () => setEventoCorrente(null);
 
   // Traccia lo stato precedente per mostrare i delta
