@@ -374,20 +374,25 @@ export default function WaitingRoom({
       // ── Colonne opzionali (aggiunte da migration separate) ──
       // Ogni update è indipendente: se la colonna non esiste Supabase restituisce
       // error.code='42703' — lo ignoriamo, non blocchiamo l'avvio.
+      // ── tryUpdate: update singolo con gestione errori colonne mancanti ──────
       const tryUpdate = async (data: Record<string, unknown>) => {
         const { error: e } = await supabase.from('game_state').update(data).eq('game_id', gameId);
-        // ignora: 42703 = colonna mancante, PGRST204 = colonna assente schema cache, 23514 = constraint check
         if (e && e.code !== '42703' && e.code !== 'PGRST204' && e.code !== '23514') console.warn('[startGame] optional update warn:', e);
       };
-      await tryUpdate({ turno_corrente: 1 }); // opzionale — ignorato se colonna assente (PGRST204/42703)
-      await tryUpdate({ current_turn: 1 });   // alias alternativo — ignorato se colonna assente
-      await tryUpdate({ defcon: 5 });  // DB: BETWEEN 1 AND 5 — valore iniziale = DEFCON 5 (pace)
-      await tryUpdate({ opinione: 0 });
-      await tryUpdate({ forze_militari_iran: 5, forze_militari_coalizione: 5 });
-      await tryUpdate({ forze_militari_russia: 5, forze_militari_cina: 5, forze_militari_europa: 5 });
+
+      // ── PARALLELIZZA tutti i tryUpdate opzionali → da 6 await sequenziali a 1 ──
+      // Questo era il principale collo di bottiglia del timeout avvio.
+      const optionalUpdates: Record<string, unknown>[] = [
+        { turno_corrente: 1 },
+        { current_turn: 1 },
+        { defcon: 5 },
+        { opinione: 0 },
+        { forze_militari_iran: 5, forze_militari_coalizione: 5,
+          forze_militari_russia: 5, forze_militari_cina: 5, forze_militari_europa: 5 },
+      ];
       try {
         const { INITIAL_UNITS } = await import('@/lib/territoriesData');
-        await tryUpdate({
+        optionalUpdates.push({
           units_iran: INITIAL_UNITS.Iran, units_coalizione: INITIAL_UNITS.Coalizione,
           units_russia: INITIAL_UNITS.Russia, units_cina: INITIAL_UNITS.Cina,
           units_europa: INITIAL_UNITS.Europa,
@@ -396,6 +401,7 @@ export default function WaitingRoom({
           active_alliances: [],
         });
       } catch { /* import fallito — ignorato */ }
+      await Promise.all(optionalUpdates.map(tryUpdate));
 
       console.log('[startGame] step 3 — mazzi carte');
       const { getFullDeck, CLASSIC_HAND_SIZE: HAND_SIZE } = await import('@/data/mazzi');

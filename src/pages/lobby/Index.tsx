@@ -45,7 +45,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   // ── Stato form crea ──────────────────────────────────────────────────────
   const [isPublic, setIsPublic]     = useState(true);   // aperta vs riservata
   const [customCode, setCustomCode] = useState('');      // codice scelto dall'host (riservata)
-  const [maxTurns, setMaxTurns]     = useState(20);
+  const [gameLength, setGameLength] = useState<'breve' | 'media' | 'lunga'>('media');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
 
@@ -243,7 +243,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       const buildPayload = (withIsPublic: boolean) => ({
         code,
         name: code,
-        max_turns: maxTurns,
+        max_turns: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70,
+        game_length: gameLength,
+        track_limit: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70,
         created_by: profile.id,
         ...(withIsPublic ? { is_public: isPublic } : {}),
       });
@@ -702,20 +704,30 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                 </div>
               )}
 
-              {/* Turni massimi */}
+              {/* Durata partita — sostituisce il vecchio selettore numerico turni */}
               <div>
                 <label className="block text-[10px] font-mono text-[#8899aa] uppercase tracking-widest mb-1.5">
-                  Turni massimi
+                  ⏱️ Durata Partita
                 </label>
-                <select
-                  value={maxTurns}
-                  onChange={(e) => setMaxTurns(Number(e.target.value))}
-                  className="w-full bg-[#060d18] border border-[#1e3a5f] rounded-lg px-4 py-2.5
-                    text-white font-mono text-sm focus:outline-none focus:border-[#00ff88]">
-                  {[10, 15, 20, 25, 30].map((n) => (
-                    <option key={n} value={n}>{n} turni</option>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { key: 'breve', label: '⚡ Breve',  sub: '~11 round · 40 caselle', color: '#f97316' },
+                    { key: 'media', label: '⚖️ Media',  sub: '~20 round · 70 caselle', color: '#f59e0b' },
+                    { key: 'lunga', label: '🕰️ Lunga',  sub: '~29 round · 100 caselle', color: '#22c55e' },
+                  ] as const).map(opt => (
+                    <button key={opt.key}
+                      onClick={() => setGameLength(opt.key)}
+                      className="py-2 px-2 rounded-lg font-mono text-xs font-bold transition-all text-center"
+                      style={{
+                        backgroundColor: gameLength === opt.key ? `${opt.color}20` : 'transparent',
+                        border: `1px solid ${gameLength === opt.key ? opt.color : '#1e3a5f'}`,
+                        color: gameLength === opt.key ? opt.color : '#556677',
+                      }}>
+                      {opt.label}
+                      <span className="block text-[9px] font-normal mt-0.5 opacity-70">{opt.sub}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
               {error && (
