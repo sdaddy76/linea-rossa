@@ -68,6 +68,38 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
   const [openGames, setOpenGames]     = useState<GameWithPlayers[]>([]);
   const [recentGames, setRecentGames] = useState<GameWithPlayers[]>([]);
 
+  // ── Elimina partita (solo creatore) ──────────────────────────────────────
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const deleteGame = async (game: GameWithPlayers) => {
+    const confirmed = window.confirm(
+      `Eliminare la partita "${game.code}"?\n\nTutti i dati (stato, carte, mosse) saranno cancellati definitivamente.`
+    );
+    if (!confirmed) return;
+    setDeletingId(game.id);
+    try {
+      // DELETE a cascata: elimina prima le tabelle dipendenti, poi games
+      await Promise.all([
+        supabase.from('game_state').delete().eq('game_id', game.id),
+        supabase.from('game_players').delete().eq('game_id', game.id),
+        supabase.from('cards_deck').delete().eq('game_id', game.id),
+        supabase.from('moves_log').delete().eq('game_id', game.id),
+        supabase.from('territories').delete().eq('game_id', game.id),
+        supabase.from('military_units').delete().eq('game_id', game.id),
+        supabase.from('game_objectives').delete().eq('game_id', game.id),
+      ]);
+      await supabase.from('games').delete().eq('id', game.id);
+      // Rimuovi dalle liste locali
+      setOpenGames(prev => prev.filter(g => g.id !== game.id));
+      setRecentGames(prev => prev.filter(g => g.id !== game.id));
+    } catch (err) {
+      console.error('[deleteGame]', err);
+      alert('Errore durante l\'eliminazione. Riprova.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   // ── Partite nascoste (localStorage) ─────────────────────────────────────
   const HIDDEN_KEY = `linea_rossa_hidden_games_${profile.id}`;
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => {
@@ -549,6 +581,21 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                 border border-[#334455] text-[#445566] hover:border-[#ff4444] hover:text-[#ff4444]
                 opacity-0 group-hover/row:opacity-100">
               ✕
+            </button>
+          )}
+
+          {/* Pulsante elimina — solo per il creatore della partita */}
+          {isMine && (
+            <button
+              onClick={(e) => { e.stopPropagation(); deleteGame(game); }}
+              disabled={deletingId === game.id}
+              title="Elimina partita (solo tu puoi farlo)"
+              className="px-2 py-1.5 rounded-lg font-mono text-xs transition-all
+                border border-[#ff444430] text-[#ff444488]
+                hover:border-[#ff4444] hover:text-[#ff4444] hover:bg-[#ff444412]
+                disabled:opacity-40 disabled:cursor-not-allowed
+                opacity-0 group-hover/row:opacity-100">
+              {deletingId === game.id ? '⏳' : '🗑️'}
             </button>
           )}
         </div>
