@@ -1848,7 +1848,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const capitalTargets = ['Teheran', 'Iran'];
 
       // Delta effetti speciali (inizializzati a 0, calcolati solo se iranAttack)
-      let iranSpecialUpdates: Record<string, number> = {};
+      const iranSpecialUpdates: Record<string, number> = {};
       let iranAttackNoteSuffix = '';
 
       if (isIranAttack) {

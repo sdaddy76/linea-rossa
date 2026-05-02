@@ -359,7 +359,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const {
     game, gameState, players, myFaction, moves, deckCards,
     loading, isBotThinking, error, gameOverInfo, notification, vetoPending,
-    playCard, startGame, clearError, setNotification, useVeto,
+    playCard, startGame, clearError, setNotification, useVeto: callVeto,
     loadTerritories,
     runBotTurn, playCardUnified, playCardOps, drawCards, myHand,
     territories: terrRecords, militaryUnits: unitRecords,
@@ -1024,7 +1024,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   }}
                 />
 
-                {/* CombatPanel rimosso: usa OpsActionModal → Acquista & Piazza */
+                {/* CombatPanel rimosso: usa OpsActionModal → Acquista & Piazza */}
               </div>
             )}
           </div>
@@ -1378,7 +1378,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
 
 
 
-              {/* MilitaryMarket rimosso — meccanica unificata in OpsActionModal */
+              {/* MilitaryMarket rimosso — meccanica unificata in OpsActionModal */}
 
               {/* Errori */}
               {error && (
@@ -1502,7 +1502,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           sanzioniDelta={vetoPending.sanzioniDelta}
           cardName={vetoPending.cardName}
           vetiRimasti={gameState?.veto_onu_russia ?? 0}
-          onDecide={(use) => useVeto(use)}
+          onDecide={(use) => callVeto(use)}
         />
       )}
     </div>
