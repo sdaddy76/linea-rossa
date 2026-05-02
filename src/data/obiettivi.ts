@@ -626,3 +626,28 @@ export const OBJ_DIFFICOLTA_ICONS: Record<ObjDifficolta, string> = {
   media:     '⭐⭐',
   difficile: '⭐⭐⭐',
 };
+
+// ── Valutazione condizione obiettivo ─────────────────────────────────────────
+// gsMap: mappa { nome_campo: valore_numerico } dallo stato di gioco
+// Ritorna: true se condizione soddisfatta, false se no, 'manuale' se richiede giudizio umano
+export function evalObjectiveCondition(
+  obj: ObiettivoSegreto,
+  gsMap: Record<string, number>,
+): boolean | 'manuale' {
+  if (obj.completato) return true;
+  if (!obj.condizione_tipo || obj.condizione_tipo === 'manuale') return 'manuale';
+  if (!obj.condizione_campo || obj.condizione_op === null || obj.condizione_valore === null) return false;
+
+  const val = gsMap[obj.condizione_campo] ?? 0;
+  const target = obj.condizione_valore;
+
+  switch (obj.condizione_op) {
+    case '>=': return val >= target;
+    case '<=': return val <= target;
+    case '>':  return val > target;
+    case '<':  return val < target;
+    case '=':
+    case '==': return val === target;
+    default:   return false;
+  }
+}
