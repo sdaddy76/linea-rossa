@@ -534,43 +534,96 @@ export function applyCardEffects(
 // ─── Formula punteggi per fazione ────────────────────────────────────────────
 export function calcScores(state: GameState): Record<string, number> {
   return {
-    Iran:       Math.round((state.nucleare ?? 0) * 2 + (state.risorse_iran ?? 0) - (state.sanzioni ?? 0)),
-    Coalizione: Math.round((state.sanzioni ?? 0) * 2 + (state.risorse_coalizione ?? 0) - (state.nucleare ?? 0)),
-    Russia:     Math.round((state.risorse_russia ?? 0) + (state.stabilita_russia ?? 0)),
-    Cina:       Math.round((state.risorse_cina ?? 0) + (state.stabilita_cina ?? 0)),
-    Europa:     Math.round((state.defcon ?? 0) * 3 + (state.stabilita_europa ?? 0)),
+    // Iran: punteggio nucleare pesato + risorse - pressione sanzioni
+    Iran: Math.round(
+      (state.nucleare ?? 0) * 2 +
+      (state.risorse_iran ?? 0) -
+      (state.sanzioni ?? 0)
+    ),
+    // Coalizione: pressione sanzionatoria + risorse - avanzamento nucleare
+    Coalizione: Math.round(
+      (state.sanzioni ?? 0) * 2 +
+      (state.risorse_coalizione ?? 0) -
+      (state.nucleare ?? 0)
+    ),
+    // Russia: potere militare×2 + risorse + stabilità interna
+    // Prima: solo risorse+stabilita (max ~16) → ora competitive (max ~40)
+    Russia: Math.round(
+      (state.influenza_militare_russia ?? 0) * 2 +
+      (state.risorse_russia ?? 0) +
+      (state.stabilita_russia ?? 0)
+    ),
+    // Cina: influenza commerciale×2 + risorse + stabilità rotte
+    // Prima: solo risorse+stabilita (max ~18) → ora competitive (max ~42)
+    Cina: Math.round(
+      (state.influenza_commerciale_cina ?? 0) * 2 +
+      (state.risorse_cina ?? 0) +
+      (state.stabilita_rotte_cina ?? 0)
+    ),
+    // Europa: DEFCON×2 + opinione globale + aiuti umanitari + coesione UE
+    // Prima: solo defcon×3+stabilita (dipendente da altri) → ora azionabile (max ~40)
+    Europa: Math.round(
+      (state.defcon ?? 0) * 2 +
+      (state.opinione ?? 0) +
+      (state.aiuti_umanitari_europa ?? 0) +
+      (state.coesione_ue_europa ?? 0)
+    ),
   };
 }
 
 export function checkWinCondition(state: GameState, turn: number, maxTurns: number) {
-  // Iran vince: nucleare raggiunge 15 (breakout)
+  // ── Iran: breakout nucleare ───────────────────────────────────────────────
   if (state.nucleare >= 15) {
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout',
       message: '☢️ Iran ha raggiunto la capacità nucleare! Breakout completato.' };
   }
-  // Coalizione vince: sanzioni al massimo (10) → Iran collassa
-  // NOTA: DB CHECK sanzioni BETWEEN 1 AND 10 — soglia 10 (non 20!)
+
+  // ── Coalizione: sanzioni al massimo → regime iraniano collassa ───────────
   if (state.sanzioni >= 10) {
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'collasso',
       message: '🏴 Le sanzioni hanno paralizzato il regime iraniano!' };
   }
-  // Tutti perdono: DEFCON scende a 1
-  if (state.defcon <= 1) { // DEFCON 1 = guerra nucleare
+
+  // ── Russia: egemonia militare regionale ──────────────────────────────────
+  // Influenza militare al massimo → controllo del campo di battaglia
+  if ((state.influenza_militare_russia ?? 0) >= 9) {
+    return { isOver: true, winner: 'Russia' as Faction, condition: 'egemonia_militare',
+      message: '🐻 La Russia ha raggiunto l\'egemonia militare nella regione!' };
+  }
+
+  // ── Cina: Via della Seta dominante ───────────────────────────────────────
+  // Influenza commerciale + stabilità rotte entrambe elevate
+  if ((state.influenza_commerciale_cina ?? 0) >= 9 && (state.stabilita_rotte_cina ?? 0) >= 8) {
+    return { isOver: true, winner: 'Cina' as Faction, condition: 'via_seta',
+      message: '🐉 La Cina domina le rotte commerciali del Medio Oriente!' };
+  }
+
+  // ── Europa: pace garantita diplomaticamente ──────────────────────────────
+  // DEFCON massimo + opinione globale positiva + aiuti umanitari elevati
+  if ((state.defcon ?? 0) >= 5 && (state.opinione ?? 0) >= 6 && (state.aiuti_umanitari_europa ?? 0) >= 8) {
+    return { isOver: true, winner: 'Europa' as Faction, condition: 'pace_diplomatica',
+      message: '🕊️ L\'Europa ha garantito la pace e la stabilità nella regione!' };
+  }
+
+  // ── Tutti perdono: DEFCON 1 = guerra nucleare ────────────────────────────
+  if (state.defcon <= 1) {
     return { isOver: true, winner: undefined, condition: 'defcon',
       message: '💥 DEFCON 1 — Guerra Termonucleare. Tutti hanno perso.' };
   }
-  // Fine turni: vince chi ha posizione migliore
+
+  // ── Fine turni: vince chi ha punteggio più alto ───────────────────────────
   if (turn >= maxTurns) {
     const scores = calcScores(state);
     const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
     const [topName, topScore] = sorted[0];
-    const [secondName, secondScore] = sorted[1];
+    const [, secondScore] = sorted[1];
     const winner = topScore > secondScore ? topName : null;
     const winnerLabel = winner ?? 'Pareggio';
     const scoreLines = sorted.map(([f, s]) => `  ${f}: ${s} pt`).join('\n');
     return { isOver: true, winner: (winner ?? undefined) as Faction | undefined, condition: 'turni',
       message: `⏱️ Turni esauriti. ${winnerLabel} vince ai punti.\n${scoreLines}` };
   }
+
   return { isOver: false };
 }
 
