@@ -590,3 +590,6 @@ export function estraiObiettiviRandom(
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   return shuffled.slice(0, numDraw);
 }
+
+// Alias per retrocompatibilità con onlineGameStore.ts
+export const assignObjectives = estraiObiettiviRandom;
