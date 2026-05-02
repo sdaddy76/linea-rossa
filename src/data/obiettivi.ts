@@ -593,3 +593,36 @@ export function estraiObiettiviRandom(
 
 // Alias per retrocompatibilità con onlineGameStore.ts
 export const assignObjectives = estraiObiettiviRandom;
+
+// ── Tipo difficoltà ───────────────────────────────────────────────────────────
+export type ObjDifficolta = 'facile' | 'media' | 'difficile';
+
+// ── Colori e flag per fazione ─────────────────────────────────────────────────
+export const OBJ_FACTION_COLORS: Record<ObjFazione, string> = {
+  Iran:       '#22c55e',
+  Coalizione: '#3b82f6',
+  Russia:     '#ef4444',
+  Cina:       '#f59e0b',
+  Europa:     '#8b5cf6',
+};
+
+export const OBJ_FACTION_FLAGS: Record<ObjFazione, string> = {
+  Iran:       '🇮🇷',
+  Coalizione: '🇺🇸',
+  Russia:     '🇷🇺',
+  Cina:       '🇨🇳',
+  Europa:     '🇪🇺',
+};
+
+// ── Colori e icone per difficoltà ─────────────────────────────────────────────
+export const OBJ_DIFFICOLTA_COLORS: Record<ObjDifficolta, string> = {
+  facile:    '#22c55e',
+  media:     '#f59e0b',
+  difficile: '#ef4444',
+};
+
+export const OBJ_DIFFICOLTA_ICONS: Record<ObjDifficolta, string> = {
+  facile:    '⭐',
+  media:     '⭐⭐',
+  difficile: '⭐⭐⭐',
+};
