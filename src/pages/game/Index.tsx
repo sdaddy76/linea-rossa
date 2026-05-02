@@ -359,8 +359,8 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const {
     game, gameState, players, myFaction, moves, deckCards,
     loading, isBotThinking, error, gameOverInfo, notification, vetoPending,
-    playCard, startGame, clearError, setNotification, buyMilitaryResources, useVeto,
-    loadTerritories, deployUnit, attackTerritory, addInfluence,
+    playCard, startGame, clearError, setNotification, useVeto,
+    loadTerritories,
     runBotTurn, playCardUnified, playCardOps, drawCards, myHand,
     territories: terrRecords, militaryUnits: unitRecords,
     profile, session,
