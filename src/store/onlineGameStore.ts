@@ -261,7 +261,7 @@ interface OnlineGameStore {
    */
   playCardOps: (
     cardId: string,
-    action: 'buy' | 'influence' | 'attack',
+    action: 'buy' | 'influence' | 'attack' | 'deploy',
     params: {
       unitType?: string; qty?: number; opSpent?: number;
       territory?: string;
@@ -269,6 +269,8 @@ interface OnlineGameStore {
       result?: string; infChangeAtk?: number; infChangeDef?: number;
       defconChange?: number; description?: string;
       attackerUnitsLost?: number; stabilityChange?: number;
+      // deploy-specific
+      combatResult?: string; unitPlaced?: boolean;
     }
   ) => Promise<void>;
 
@@ -2056,6 +2058,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         await addInfluence(territory, opSpent);
 
       } else if (action === 'attack') {
+        // LEGACY — mantenuto per compatibilità bot/CombatPanel
         const {
           territory = '', unitTypes = [], attackForce = 1, defenseForce = 1,
           result = 'stallo', infChangeAtk = 0, infChangeDef = 0,
@@ -2070,7 +2073,6 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         if (defUnits.length > 0) {
           defender = defUnits[0].faction as import('@/types/game').Faction;
         } else if (terrRec) {
-          // Trova la fazione con più influenza come difensore
           const factions: import('@/types/game').Faction[] = ['Iran','Coalizione','Russia','Cina','Europa'];
           const best = factions.reduce((max, f) => {
             const key = `inf_${f.toLowerCase()}` as keyof typeof terrRec;
@@ -2089,8 +2091,6 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           infChangeAtk, infChangeDef, defconChange, description,
           attackerUnitsLost, stabilityChange,
         });
-        // attackTerritory gestisce già il passaggio di turno.
-        // Segniamo solo la carta come giocata (senza secondo turno-advance).
         await supabase.from('cards_deck').update({
           status: 'played',
           played_at_turn: get().game?.current_turn ?? null,
@@ -2101,6 +2101,87 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           deckCards: s.deckCards.filter(dc => dc.card_id !== cardId),
           loading: false,
         }));
+        return;
+
+      } else if (action === 'deploy') {
+        // ── NUOVA MECCANICA: Acquista & Piazza in un'unica azione ──────────
+        const {
+          territory = '', unitType = 'Convenzionale', qty = 1,
+          // Dati combattimento (opzionali — presenti solo se c'erano unità nemiche)
+          combatResult, attackForce = 0, defenseForce = 0,
+          infChangeAtk = 0, infChangeDef = 0, defconChange = 0,
+          description = '', attackerUnitsLost = 0, stabilityChange = 0,
+          unitPlaced = true,
+        } = params as {
+          territory: string; unitType: string; qty: number;
+          combatResult?: string; attackForce?: number; defenseForce?: number;
+          infChangeAtk?: number; infChangeDef?: number; defconChange?: number;
+          description?: string; attackerUnitsLost?: number; stabilityChange?: number;
+          unitPlaced?: boolean;
+        };
+
+        const { militaryUnits: curUnits, territories: terrRecs } = get();
+
+        if (combatResult) {
+          // ── Caso CON combattimento ──────────────────────────────────────
+          // Trova il difensore principale
+          const defUnits = curUnits.filter(u => u.territory === territory && u.faction !== myFaction);
+          const terrRec  = terrRecs.find(t => t.territory === territory);
+          let defender: import('@/types/game').Faction = 'Iran';
+          if (defUnits.length > 0) {
+            defender = defUnits[0].faction as import('@/types/game').Faction;
+          } else if (terrRec) {
+            const factions: import('@/types/game').Faction[] = ['Iran','Coalizione','Russia','Cina','Europa'];
+            defender = factions.reduce((max, f) => {
+              const key    = `inf_${f.toLowerCase()}`    as keyof typeof terrRec;
+              const maxKey = `inf_${max.toLowerCase()}`  as keyof typeof terrRec;
+              return ((terrRec[key] as number) ?? 0) > ((terrRec[maxKey] as number) ?? 0) ? f : max;
+            }, factions.find(f => f !== myFaction) ?? 'Iran' as import('@/types/game').Faction);
+          }
+
+          // Applica il combattimento (gestisce influenze + defcon + nextTurn)
+          await attackTerritory({
+            territory, defender, unitsUsed: [unitType],
+            attackForce, defenseForce,
+            result: combatResult as Parameters<typeof attackTerritory>[0]['result'],
+            infChangeAtk, infChangeDef, defconChange, description,
+            attackerUnitsLost, stabilityChange,
+          });
+
+          // Se l'unità sopravvive, piazzala nel territorio
+          if (unitPlaced) {
+            await deployUnit(territory, unitType, qty);
+          }
+
+          // Marca carta come giocata (attackTerritory ha già avanzato il turno)
+          await supabase.from('cards_deck').update({
+            status: 'played',
+            played_at_turn: get().game?.current_turn ?? null,
+            held_by_faction: null,
+            play_mode: 'ops',
+          }).eq('card_id', cardId);
+
+          set(s => ({
+            deckCards: s.deckCards.filter(dc => dc.card_id !== cardId),
+            notification: unitPlaced
+              ? `🪖 ${myFaction}: ${qty}× ${unitType} schierata in ${territory} (${combatResult})`
+              : `💥 ${myFaction}: ${qty}× ${unitType} distrutta in ${territory}`,
+            loading: false,
+          }));
+
+        } else {
+          // ── Caso SENZA combattimento: piazzamento diretto ──────────────
+          await deployUnit(territory, unitType, qty);
+
+          // Marca carta e avanza turno
+          await playCardUnified(cardId, 'ops');
+
+          set(s => ({
+            notification: `🪖 ${myFaction}: ${qty}× ${unitType} schierata in ${territory}`,
+            deckCards: s.deckCards.filter(dc => dc.card_id !== cardId),
+          }));
+        }
+
         return;
       }
 
