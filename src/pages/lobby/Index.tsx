@@ -244,8 +244,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
         code,
         name: code,
         max_turns: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70,
-        game_length: gameLength,
-        track_limit: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70,
+        // game_length e track_limit salvati separatamente dopo l'insert
+        // (colonne opzionali non ancora in tutte le installazioni DB)
         created_by: profile.id,
         ...(withIsPublic ? { is_public: isPublic } : {}),
       });
@@ -269,6 +269,20 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
 
       if (gameError) throw new Error(gameError.message ?? 'Errore nella creazione');
       if (!game) throw new Error('Partita non creata');
+
+      // Salva game_length e track_limit come update fire-and-forget
+      // (colonne opzionali: ignorato se non ancora in schema DB)
+      supabase.from('games')
+        .update({
+          game_length: gameLength,
+          track_limit: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70,
+        })
+        .eq('id', game.id)
+        .then(({ error: glErr }) => {
+          if (glErr && glErr.code !== '42703' && glErr.code !== 'PGRST204')
+            console.warn('[createGame] game_length update:', glErr.message);
+        })
+        .catch(() => {});
 
       // Tavolo creato nel DB: ferma il safetyTimer (startGame può durare altri 10-15s)
       clearTimeout(safetyTimer);
