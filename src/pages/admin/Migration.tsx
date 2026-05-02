@@ -44,7 +44,7 @@ CREATE POLICY "Log inseribile da partecipanti" ON public.moves_log FOR INSERT WI
 );
 
 CREATE OR REPLACE FUNCTION public.generate_game_code(p_prefix text DEFAULT 'GAME')
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER AS \$\$
+RETURNS text LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE code text; i int := 0;
 BEGIN
   LOOP
@@ -55,7 +55,7 @@ BEGIN
   END LOOP;
   RETURN code;
 END;
-\$\$;
+$$;
 
 SELECT 'Migration completata!' AS risultato;
 `;

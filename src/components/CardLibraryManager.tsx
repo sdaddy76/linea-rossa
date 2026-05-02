@@ -391,7 +391,7 @@ export default function CardLibraryManager({ onClose }: Props) {
       linked_card_id: c.linked_card_id || null,
     }));
 
-    let inserted = 0, updated = 0, errors = 0;
+    let inserted = 0; let errors = 0; const updated = 0;
 
     // Batch da 50 righe
     const BATCH = 50;

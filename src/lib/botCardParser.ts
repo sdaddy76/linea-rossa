@@ -44,7 +44,7 @@ function normalizeFaction(raw: string): string {
 // ─── Riconosce righe separatore (non sono carte) ─────────────────────────────
 const SEP_REGEX = /^(🇮🇷|🇺🇸|🇪🇺|🇷🇺|🇨🇳|🇮🇱|💵|\s*(IRAN|COALIZIONE|EUROPA|RUSSIA|CINA|ISRAELE))/i;
 // ID_REGEX allargato: accetta qualsiasi stringa alfanumerica con trattini, anche corta
-const ID_REGEX  = /^[A-Za-z0-9][A-Za-z0-9_\-]{1,30}$/;
+const ID_REGEX  = /^[A-Za-z0-9][A-Za-z0-9_-]{1,30}$/;
 
 // ─── Header lookup (cerca per parola chiave, tollerante alle varianti) ───────
 function findCol(headers: string[], ...keywords: string[]): number {

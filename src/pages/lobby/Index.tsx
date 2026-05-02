@@ -214,7 +214,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
     const allGames = [...openGamesLimited, ...recentGamesLimited];
     const uniqueIds = [...new Set(allGames.map((g) => g.id))];
 
-    let playersMap: Record<string, { faction: Faction; is_bot: boolean; player_id: string | null }[]> = {};
+    const playersMap: Record<string, { faction: Faction; is_bot: boolean; player_id: string | null }[]> = {};
     if (uniqueIds.length > 0) {
       // Spezza in batch da 8 per evitare URL troppo lungo → 502
       const BATCH = 8;
@@ -833,7 +833,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                           const isBot = setupBots.has(f);
                           return (
                             <button key={f}
-                              onClick={() => setSetupBots(prev => { const n = new Set(prev); isBot ? n.delete(f) : n.add(f); return n; })}
+                              onClick={() => setSetupBots(prev => { const n = new Set(prev); if (isBot) { n.delete(f); } else { n.add(f); } return n; })}
                               className="flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all"
                               style={{ borderColor: isBot ? '#f59e0b88' : '#1e3a5f', backgroundColor: isBot ? '#f59e0b12' : '#060a10' }}>
                               <div className="flex items-center gap-2">

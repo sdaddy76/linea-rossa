@@ -89,7 +89,7 @@ function calcAttackForce(
   for (const utype of input.unitTypesUsed) {
     const udef = UNIT_MAP[utype];
     if (!udef) continue;
-    let bonus = udef.attackBonus;
+    const bonus = udef.attackBonus;
 
     // Regola navale/terrestre
     if (udef.navalOnly && !tDef?.isNaval) {
@@ -294,7 +294,8 @@ export function resolveCombat(input: CombatInput): CombatOutcome {
   const diff = atk - def;
 
   let result: CombatResult;
-  let infAtk = 0, infDef = 0, defconCh = -1, unitsLost = 0, stabCh = 0;
+  let infAtk = 0, infDef = 0, unitsLost = 0, stabCh = 0;
+  const defconCh = -1;
   let desc = '';
 
   if (diff >= 3) {
