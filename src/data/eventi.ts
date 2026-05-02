@@ -38,6 +38,12 @@ export interface EventoCard {
   flavor_text?: string;        // citazione/notizia fittizia
   effects: EventoEffect;       // effetti meccanici applicati automaticamente
   effects_description: string; // testo leggibile degli effetti (per la UI)
+  /** Ordine turno per questo round: 5 fazioni in sequenza casuale bilanciata */
+  turn_order: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[];
+  /** Fazione/i che fanno avanzare il segnalino turni (1 o 2 fazioni) */
+  turn_advancers: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[];
+  turn_order: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[];  // ordine turno per questo round (5 fazioni)
+  turn_advancers: ('Iran'|'Coalizione'|'Russia'|'Cina'|'Europa')[]; // fazione/i che avanzano il segnalino (1 o 2)
   severity: 'low' | 'medium' | 'high' | 'critical'; // impatto visivo
 }
 
@@ -50,6 +56,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Le prove sono inconfutabili." — Direttore AIEA',
     effects: { delta_nucleare: +2, delta_sanzioni: +2, delta_opinione: -1, delta_defcon: -1, delta_stabilita_iran: -1 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 📣 Opinione -1 · 🚨 DEFCON -1 · ⚖️ Stab. Iran -1',
+    turn_order: ['Europa', 'Iran', 'Cina', 'Coalizione', 'Russia'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E02', event_name: 'Test Nucleare Sotterraneo',
@@ -58,6 +66,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Il mondo è cambiato stanotte." — Analista CIA',
     effects: { delta_nucleare: +3, delta_sanzioni: +3, delta_opinione: -3, delta_defcon: -2 },
     effects_description: '☢️ Nucleare +3 · 💰 Sanzioni +3 · 📣 Opinione -3 · 🚨 DEFCON -2',
+    turn_order: ['Russia', 'Europa', 'Iran', 'Cina', 'Coalizione'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E03', event_name: 'Fuga Scienziato Nucleare',
@@ -66,6 +76,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Portava una chiavetta USB con dentro tutto il programma." — fonte anonima',
     effects: { delta_nucleare: -1, delta_stabilita_iran: -2 },
     effects_description: '☢️ Nucleare -1 · ⚖️ Stab. Iran -2',
+    turn_order: ['Cina', 'Coalizione', 'Russia', 'Europa', 'Iran'],
+    turn_advancers: ['Russia', 'Europa'],
   },
   {
     event_id: 'E04', event_name: 'Sabotaggio Impianto Natanz',
@@ -74,6 +86,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Non siamo stati noi." — Portavoce CIA (in forma anonima)',
     effects: { delta_nucleare: -2, delta_defcon: -1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
     effects_description: '☢️ Nucleare -2 · 🚨 DEFCON -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
+    turn_order: ['Iran', 'Cina', 'Coalizione', 'Russia', 'Europa'],
+    turn_advancers: ['Iran', 'Russia'],
   },
   {
     event_id: 'E05', event_name: 'Ispezione AIEA Bloccata',
@@ -82,6 +96,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Senza accesso non possiamo garantire nulla." — Ispettore AIEA',
     effects: { delta_nucleare: +1, delta_sanzioni: +2, delta_defcon: -1 },
     effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 🚨 DEFCON -1',
+    turn_order: ['Coalizione', 'Russia', 'Europa', 'Iran', 'Cina'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E06', event_name: 'Rapporto AIEA Allarmante',
@@ -90,6 +106,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"È la soglia del weapons-grade." — Esperto proliferazione nucleare',
     effects: { delta_sanzioni: +2, delta_opinione: -2, delta_defcon: -1 },
     effects_description: '💰 Sanzioni +2 · 📣 Opinione -2 · 🚨 DEFCON -1',
+    turn_order: ['Coalizione', 'Russia', 'Iran', 'Europa', 'Cina'],
+    turn_advancers: ['Coalizione', 'Cina'],
   },
   {
     event_id: 'E07', event_name: 'Breakout Nucleare Imminente',
@@ -98,6 +116,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Non settimane. Giorni." — Funzionario Pentagono',
     effects: { delta_nucleare: +2, delta_sanzioni: +3, delta_opinione: -2, delta_defcon: -2 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 📣 Opinione -2 · 🚨 DEFCON -2',
+    turn_order: ['Russia', 'Iran', 'Europa', 'Cina', 'Coalizione'],
+    turn_advancers: ['Europa'],
   },
   {
     event_id: 'E08', event_name: 'Accordo Nucleare Last Minute',
@@ -106,6 +126,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"La diplomazia ha vinto stanotte." — Segretario di Stato USA',
     effects: { delta_nucleare: -2, delta_opinione: +2, delta_defcon: +2, delta_risorse_iran: +3, delta_stabilita_iran: +2 },
     effects_description: '☢️ Nucleare -2 · 📣 Opinione +2 · 🚨 DEFCON +2 · 💵 Risorse Iran +3',
+    turn_order: ['Iran', 'Europa', 'Cina', 'Coalizione', 'Russia'],
+    turn_advancers: ['Europa'],
   },
   {
     event_id: 'E09', event_name: 'Trasferimento Tecnologia',
@@ -114,6 +136,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Il fornitore non è un paese amico dell\'Occidente." — Fonte NATO',
     effects: { delta_nucleare: +2, delta_sanzioni: +1, delta_defcon: -1 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 🚨 DEFCON -1',
+    turn_order: ['Europa', 'Cina', 'Coalizione', 'Russia', 'Iran'],
+    turn_advancers: ['Europa'],
   },
   {
     event_id: 'E10', event_name: 'Centrifughe Avanzate IR-9',
@@ -122,6 +146,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"L\'arricchimento accelera esponenzialmente." — IAEA Director General',
     effects: { delta_nucleare: +2, delta_sanzioni: +2, delta_defcon: -1, delta_risorse_iran: -2 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 🚨 DEFCON -1 · 💵 Risorse Iran -2',
+    turn_order: ['Cina', 'Coalizione', 'Russia', 'Iran', 'Europa'],
+    turn_advancers: ['Iran', 'Cina'],
   },
   {
     event_id: 'E11', event_name: 'Uranio Arricchito 90%',
@@ -130,6 +156,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Quello che temevamo si è avverato." — Presidente USA',
     effects: { delta_nucleare: +3, delta_sanzioni: +3, delta_opinione: -2, delta_defcon: -2 },
     effects_description: '☢️ Nucleare +3 · 💰 Sanzioni +3 · 📣 Opinione -2 · 🚨 DEFCON -2',
+    turn_order: ['Russia', 'Iran', 'Coalizione', 'Europa', 'Cina'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E12', event_name: 'Plutonio Weapons-Grade',
@@ -138,6 +166,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Avevamo monitorato l\'uranio, ma non il plutonio." — Analista OSINT',
     effects: { delta_nucleare: +2, delta_sanzioni: +3, delta_opinione: -2, delta_defcon: -2, delta_risorse_iran: -3 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 📣 Opinione -2 · 🚨 DEFCON -2 · 💵 Risorse Iran -3',
+    turn_order: ['Cina', 'Russia', 'Iran', 'Coalizione', 'Europa'],
+    turn_advancers: ['Iran', 'Coalizione'],
   },
   {
     event_id: 'E13', event_name: 'Missile Nucleare Testato',
@@ -146,6 +176,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Tel Aviv e Riyadh sono nel raggio." — Generale IDF',
     effects: { delta_nucleare: +2, delta_sanzioni: +3, delta_opinione: -3, delta_defcon: -3 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +3 · 📣 Opinione -3 · 🚨 DEFCON -3',
+    turn_order: ['Europa', 'Cina', 'Russia', 'Iran', 'Coalizione'],
+    turn_advancers: ['Europa'],
   },
   {
     event_id: 'E14', event_name: 'Deterrenza Nucleare Dichiarata',
@@ -154,6 +186,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Ora il mondo ci rispetta." — Khamenei',
     effects: { delta_opinione: -2, delta_defcon: -2, delta_stabilita_iran: +2 },
     effects_description: '📣 Opinione -2 · 🚨 DEFCON -2 · ⚖️ Stab. Iran +2',
+    turn_order: ['Iran', 'Coalizione', 'Europa', 'Cina', 'Russia'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E15', event_name: 'Smantellamento Volontario',
@@ -162,6 +196,8 @@ const EVENTI_NUCLEARI: EventoCard[] = [
     flavor_text: '"Come la Libia nel 2003, ma stavolta funziona." — Ministro Esteri UE',
     effects: { delta_nucleare: -3, delta_opinione: +3, delta_defcon: +2, delta_risorse_iran: +4, delta_stabilita_iran: +2 },
     effects_description: '☢️ Nucleare -3 · 📣 Opinione +3 · 🚨 DEFCON +2 · 💵 Risorse Iran +4',
+    turn_order: ['Coalizione', 'Europa', 'Cina', 'Russia', 'Iran'],
+    turn_advancers: ['Russia'],
   },
 ];
 
@@ -174,6 +210,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Abbiamo fatto quello che dovevamo fare." — PM Israele',
     effects: { delta_nucleare: -2, delta_opinione: +2, delta_defcon: -2, delta_risorse_coalizione: -2 },
     effects_description: '☢️ Nucleare -2 · 📣 Opinione +2 · 🚨 DEFCON -2 · 💵 Risorse Coalizione -2',
+    turn_order: ['Europa', 'Coalizione', 'Cina', 'Iran', 'Russia'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E17', event_name: 'Risposta Missilistica Iran',
@@ -182,6 +220,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Questo è solo l\'inizio." — Comandante IRGC',
     effects: { delta_defcon: -2, delta_risorse_iran: -2, delta_stabilita_iran: +1 },
     effects_description: '🚨 DEFCON -2 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran +1',
+    turn_order: ['Coalizione', 'Cina', 'Iran', 'Russia', 'Europa'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E18', event_name: 'Scontro Navale Hormuz',
@@ -190,6 +230,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Lo stretto è nostro." — Ammiraglio marina iraniana',
     effects: { delta_defcon: -2, delta_risorse_iran: -1, delta_risorse_coalizione: -1, delta_risorse_russia: -1, delta_risorse_cina: -1 },
     effects_description: '🚨 DEFCON -2 · 💵 Risorse tutte le fazioni -1',
+    turn_order: ['Cina', 'Iran', 'Russia', 'Europa', 'Coalizione'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E19', event_name: 'Abbattimento Drone USA',
@@ -198,6 +240,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Era in acque internazionali." — Pentagono / "Era nel nostro spazio aereo." — Tehran',
     effects: { delta_defcon: -1, delta_stabilita_iran: +1 },
     effects_description: '🚨 DEFCON -1 · ⚖️ Stab. Iran +1',
+    turn_order: ['Iran', 'Russia', 'Europa', 'Coalizione', 'Cina'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E20', event_name: 'Attacco Base USA Iraq',
@@ -206,6 +250,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Li considerano proxy espandibili." — Analista Brookings',
     effects: { delta_sanzioni: +2, delta_opinione: -2, delta_defcon: -2, delta_risorse_iran: -1 },
     effects_description: '💰 Sanzioni +2 · 📣 Opinione -2 · 🚨 DEFCON -2 · 💵 Risorse Iran -1',
+    turn_order: ['Russia', 'Europa', 'Coalizione', 'Cina', 'Iran'],
+    turn_advancers: ['Cina', 'Europa'],
   },
   {
     event_id: 'E21', event_name: 'Assassinio Generale IRGC',
@@ -214,6 +260,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Soleimani era un santo martire." — Guida Suprema',
     effects: { delta_defcon: -2, delta_opinione: +2, delta_stabilita_iran: +2 },
     effects_description: '🚨 DEFCON -2 · 📣 Opinione Iran +2 · ⚖️ Stab. Iran +2',
+    turn_order: ['Coalizione', 'Europa', 'Cina', 'Iran', 'Russia'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E22', event_name: 'Operazione Speciale Fallita',
@@ -222,6 +270,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Umiliazione dei servizi segreti." — Der Spiegel',
     effects: { delta_opinione: -1, delta_defcon: -1, delta_risorse_coalizione: -1 },
     effects_description: '📣 Opinione Coalizione -1 · 🚨 DEFCON -1 · 💵 Risorse Coalizione -1',
+    turn_order: ['Iran', 'Russia', 'Coalizione', 'Europa', 'Cina'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E23', event_name: 'Escalation Regionale',
@@ -230,6 +280,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"È la guerra dei sei fronti." — Times of Israel',
     effects: { delta_nucleare: +1, delta_sanzioni: +1, delta_opinione: -1, delta_defcon: -2, delta_risorse_iran: -2, delta_risorse_coalizione: -2, delta_risorse_russia: -1, delta_risorse_cina: -1, delta_risorse_europa: -1 },
     effects_description: '☢️ Nucleare +1 · 🚨 DEFCON -2 · 💵 Risorse tutte le fazioni -1/2',
+    turn_order: ['Cina', 'Iran', 'Russia', 'Coalizione', 'Europa'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E24', event_name: 'Mobilitazione Generale',
@@ -238,6 +290,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Ogni cittadino è un soldato della rivoluzione." — Speaker Parlamento',
     effects: { delta_defcon: -1, delta_risorse_iran: -3, delta_stabilita_iran: +2 },
     effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran +2',
+    turn_order: ['Europa', 'Cina', 'Iran', 'Russia', 'Coalizione'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E25', event_name: 'Attacco Cyber Massivo',
@@ -246,6 +300,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"È peggio di Stuxnet." — Esperto CyberSec',
     effects: { delta_nucleare: -1, delta_defcon: -1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
     effects_description: '☢️ Nucleare -1 · 🚨 DEFCON -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
+    turn_order: ['Russia', 'Coalizione', 'Europa', 'Cina', 'Iran'],
+    turn_advancers: ['Iran', 'Russia'],
   },
   {
     event_id: 'E26', event_name: 'Blackout Infrastrutture',
@@ -254,6 +310,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"La vita quotidiana si è fermata." — Reuters',
     effects: { delta_defcon: -1, delta_risorse_iran: -3, delta_stabilita_iran: -2 },
     effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran -2',
+    turn_order: ['Iran', 'Russia', 'Europa', 'Cina', 'Coalizione'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E27', event_name: 'Attacco Petroliere',
@@ -262,6 +320,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Nessuno rivendica. Tutti sanno." — Analista geopolitica',
     effects: { delta_defcon: -1, delta_risorse_iran: -1, delta_risorse_coalizione: -1, delta_risorse_europa: -1 },
     effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran/Coalizione/Europa -1',
+    turn_order: ['Russia', 'Europa', 'Cina', 'Coalizione', 'Iran'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E28', event_name: 'Sequestro Nave Commerciale',
@@ -270,6 +330,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Liberate i nostri connazionali o ci saranno conseguenze." — FM Londra',
     effects: { delta_defcon: -1, delta_opinione: -1, delta_risorse_iran: +1 },
     effects_description: '🚨 DEFCON -1 · 📣 Opinione Iran -1 · 💵 Risorse Iran +1 (riscatto)',
+    turn_order: ['Coalizione', 'Iran', 'Russia', 'Europa', 'Cina'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E29', event_name: 'Incidente Friendly Fire',
@@ -278,6 +340,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Un errore umano tragico." — Comunicato ufficiale',
     effects: { delta_opinione: -2, delta_defcon: +1 },
     effects_description: '📣 Opinione -2 · 🚨 DEFCON +1',
+    turn_order: ['Cina', 'Coalizione', 'Iran', 'Russia', 'Europa'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E30', event_name: 'Evacuazione Civili',
@@ -286,6 +350,8 @@ const EVENTI_MILITARI: EventoCard[] = [
     flavor_text: '"Quando partono le famiglie dei diplomatici, è il momento di preoccuparsi." — Esperto diplomatico',
     effects: { delta_defcon: -1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
     effects_description: '🚨 DEFCON -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
+    turn_order: ['Europa', 'Cina', 'Coalizione', 'Iran', 'Russia'],
+    turn_advancers: ['Europa'],
   },
 ];
 
@@ -298,6 +364,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Non c\'è accordo senza garanzie." — Delegato iraniano',
     effects: { delta_nucleare: +1, delta_sanzioni: +1, delta_opinione: -1, delta_defcon: -1 },
     effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +1 · 📣 Opinione -1 · 🚨 DEFCON -1',
+    turn_order: ['Russia', 'Europa', 'Iran', 'Coalizione', 'Cina'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E32', event_name: 'Rottura Negoziati',
@@ -306,6 +374,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Dialogo impossibile con chi non rispetta i patti." — FM Iran',
     effects: { delta_nucleare: +1, delta_sanzioni: +2, delta_opinione: -1, delta_defcon: -1, delta_risorse_iran: -1 },
     effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 📣 Opinione -1 · 🚨 DEFCON -1',
+    turn_order: ['Iran', 'Coalizione', 'Cina', 'Russia', 'Europa'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E33', event_name: 'Nuove Sanzioni ONU',
@@ -314,6 +384,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"La pressione internazionale funziona." — Ambasciatore USA all\'ONU',
     effects: { delta_sanzioni: +3, delta_opinione: +1, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
     effects_description: '💰 Sanzioni +3 · 📣 Opinione Coalizione +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
+    turn_order: ['Cina', 'Russia', 'Europa', 'Iran', 'Coalizione'],
+    turn_advancers: ['Russia', 'Cina'],
   },
   {
     event_id: 'E34', event_name: 'Veto Russia-Cina',
@@ -322,6 +394,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Il sistema internazionale è rotto." — FM Francia',
     effects: { delta_sanzioni: -2, delta_opinione: +1 },
     effects_description: '💰 Sanzioni -2 · 📣 Opinione Iran +1',
+    turn_order: ['Coalizione', 'Cina', 'Russia', 'Europa', 'Iran'],
+    turn_advancers: ['Iran', 'Cina'],
   },
   {
     event_id: 'E35', event_name: 'Risoluzione Condanna',
@@ -330,6 +404,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"È solo carta. Senza denti." — Analista diritto internazionale',
     effects: { delta_sanzioni: +1, delta_opinione: +1 },
     effects_description: '💰 Sanzioni +1 · 📣 Opinione Coalizione +1',
+    turn_order: ['Europa', 'Iran', 'Coalizione', 'Cina', 'Russia'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E36', event_name: 'Espulsione Diplomatici',
@@ -338,6 +414,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Espelliamo i vostri, voi espellete i nostri. La diplomazia regredisce." — Opinionista BBC',
     effects: { delta_opinione: -1, delta_defcon: -1 },
     effects_description: '📣 Opinione -1 · 🚨 DEFCON -1',
+    turn_order: ['Coalizione', 'Iran', 'Russia', 'Europa', 'Cina'],
+    turn_advancers: ['Coalizione', 'Russia'],
   },
   {
     event_id: 'E37', event_name: 'Canale Segreto Aperto',
@@ -346,6 +424,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Muscat è la Svizzera del Golfo." — Diplomatico anonimo',
     effects: { delta_defcon: +1, delta_stabilita_iran: +1 },
     effects_description: '🚨 DEFCON +1 · ⚖️ Stab. Iran +1',
+    turn_order: ['Cina', 'Coalizione', 'Iran', 'Russia', 'Europa'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E38', event_name: 'Mediazione Oman',
@@ -354,6 +434,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"L\'Oman ha sempre trovato la strada giusta nel Golfo." — Ambasciatore emiratino',
     effects: { delta_defcon: +1, delta_stabilita_iran: +1 },
     effects_description: '🚨 DEFCON +1 · ⚖️ Stab. Iran +1',
+    turn_order: ['Iran', 'Russia', 'Europa', 'Cina', 'Coalizione'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E39', event_name: 'Proposta Pace Sorpresa',
@@ -362,6 +444,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Non l\'ho visto arrivare." — Consigliere sicurezza nazionale USA',
     effects: { delta_nucleare: -1, delta_defcon: +2, delta_risorse_iran: 0, delta_stabilita_iran: +2 },
     effects_description: '☢️ Nucleare -1 · 🚨 DEFCON +2 · ⚖️ Stab. Iran +2',
+    turn_order: ['Russia', 'Europa', 'Cina', 'Coalizione', 'Iran'],
+    turn_advancers: ['Coalizione', 'Cina'],
   },
   {
     event_id: 'E40', event_name: 'Accordo Preliminare',
@@ -370,6 +454,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"È un inizio, non una fine." — Portavoce Dipartimento di Stato',
     effects: { delta_defcon: +1, delta_risorse_iran: +1, delta_stabilita_iran: +1 },
     effects_description: '🚨 DEFCON +1 · 💵 Risorse Iran +1 · ⚖️ Stab. Iran +1',
+    turn_order: ['Europa', 'Cina', 'Coalizione', 'Iran', 'Russia'],
+    turn_advancers: ['Russia', 'Europa'],
   },
   {
     event_id: 'E41', event_name: 'Firma Trattato',
@@ -378,6 +464,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Come JCPOA, ma stavolta con più garanzie." — Analista Carnegie',
     effects: { delta_nucleare: -2, delta_opinione: +2, delta_defcon: +2, delta_risorse_iran: +3, delta_stabilita_iran: +1 },
     effects_description: '☢️ Nucleare -2 · 📣 Opinione +2 · 🚨 DEFCON +2 · 💵 Risorse Iran +3',
+    turn_order: ['Europa', 'Coalizione', 'Iran', 'Russia', 'Cina'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E42', event_name: 'Violazione Accordo',
@@ -386,6 +474,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"La fiducia è stata tradita." — Cancelliere tedesco',
     effects: { delta_nucleare: +2, delta_sanzioni: +2, delta_opinione: -2, delta_defcon: -1 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +2 · 📣 Opinione -2 · 🚨 DEFCON -1',
+    turn_order: ['Russia', 'Cina', 'Europa', 'Coalizione', 'Iran'],
+    turn_advancers: ['Coalizione', 'Europa'],
   },
   {
     event_id: 'E43', event_name: 'Ritiro USA da Trattato',
@@ -394,6 +484,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Lo rompono sempre loro." — FM Iran',
     effects: { delta_nucleare: +1, delta_sanzioni: +2, delta_opinione: -1, delta_defcon: -1, delta_risorse_iran: -2 },
     effects_description: '☢️ Nucleare +1 · 💰 Sanzioni +2 · 📣 Opinione -1 · 🚨 DEFCON -1',
+    turn_order: ['Cina', 'Europa', 'Coalizione', 'Iran', 'Russia'],
+    turn_advancers: ['Cina', 'Europa'],
   },
   {
     event_id: 'E44', event_name: 'Sanzioni Secondarie UE',
@@ -402,6 +494,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"Siamo costretti a scegliere tra Washington e Tehran." — Imprenditore tedesco',
     effects: { delta_sanzioni: +2, delta_risorse_iran: -2, delta_stabilita_iran: -1 },
     effects_description: '💰 Sanzioni +2 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -1',
+    turn_order: ['Coalizione', 'Iran', 'Russia', 'Cina', 'Europa'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E45', event_name: 'Coalizione Anti-Iran',
@@ -410,6 +504,8 @@ const EVENTI_DIPLOMATICI: EventoCard[] = [
     flavor_text: '"L\'isolamento di Tehran è quasi completo." — Bloomberg',
     effects: { delta_sanzioni: +2, delta_opinione: +1, delta_risorse_coalizione: +1 },
     effects_description: '💰 Sanzioni +2 · 📣 Opinione Coalizione +1 · 💵 Risorse Coalizione +1',
+    turn_order: ['Iran', 'Russia', 'Cina', 'Europa', 'Coalizione'],
+    turn_advancers: ['Iran'],
   },
 ];
 
@@ -422,6 +518,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Il petrolio è la nostra arma economica." — Ministro energia Arabia Saudita',
     effects: { delta_sanzioni: +2, delta_risorse_iran: -3, delta_risorse_russia: -2, delta_stabilita_iran: -2 },
     effects_description: '💰 Sanzioni +2 · 💵 Risorse Iran -3 · Risorse Russia -2 · ⚖️ Stab. Iran -2',
+    turn_order: ['Cina', 'Europa', 'Russia', 'Coalizione', 'Iran'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E47', event_name: 'Spike Prezzo Petrolio',
@@ -430,6 +528,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Ogni missile sparato vicino a Hormuz vale 10 dollari per barile." — Trader materie prime',
     effects: { delta_sanzioni: -2, delta_opinione: +1, delta_defcon: -1, delta_risorse_iran: +3, delta_risorse_russia: +2 },
     effects_description: '💰 Sanzioni -2 · 📣 Opinione Iran +1 · 💵 Risorse Iran +3 · Risorse Russia +2',
+    turn_order: ['Russia', 'Coalizione', 'Iran', 'Cina', 'Europa'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E48', event_name: 'Sanzioni SWIFT Totali',
@@ -438,6 +538,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"È come un embargo economico totale." — Governatore Banca Centrale Iran',
     effects: { delta_sanzioni: +4, delta_risorse_iran: -4, delta_stabilita_iran: -2 },
     effects_description: '💰 Sanzioni +4 · 💵 Risorse Iran -4 · ⚖️ Stab. Iran -2',
+    turn_order: ['Iran', 'Cina', 'Europa', 'Russia', 'Coalizione'],
+    turn_advancers: ['Iran', 'Coalizione'],
   },
   {
     event_id: 'E49', event_name: 'Collasso Rial Iraniano',
@@ -446,6 +548,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Un milione di rial per un chilo di pane." — Testimonianza da Tehran',
     effects: { delta_sanzioni: +2, delta_risorse_iran: -5, delta_stabilita_iran: -3 },
     effects_description: '💰 Sanzioni +2 · 💵 Risorse Iran -5 · ⚖️ Stab. Iran -3',
+    turn_order: ['Coalizione', 'Iran', 'Cina', 'Europa', 'Russia'],
+    turn_advancers: ['Iran', 'Coalizione'],
   },
   {
     event_id: 'E50', event_name: 'Contrabbando Massiccio',
@@ -454,6 +558,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Dove c\'è proibizione, c\'è contrabbando." — Economista',
     effects: { delta_sanzioni: -2, delta_risorse_iran: +3 },
     effects_description: '💰 Sanzioni -2 · 💵 Risorse Iran +3',
+    turn_order: ['Europa', 'Russia', 'Coalizione', 'Iran', 'Cina'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E51', event_name: 'Accordo Petrolio Yuan',
@@ -462,6 +568,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"La de-dollarizzazione avanza." — Global Times',
     effects: { delta_sanzioni: -3, delta_opinione: +1, delta_risorse_iran: +3, delta_risorse_cina: +2 },
     effects_description: '💰 Sanzioni -3 · 💵 Risorse Iran +3 · Risorse Cina +2',
+    turn_order: ['Russia', 'Coalizione', 'Europa', 'Iran', 'Cina'],
+    turn_advancers: ['Europa'],
   },
   {
     event_id: 'E52', event_name: 'Crisi Energetica Europa',
@@ -470,6 +578,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Berlino sta freddo." — Bild',
     effects: { delta_sanzioni: -1, delta_risorse_europa: -3, delta_stabilita_europa: -2 },
     effects_description: '💰 Sanzioni -1 · 💵 Risorse Europa -3 · ⚖️ Stab. Europa -2',
+    turn_order: ['Coalizione', 'Europa', 'Iran', 'Cina', 'Russia'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E53', event_name: 'Recessione Globale',
@@ -478,6 +588,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Quando l\'economia cade, le guerre restano incompiute." — Stiglitz',
     effects: { delta_sanzioni: +1, delta_defcon: +1, delta_risorse_iran: -3, delta_risorse_coalizione: -3, delta_risorse_russia: -2, delta_risorse_cina: -2, delta_risorse_europa: -2 },
     effects_description: '💰 Sanzioni +1 · 🚨 DEFCON +1 · 💵 Risorse tutte le fazioni -2/3',
+    turn_order: ['Europa', 'Iran', 'Cina', 'Russia', 'Coalizione'],
+    turn_advancers: ['Cina', 'Europa'],
   },
   {
     event_id: 'E54', event_name: 'Fuga Capitali Golfo',
@@ -486,6 +598,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Il denaro non ha nazionalità, solo interessi." — Banchiere di Dubai',
     effects: { delta_risorse_coalizione: -3, delta_stabilita_coalizione: -1 },
     effects_description: '💵 Risorse Coalizione -3 · ⚖️ Stab. Coalizione -1',
+    turn_order: ['Cina', 'Russia', 'Coalizione', 'Europa', 'Iran'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E55', event_name: 'Investimenti Cina Bloccati',
@@ -494,6 +608,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Il costo di sostenere Iran è troppo alto anche per Pechino." — WSJ',
     effects: { delta_sanzioni: +1, delta_risorse_iran: -2, delta_risorse_cina: -1, delta_stabilita_iran: -1 },
     effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran -2 · Risorse Cina -1',
+    turn_order: ['Iran', 'Cina', 'Russia', 'Coalizione', 'Europa'],
+    turn_advancers: ['Russia', 'Cina'],
   },
   {
     event_id: 'E56', event_name: 'Aiuti Umanitari Bloccati',
@@ -502,6 +618,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Le sanzioni non distinguono tra bombe e insulina." — MSF',
     effects: { delta_opinione: +1, delta_stabilita_iran: -1 },
     effects_description: '📣 Opinione Iran +1 (vittima) · ⚖️ Stab. Iran -1',
+    turn_order: ['Russia', 'Cina', 'Coalizione', 'Europa', 'Iran'],
+    turn_advancers: ['Coalizione', 'Russia'],
   },
   {
     event_id: 'E57', event_name: 'Mercato Nero Fiorente',
@@ -510,6 +628,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Le sanzioni hanno creato una elite criminale, non abbattuto il regime." — Think tank RAND',
     effects: { delta_sanzioni: -1, delta_risorse_iran: +2, delta_stabilita_iran: -1 },
     effects_description: '💰 Sanzioni -1 · 💵 Risorse Iran +2 · ⚖️ Stab. Iran -1 (corruzione)',
+    turn_order: ['Europa', 'Iran', 'Russia', 'Cina', 'Coalizione'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E58', event_name: 'Inflazione Galoppante Iran',
@@ -518,6 +638,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Il governo ha perso il controllo dell\'economia." — Economist',
     effects: { delta_sanzioni: +1, delta_risorse_iran: -3, delta_stabilita_iran: -2 },
     effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran -2',
+    turn_order: ['Coalizione', 'Europa', 'Iran', 'Russia', 'Cina'],
+    turn_advancers: ['Coalizione', 'Europa'],
   },
   {
     event_id: 'E59', event_name: 'Proteste Economiche',
@@ -526,6 +648,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Non abbiamo pane, non abbiamo lavoro, non abbiamo futuro." — Manifestante',
     effects: { delta_sanzioni: +1, delta_opinione: -1, delta_risorse_iran: -1, delta_stabilita_iran: -2 },
     effects_description: '💰 Sanzioni +1 · 📣 Opinione Iran -1 · 💵 Risorse Iran -1 · ⚖️ Stab. Iran -2',
+    turn_order: ['Iran', 'Russia', 'Cina', 'Coalizione', 'Europa'],
+    turn_advancers: ['Coalizione', 'Cina'],
   },
   {
     event_id: 'E60', event_name: 'Razionamento Carburante',
@@ -534,6 +658,8 @@ const EVENTI_ECONOMICI: EventoCard[] = [
     flavor_text: '"Paese esportatore di petrolio in fila per la benzina. Paradosso." — BBC Persia',
     effects: { delta_sanzioni: +1, delta_risorse_iran: +1, delta_stabilita_iran: -2 },
     effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran +1 (risparmio) · ⚖️ Stab. Iran -2',
+    turn_order: ['Cina', 'Coalizione', 'Europa', 'Iran', 'Russia'],
+    turn_advancers: ['Europa'],
   },
 ];
 
@@ -546,6 +672,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Donna, vita, libertà." — Slogan delle proteste',
     effects: { delta_sanzioni: +1, delta_opinione: +1, delta_risorse_iran: -1, delta_stabilita_iran: -4 },
     effects_description: '💰 Sanzioni +1 · 📣 Opinione Coalizione +1 · 💵 Risorse Iran -1 · ⚖️ Stab. Iran -4',
+    turn_order: ['Russia', 'Coalizione', 'Iran', 'Europa', 'Cina'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E62', event_name: 'Repressione Violenta',
@@ -554,6 +682,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Il sangue per terra è il prezzo del controllo." — Analista diritti umani',
     effects: { delta_sanzioni: +2, delta_opinione: -2, delta_stabilita_iran: +2 },
     effects_description: '💰 Sanzioni +2 · 📣 Opinione Iran -2 · ⚖️ Stab. Iran +2 (controllo breve)',
+    turn_order: ['Europa', 'Cina', 'Russia', 'Coalizione', 'Iran'],
+    turn_advancers: ['Russia'],
   },
   {
     event_id: 'E63', event_name: 'Sciopero Generale',
@@ -562,6 +692,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Cinque giorni senza lavoratori equivalgono a settimane di sanzioni." — Sindacalista',
     effects: { delta_sanzioni: +1, delta_opinione: -1, delta_risorse_iran: -3, delta_stabilita_iran: -3 },
     effects_description: '💰 Sanzioni +1 · 💵 Risorse Iran -3 · ⚖️ Stab. Iran -3',
+    turn_order: ['Iran', 'Europa', 'Cina', 'Russia', 'Coalizione'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E64', event_name: 'Defezione Militare',
@@ -570,6 +702,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Vale più di cento missioni di sabotaggio." — Direttore CIA',
     effects: { delta_nucleare: -1, delta_opinione: +1, delta_stabilita_iran: -3 },
     effects_description: '☢️ Nucleare -1 · 📣 Opinione Coalizione +1 · ⚖️ Stab. Iran -3',
+    turn_order: ['Cina', 'Russia', 'Coalizione', 'Iran', 'Europa'],
+    turn_advancers: ['Iran', 'Russia'],
   },
   {
     event_id: 'E65', event_name: 'Colpo di Stato Fallito',
@@ -578,6 +712,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Chi fallisce un colpo di stato deve fuggire o morire." — Machiavelli',
     effects: { delta_defcon: +1, delta_risorse_iran: -2, delta_stabilita_iran: -2 },
     effects_description: '🚨 DEFCON +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -2',
+    turn_order: ['Coalizione', 'Iran', 'Europa', 'Cina', 'Russia'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E66', event_name: 'Riforma Interna Sorpresa',
@@ -586,6 +722,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Non si cambia così in fretta, ma il gesto conta." — Al Jazeera English',
     effects: { delta_sanzioni: -1, delta_opinione: +2, delta_defcon: +1, delta_stabilita_iran: +2 },
     effects_description: '💰 Sanzioni -1 · 📣 Opinione Iran +2 · 🚨 DEFCON +1 · ⚖️ Stab. Iran +2',
+    turn_order: ['Europa', 'Iran', 'Coalizione', 'Russia', 'Cina'],
+    turn_advancers: ['Iran', 'Europa'],
   },
   {
     event_id: 'E67', event_name: 'Elezioni Truccate',
@@ -594,6 +732,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Non sono elezioni, sono selezioni." — Opposizione iraniana in esilio',
     effects: { delta_sanzioni: +1, delta_opinione: -2, delta_stabilita_iran: -2 },
     effects_description: '💰 Sanzioni +1 · 📣 Opinione Iran -2 · ⚖️ Stab. Iran -2',
+    turn_order: ['Cina', 'Europa', 'Iran', 'Coalizione', 'Russia'],
+    turn_advancers: ['Europa'],
   },
   {
     event_id: 'E68', event_name: 'Nuovo Leader Supremo',
@@ -602,6 +742,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Chi sarà il prossimo? Il figlio, il generale, o il tecnocrate?" — Le Monde',
     effects: { delta_nucleare: +2, delta_sanzioni: +1, delta_defcon: +1, delta_stabilita_iran: -3 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 🚨 DEFCON +1 · ⚖️ Stab. Iran -3',
+    turn_order: ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E69', event_name: 'Fazione Moderata al Potere',
@@ -610,6 +752,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Rouhani insegna: la moderazione può vincere le elezioni ma non il potere reale." — Expert',
     effects: { delta_nucleare: -1, delta_defcon: +1, delta_opinione: +2, delta_risorse_iran: +1, delta_stabilita_iran: +1 },
     effects_description: '☢️ Nucleare -1 · 🚨 DEFCON +1 · 📣 Opinione Iran +2 · ⚖️ Stab. Iran +1',
+    turn_order: ['Coalizione', 'Russia', 'Cina', 'Europa', 'Iran'],
+    turn_advancers: ['Coalizione'],
   },
   {
     event_id: 'E70', event_name: 'Fazione Hardliner al Potere',
@@ -618,6 +762,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Abbiamo scelto la resistenza." — Presidente eletto Iran',
     effects: { delta_nucleare: +2, delta_sanzioni: +1, delta_opinione: -1, delta_defcon: -1, delta_stabilita_iran: +1 },
     effects_description: '☢️ Nucleare +2 · 💰 Sanzioni +1 · 📣 Opinione Iran -1 · 🚨 DEFCON -1',
+    turn_order: ['Russia', 'Cina', 'Europa', 'Iran', 'Coalizione'],
+    turn_advancers: ['Iran'],
   },
   {
     event_id: 'E71', event_name: 'Crisi Successione',
@@ -626,6 +772,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Mentre i potenti si fanno la guerra, il paese affonda." — Analista iraniano',
     effects: { delta_defcon: +1, delta_risorse_iran: -2, delta_stabilita_iran: -4, blocca_avanzamento: true },
     effects_description: '🚨 DEFCON +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -4 · ⏸ Blocca avanzamento',
+    turn_order: ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'],
+    turn_advancers: ['Cina'],
   },
   {
     event_id: 'E72', event_name: 'Frammentazione IRGC',
@@ -634,6 +782,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Quando l\'IRGC si divide, il regime trema." — IISS Report',
     effects: { delta_nucleare: -1, delta_defcon: +1, delta_risorse_iran: -2, delta_stabilita_iran: -3 },
     effects_description: '☢️ Nucleare -1 · 🚨 DEFCON +1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -3',
+    turn_order: ['Coalizione', 'Russia', 'Cina', 'Europa', 'Iran'],
+    turn_advancers: ['Iran', 'Europa'],
   },
   {
     event_id: 'E73', event_name: 'Rivolta Etnica',
@@ -642,6 +792,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"L\'Iran è una prigione di popoli." — Dichiarazione partiti curdi',
     effects: { delta_opinione: -1, delta_risorse_iran: -2, delta_stabilita_iran: -3 },
     effects_description: '📣 Opinione Iran -1 · 💵 Risorse Iran -2 · ⚖️ Stab. Iran -3',
+    turn_order: ['Cina', 'Europa', 'Iran', 'Coalizione', 'Russia'],
+    turn_advancers: ['Russia', 'Europa'],
   },
   {
     event_id: 'E74', event_name: 'Attentato Leader',
@@ -650,6 +802,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"Il sangue chiama sangue." — Khamenei',
     effects: { delta_defcon: -1, delta_opinione: +2, delta_stabilita_iran: -3, blocca_avanzamento: true },
     effects_description: '🚨 DEFCON -1 · 📣 Opinione Iran +2 · ⚖️ Stab. Iran -3 · ⏸ Blocca avanzamento',
+    turn_order: ['Europa', 'Iran', 'Coalizione', 'Russia', 'Cina'],
+    turn_advancers: ['Europa'],
   },
   {
     event_id: 'E75', event_name: 'Unità Nazionale Emergenza',
@@ -658,6 +812,8 @@ const EVENTI_POLITICI: EventoCard[] = [
     flavor_text: '"La pressione esterna ha fatto quello che la propaganda non riusciva: unire gli iraniani." — Osservatore',
     effects: { delta_nucleare: +1, delta_opinione: +1, delta_risorse_iran: +1, delta_stabilita_iran: +3 },
     effects_description: '☢️ Nucleare +1 · 📣 Opinione Iran +1 · 💵 Risorse Iran +1 · ⚖️ Stab. Iran +3',
+    turn_order: ['Russia', 'Cina', 'Europa', 'Iran', 'Coalizione'],
+    turn_advancers: ['Europa'],
   },
 ];
 

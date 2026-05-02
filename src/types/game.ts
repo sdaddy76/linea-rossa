@@ -105,6 +105,13 @@ export interface GameState {
   // ─── Sistema eventi ─────────────────────────────────────────────
   last_event_turn: number | null;   // turno in cui è stato pescato l'ultimo evento
   last_event_id:   string | null;   // codice evento pescato (es. 'E07')
+  // ─── Turno variabile + tracciata ────────────────────────────────
+  /** Ordine di turno del round corrente (dalla carta evento estratta) */
+  current_turn_order: Faction[] | null;
+  /** Fazione/i che avanzano il segnalino turni questo round */
+  current_turn_advancers: Faction[] | null;
+  /** Posizione attuale del segnalino sulla tracciata turni (0 = inizio) */
+  track_position: number;
   updated_at: string;
 }
 
@@ -181,6 +188,10 @@ export interface Game {
   /** 'classic' = mazzo separato per fazione (default legacy)
    *  'unified' = mazzo unico con tutte le carte, distribuzione mano */
   game_mode?: 'classic' | 'unified';
+  /** Durata partita: breve=40 caselle, media=70, lunga=100 */
+  game_length?: 'breve' | 'media' | 'lunga';
+  /** Numero di caselle della tracciata turni (40/70/100) */
+  track_limit?: number;
 }
 
 // Giocatore in partita (umano o bot)

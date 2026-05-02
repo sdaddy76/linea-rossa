@@ -68,6 +68,8 @@ export default function WaitingRoom({
   const [specialMode, setSpecialMode] = useState<'mixed' | 'separate'>('mixed');
   // Modalità setup iniziale territori
   const [setupMode, setSetupMode] = useState<'base' | 'avanzata'>('base');
+  // Durata partita: breve=40 caselle, media=70, lunga=100
+  const [gameLength, setGameLength] = useState<'breve' | 'media' | 'lunga'>('media');
   // Difficoltà bot
   const [botDifficulty, setBotDifficulty] = useState<BotDifficulty>('normal');
   // Fazioni forzate a bot dall'host (prima dell'avvio)
@@ -514,7 +516,7 @@ export default function WaitingRoom({
           })
           .catch(e => console.warn('[startGame] allow_join fire-and-forget catch:', e));
       }
-      supabase.from('games').update({ game_mode: gameMode, special_mode: specialMode }).eq('id', gameId)
+      supabase.from('games').update({ game_mode: gameMode, special_mode: specialMode, game_length: gameLength, track_limit: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70 }).eq('id', gameId)
         .then(({ error: e }) => {
           if (e && e.code !== '42703' && e.code !== 'PGRST204') console.warn('[startGame] game_mode warn:', e);
         })
@@ -970,6 +972,32 @@ export default function WaitingRoom({
                     <p className="text-[9px] font-mono text-[#445566] mt-1.5">
                       {botDifficulty === 'easy' ? '⬡ Bot gioca casualmente' : botDifficulty === 'normal' ? '⬡ Bot strategico bilanciato' : '⬡ Bot massimizza la propria strategia'}
                     </p>
+                  </div>
+
+                  {/* ── Selettore durata partita ── */}
+                  <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#060e1a]">
+                    <p className="text-[10px] font-mono font-bold text-[#f59e0b] uppercase tracking-widest mb-2">
+                      ⏱️ Durata Partita
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {([
+                        { key: 'breve', label: '⚡ Breve', sub: '~11 round · 40 caselle', color: '#f97316' },
+                        { key: 'media', label: '⚖️ Media', sub: '~20 round · 70 caselle', color: '#f59e0b' },
+                        { key: 'lunga', label: '🕰️ Lunga', sub: '~29 round · 100 caselle', color: '#22c55e' },
+                      ] as const).map(opt => (
+                        <button key={opt.key}
+                          onClick={() => setGameLength(opt.key)}
+                          className="py-2 px-2 rounded-lg font-mono text-xs font-bold transition-all text-center"
+                          style={{
+                            backgroundColor: gameLength === opt.key ? `${opt.color}20` : 'transparent',
+                            border: `1px solid ${gameLength === opt.key ? opt.color : '#1e3a5f'}`,
+                            color: gameLength === opt.key ? opt.color : '#556677',
+                          }}>
+                          {opt.label}
+                          <span className="block text-[9px] font-normal mt-0.5 opacity-70">{opt.sub}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Toggle modalità setup territori */}

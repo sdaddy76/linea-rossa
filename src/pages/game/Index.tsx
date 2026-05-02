@@ -32,6 +32,7 @@ import { calcScores } from '@/lib/botEngine';
 import { ScoreTrack } from '@/components/ScoreTrack';
 import ScoreBoard from '@/components/ScoreBoard';
 import GlobalStats from '@/components/GlobalStats';
+import { TurnTrack } from '@/components/TurnTrack';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -486,9 +487,12 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
       const ef = evento.effects;
       const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
       const gs = gameState;
-      const updates: Record<string, number | string> = {
+      const updates: Record<string, number | string | string[] | null> = {
         last_event_turn: turnNum,
         last_event_id:   evento.event_id,
+        // ── Turno variabile: salva ordine + avanzatori della carta evento ──
+        current_turn_order:     evento.turn_order     ?? null,
+        current_turn_advancers: evento.turn_advancers ?? null,
       };
       if (ef.delta_nucleare)           updates.nucleare           = clamp((gs.nucleare           ?? 1) + ef.delta_nucleare,           1, 15);
       if (ef.delta_sanzioni)           updates.sanzioni           = clamp((gs.sanzioni           ?? 4) + ef.delta_sanzioni,           1, 20);
@@ -968,11 +972,21 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
 
             {/* TAB: PUNTEGGI */}
             {activeTab === 'punteggi' && (
-              <ScoreBoard
-                gameState={gameState}
-                myFaction={myFaction ?? null}
-                factions={players.map(p => p.faction).filter(Boolean) as string[]}
-              />
+              <div className="space-y-3 p-2">
+                {/* ── Tracciata Turni ── */}
+                <TurnTrack
+                  position={gameState.track_position ?? 0}
+                  trackLimit={game.track_limit ?? 70}
+                  gameLength={game.game_length ?? 'media'}
+                  currentTurnOrder={gameState.current_turn_order}
+                  currentAdvancers={gameState.current_turn_advancers}
+                />
+                <ScoreBoard
+                  gameState={gameState}
+                  myFaction={myFaction ?? null}
+                  factions={players.map(p => p.faction).filter(Boolean) as string[]}
+                />
+              </div>
             )}
 
 

@@ -9,6 +9,34 @@ async function withTimeout<T>(promise: Promise<T>, ms = 8000, label = ''): Promi
   );
   return Promise.race([promise, timeout]);
 }
+
+// ── Helper: prossima fazione in base all'ordine corrente della carta evento ───
+// Se current_turn_order è disponibile, usa quello; altrimenti fallback fisso.
+function nextFactionInOrder(
+  current: import('@/types/game').Faction,
+  turnOrder: import('@/types/game').Faction[] | null | undefined
+): import('@/types/game').Faction {
+  if (!turnOrder || turnOrder.length === 0) {
+    // fallback all'ordine fisso
+    const FIXED: import('@/types/game').Faction[] = ['Iran','Coalizione','Russia','Cina','Europa'];
+    const idx = FIXED.indexOf(current);
+    return FIXED[(idx + 1) % FIXED.length];
+  }
+  const idx = turnOrder.indexOf(current);
+  if (idx === -1) return turnOrder[0]; // non trovato → prima fazione
+  return turnOrder[(idx + 1) % turnOrder.length];
+}
+
+// ── Helper: calcola l'avanzamento del segnalino per la fazione che ha giocato ─
+// Avanza di opPoints se la fazione è tra i turn_advancers della carta evento corrente.
+function calcTrackAdvance(
+  faction: import('@/types/game').Faction,
+  opPoints: number,
+  advancers: import('@/types/game').Faction[] | null | undefined
+): number {
+  if (!advancers || advancers.length === 0) return 0;
+  return advancers.includes(faction) ? opPoints : 0;
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { create } from 'zustand';
@@ -690,8 +718,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const merged = { ...gameState, ...safeNewState } as GameState;
       const winCheck = checkWinCondition(merged, game.current_turn, game.max_turns);
 
-      const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(myFaction);
+      const nextFact = winCheck.isOver ? gameState.active_faction : nextFactionInOrder(myFaction, gameState.current_turn_order);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
+
+      // ── Avanzamento tracciata turni ──────────────────────────────────────
+      const cardOpPoints = (resolvedCard as { op_points?: number }).op_points ?? 0;
+      const trackAdvance = calcTrackAdvance(myFaction, cardOpPoints, gameState.current_turn_advancers);
+      const newTrackPosition = Math.min(
+        game.track_limit ?? 70,
+        (gameState.track_position ?? 0) + trackAdvance,
+      );
+      const trackReachedEnd = newTrackPosition >= (game.track_limit ?? 70);
+      // ─────────────────────────────────────────────────────────────────
 
       // ── 3b. Meccaniche fine turno: bonus territoriali + obiettivi ────
       const { territories: terrRecs, players: playersArr, myObjectives, militaryUnits: playUnits } = get();
@@ -705,6 +743,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         supabase.from('game_state').update({
           ...enrichedNewState,
           active_faction: nextFact,
+          track_position: newTrackPosition,
         }).eq('game_id', game.id),
 
         supabase.from('cards_deck').update({
@@ -870,7 +909,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       if (!available || available.length === 0) {
         // Mano vuota: turno saltato, passa al prossimo
-        const nextFact = nextFaction(botFaction);
+        const nextFact = nextFactionInOrder(botFaction, gameState.current_turn_order);
         await supabase.from('game_state').update({ active_faction: nextFact }).eq('game_id', game.id);
         set(s => ({
           gameState: { ...s.gameState!, active_faction: nextFact },
@@ -952,8 +991,17 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       );
       const merged = { ...gameState, ...safeNewState } as GameState;
       const winCheck = checkWinCondition(merged, game.current_turn, game.max_turns);
-      const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(botFaction);
+      const nextFact = winCheck.isOver ? gameState.active_faction : nextFactionInOrder(botFaction, gameState.current_turn_order);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
+
+      // ── Avanzamento tracciata turni (bot) ────────────────────────────
+      const botCardOp = decision.card.op_points ?? 0;
+      const botTrackAdv = calcTrackAdvance(botFaction, botCardOp, gameState.current_turn_advancers);
+      const botNewTrackPos = Math.min(
+        game.track_limit ?? 70,
+        (gameState.track_position ?? 0) + botTrackAdv,
+      );
+      // ─────────────────────────────────────────────────────────────────
 
       // ── Meccaniche fine turno bot: bonus territoriali + obiettivi ───
       const { territories: botTerrRecs, myObjectives: botMyObj, militaryUnits: botUnits } = get();
@@ -963,7 +1011,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // ────────────────────────────────────────────────────────────────
 
       await withTimeout(Promise.all([
-        supabase.from('game_state').update({ ...botEnrichedState, active_faction: nextFact }).eq('game_id', game.id),
+        supabase.from('game_state').update({ ...botEnrichedState, active_faction: nextFact, track_position: botNewTrackPos }).eq('game_id', game.id),
         supabase.from('cards_deck').update({ status: 'played', played_at_turn: game.current_turn, held_by_faction: null })
           .eq('game_id', game.id).eq('held_by_faction', botFaction).eq('card_id', decision.card.card_id).eq('status', 'in_hand'),
         supabase.from('moves_log').insert({
@@ -1429,7 +1477,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       // 4. Passa il turno
       const winCheck = checkWinCondition(newState as GameState, game.current_turn, game.max_turns);
-      const nextFact = winCheck.isOver ? gameState.active_faction : nextFaction(myFaction);
+      const nextFact = winCheck.isOver ? gameState.active_faction : nextFactionInOrder(myFaction, gameState.current_turn_order);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
       // 4b. Meccaniche fine turno: bonus territoriali + obiettivi ───────
@@ -1441,9 +1489,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       // ─────────────────────────────────────────────────────────────────
 
       // 5. Aggiorna DB in parallelo
+      // ── Avanzamento tracciata turni (playCardUnified) ─────────────────
+      const uniCardOp = resolvedDeckCard.op_points ?? 0;
+      const uniTrackAdv = calcTrackAdvance(myFaction, uniCardOp, gameState.current_turn_advancers);
+      const uniNewTrackPos = Math.min(
+        game.track_limit ?? 70,
+        (gameState.track_position ?? 0) + uniTrackAdv,
+      );
+      // ─────────────────────────────────────────────────────────────────
       const stateUpdate = {
         ...uniEnrichedState,
         active_faction: nextFact,
+        track_position: uniNewTrackPos,
       };
 
       // Aggiorna carta — play_mode è opzionale (colonna potrebbe non esistere)
@@ -1560,7 +1617,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const stateUpdate: Partial<GameState> = { [risorseKey]: nuoveRisorse };
 
       // Passa il turno al prossimo giocatore
-      const nextFact = nextFaction(myFaction);
+      const nextFact = nextFactionInOrder(myFaction, gameState.current_turn_order);
       const nextTurn = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
 
       await withTimeout(Promise.all([
@@ -1897,7 +1954,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
 
       // Passa il turno su DB (altrimenti gli altri client non vedono il cambio via realtime)
-      const nextFact = nextFaction(myFaction);
+      const nextFact = nextFactionInOrder(myFaction, gameState.current_turn_order);
       const nextTurnNum = nextFact === 'Iran' ? game.current_turn + 1 : game.current_turn;
       await withTimeout(Promise.all([
         supabase.from('game_state').update({ active_faction: nextFact }).eq('game_id', game.id),
@@ -1968,7 +2025,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           const freshState = get().gameState;
           const freshGame  = get().game;
           if (freshGame && freshState && freshState.active_faction === myFaction) {
-            const nextFact = nextFaction(myFaction);
+            const nextFact = nextFactionInOrder(myFaction, gameState.current_turn_order);
             const nextTurn = nextFact === 'Iran' ? freshGame.current_turn + 1 : freshGame.current_turn;
             await supabase.from('game_state').update({ active_faction: nextFact }).eq('game_id', freshGame.id);
             await supabase.from('games').update({ current_turn: nextTurn }).eq('id', freshGame.id);

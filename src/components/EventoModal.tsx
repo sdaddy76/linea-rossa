@@ -1,11 +1,22 @@
 // =============================================
 // LINEA ROSSA — EventoModal
 // Modale che appare all'inizio del turno Iran
-// mostrando la carta evento pescata
+// mostrando la carta evento pescata.
+// Include: ordine turno variabile + segnalino avanzatori.
 // =============================================
 import { useEffect, useState } from 'react';
 import type { EventoCard } from '@/data/eventi';
 import { CATEGORY_COLORS, CATEGORY_ICONS, SEVERITY_COLORS } from '@/data/eventi';
+
+const FACTION_FLAGS: Record<string, string> = {
+  Iran: '🇮🇷', Coalizione: '🏳️', Russia: '🇷🇺', Cina: '🇨🇳', Europa: '🇪🇺',
+};
+const FACTION_COLORS: Record<string, string> = {
+  Iran: '#22c55e', Coalizione: '#3b82f6', Russia: '#ef4444', Cina: '#f59e0b', Europa: '#8b5cf6',
+};
+const FACTION_SHORT: Record<string, string> = {
+  Iran: 'IR', Coalizione: 'CO', Russia: 'RU', Cina: 'CN', Europa: 'EU',
+};
 
 interface EventoModalProps {
   evento: EventoCard;
@@ -102,6 +113,50 @@ export default function EventoModal({ evento, onConfirm, isMyTurn, currentFactio
                evento.severity === 'medium'   ? '🟡 MEDIO' : '🟢 BASSO'}
             </span>
           </div>
+
+          {/* ── Ordine turno variabile (nuovo) ── */}
+          {evento.turn_order && evento.turn_order.length > 0 && (
+            <div className="px-5 py-3 border-b"
+              style={{ borderColor: `${catColor}22`, backgroundColor: '#06090f' }}>
+              <p className="text-[9px] font-mono font-bold text-[#445566] uppercase tracking-widest mb-2">
+                🔀 Ordine di Turno — questo round
+              </p>
+              <div className="flex items-center gap-1 flex-wrap">
+                {evento.turn_order.map((faction, idx) => {
+                  const isAdvancer = evento.turn_advancers?.includes(faction) ?? false;
+                  return (
+                    <div key={faction} className="flex items-center gap-0.5">
+                      {idx > 0 && <span className="text-[#1e3a5f] text-sm font-bold">→</span>}
+                      <div
+                        className="flex flex-col items-center px-2 py-1.5 rounded-lg min-w-[44px]"
+                        style={{
+                          backgroundColor: isAdvancer ? `${FACTION_COLORS[faction]}25` : '#0d1424',
+                          border: `1px solid ${isAdvancer ? FACTION_COLORS[faction] : '#1e2a3a'}`,
+                          boxShadow: isAdvancer ? `0 0 8px ${FACTION_COLORS[faction]}40` : 'none',
+                        }}>
+                        <span className="text-lg leading-none">{FACTION_FLAGS[faction]}</span>
+                        <span className="text-[8px] font-mono font-bold mt-0.5"
+                          style={{ color: isAdvancer ? FACTION_COLORS[faction] : '#334455' }}>
+                          {FACTION_SHORT[faction]} {idx + 1}°
+                        </span>
+                        {isAdvancer && (
+                          <span className="text-[7px] font-mono mt-0.5 px-1 rounded"
+                            style={{ backgroundColor: `${FACTION_COLORS[faction]}30`, color: FACTION_COLORS[faction] }}>
+                            ⬆ AVANZA
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {evento.turn_advancers && evento.turn_advancers.length > 0 && (
+                <p className="text-[9px] font-mono text-[#445566] mt-2">
+                  ⬆ = avanza il segnalino turni di tanti spazi quanti sono gli OP della carta giocata
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Corpo ── */}
           <div className="px-5 py-4 space-y-4">
