@@ -148,11 +148,12 @@ interface ScoreBoardProps {
   gameState: GameState;
   myFaction: string | null;
   factions: string[];
+  territories?: import('@/types/game').TerritoryRecord[];
 }
 
-const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions }) => {
+const ScoreBoard: React.FC<ScoreBoardProps> = ({ gameState, myFaction, factions, territories = [] }) => {
   // ── Calcola punteggi live ──────────────────────────────────────────
-  const scores = useMemo(() => calcScores(gameState), [gameState]);
+  const scores = useMemo(() => calcScores(gameState, territories), [gameState, territories]);
 
   // ── Memorizza punteggi precedenti per calcolare il trend ──────────
   const prevScoresRef = useRef<Record<string, number>>({});

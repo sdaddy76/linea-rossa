@@ -532,37 +532,57 @@ export function applyCardEffects(
 // Controlla condizioni di fine partita
 // -----------------------------------------------
 // ─── Formula punteggi per fazione ────────────────────────────────────────────
-export function calcScores(state: GameState): Record<string, number> {
+// territories: opzionale — se passato, aggiunge la somma dell'influenza
+//              territoriale di ciascuna fazione (1pt per unità di inf)
+export function calcScores(
+  state: GameState,
+  territories: TerritoryRecord[] = [],
+): Record<string, number> {
+  // Somma influenza territoriale per fazione
+  const ti = { Iran: 0, Coalizione: 0, Russia: 0, Cina: 0, Europa: 0 };
+  for (const t of territories) {
+    ti.Iran       += t.inf_iran       ?? 0;
+    ti.Coalizione += t.inf_coalizione ?? 0;
+    ti.Russia     += t.inf_russia     ?? 0;
+    ti.Cina       += t.inf_cina       ?? 0;
+    ti.Europa     += t.inf_europa     ?? 0;
+  }
+
   return {
-    // Iran: breakout nucleare×2 + risorse×2 − sanzioni/2
+    // Iran: breakout nucleare×2 + risorse×2 − sanzioni/2 + influenza territori
     Iran: Math.round(
       (state.nucleare ?? 0) * 2 +
       (state.risorse_iran ?? 0) * 2 -
-      (state.sanzioni ?? 0) / 2
+      (state.sanzioni ?? 0) / 2 +
+      ti.Iran
     ),
-    // Coalizione: pressione sanzionatoria + risorse − avanzamento nucleare
+    // Coalizione: pressione sanzionatoria + risorse − nucleare + influenza territori
     Coalizione: Math.round(
       (state.sanzioni ?? 0) * 3 +
       (state.risorse_coalizione ?? 0) * 2 -
-      (state.nucleare ?? 0) / 3
+      (state.nucleare ?? 0) / 3 +
+      ti.Coalizione
     ),
-    // Russia: egemonia militare + stabilità − impopolarità globale
+    // Russia: egemonia militare + stabilità − opinione + influenza territori
     Russia: Math.round(
       (state.influenza_militare_russia ?? 0) * 3 +
       (state.stabilita_russia ?? 0) * 2 -
-      (state.opinione ?? 0) / 2
+      (state.opinione ?? 0) / 2 +
+      ti.Russia
     ),
-    // Cina: influenza commerciale + rotte − sanzioni/4 (blocco rotte attenuato)
+    // Cina: influenza commerciale + rotte − sanzioni/4 + influenza territori
     Cina: Math.round(
       (state.influenza_commerciale_cina ?? 0) * 3 +
       (state.stabilita_rotte_cina ?? 0) * 2 -
-      (state.sanzioni ?? 0) / 4
+      (state.sanzioni ?? 0) / 4 +
+      ti.Cina
     ),
-    // Europa: distensione (defcon alto) + opinione − minaccia nucleare/3
+    // Europa: distensione + opinione − nucleare/3 + influenza territori
     Europa: Math.round(
       (state.defcon ?? 0) * 6 +
       (state.opinione ?? 0) * 2 -
-      (state.nucleare ?? 0) / 3
+      (state.nucleare ?? 0) / 3 +
+      ti.Europa
     ),
   };
 }

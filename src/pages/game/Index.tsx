@@ -724,7 +724,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
 
             {/* Punteggi finali — tutte le fazioni */}
             {gameState && (() => {
-              const scores = calcScores(gameState);
+              const scores = calcScores(gameState, terrRecords);
               const FACTIONS: { key: string; label: string; flag: string; color: string }[] = [
                 { key: 'Iran',       label: 'Iran',       flag: '🇮🇷', color: '#ff6644' },
                 { key: 'Coalizione', label: 'Coalizione', flag: '🇺🇸', color: '#3b82f6' },
@@ -998,6 +998,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   gameState={gameState}
                   myFaction={myFaction ?? null}
                   factions={players.map(p => p.faction).filter(Boolean) as string[]}
+                  territories={terrRecords}
                 />
               </div>
             )}
