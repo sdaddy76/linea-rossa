@@ -563,10 +563,10 @@ export function calcScores(
       (state.nucleare ?? 0) / 3 +
       ti.Coalizione
     ),
-    // Russia: egemonia militare + stabilità×2.5 − opinione + influenza territori
+    // Russia: egemonia militare + stabilità×2 − opinione + influenza territori
     Russia: Math.round(
       (state.influenza_militare_russia ?? 0) * 3 +
-      (state.stabilita_russia ?? 0) * 2.5 -
+      (state.stabilita_russia ?? 0) * 2 -
       (state.opinione ?? 0) / 2 +
       ti.Russia
     ),
