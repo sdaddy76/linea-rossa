@@ -549,84 +549,81 @@ export function calcScores(
   }
 
   return {
-    // Iran: breakout nucleare×2 + risorse×3 − sanzioni/2 + influenza territori
+    // Iran: nucleare×2 + risorse×2.5 − sanzioni/3 + territori  (v9)
     Iran: Math.round(
       (state.nucleare ?? 0) * 2 +
-      (state.risorse_iran ?? 0) * 3 -
-      (state.sanzioni ?? 0) / 2 +
+      (state.risorse_iran ?? 0) * 2.5 -
+      (state.sanzioni ?? 0) / 3 +
       ti.Iran
     ),
-    // Coalizione: pressione sanzionatoria + risorse − nucleare + influenza territori
+    // Coalizione: sanzioni×2 + risorse×2 − nucleare/3 + territori  (v9)
     Coalizione: Math.round(
-      (state.sanzioni ?? 0) * 3 +
+      (state.sanzioni ?? 0) * 2 +
       (state.risorse_coalizione ?? 0) * 2 -
       (state.nucleare ?? 0) / 3 +
       ti.Coalizione
     ),
-    // Russia: egemonia militare + stabilità×2 − opinione + influenza territori
+    // Russia: inf_mil×2.5 + stabilità×2 − opinione/2 + territori  (v9)
     Russia: Math.round(
-      (state.influenza_militare_russia ?? 0) * 3 +
+      (state.influenza_militare_russia ?? 0) * 2.5 +
       (state.stabilita_russia ?? 0) * 2 -
       (state.opinione ?? 0) / 2 +
       ti.Russia
     ),
-    // Cina: influenza commerciale + rotte − sanzioni/4 + influenza territori
+    // Cina: inf_comm×2.5 + rotte×2 − sanzioni/4 + territori  (v9)
     Cina: Math.round(
-      (state.influenza_commerciale_cina ?? 0) * 3 +
+      (state.influenza_commerciale_cina ?? 0) * 2.5 +
       (state.stabilita_rotte_cina ?? 0) * 2 -
       (state.sanzioni ?? 0) / 4 +
       ti.Cina
     ),
-    // Europa: distensione + opinione − nucleare/3 + influenza territori
+    // Europa: defcon×3 + opinione×3.5 − nucleare×0.5 + territori  (v9)
     Europa: Math.round(
-      (state.defcon ?? 0) * 4 +
-      (state.opinione ?? 0) * 2 -
-      (state.nucleare ?? 0) / 3 +
+      (state.defcon ?? 0) * 3 +
+      (state.opinione ?? 0) * 3.5 -
+      (state.nucleare ?? 0) * 0.5 +
       ti.Europa
     ),
   };
 }
 
 export function checkWinCondition(state: GameState, turn: number, maxTurns: number) {
-  // ── Iran: breakout nucleare ───────────────────────────────────────────────
+  // ── Iran: breakout nucleare (v9) ─────────────────────────────────────────
   if (state.nucleare >= 13) {
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout',
       message: '☢️ Iran ha raggiunto la capacità nucleare! Breakout completato.' };
   }
-  // ── Iran: breakout parziale + autosufficienza economica ─────────────────
-  if (state.nucleare >= 10 && (state.risorse_iran ?? 0) >= 8) {
+  // ── Iran: breakout parziale + autosufficienza economica (v9) ────────────
+  if (state.nucleare >= 11 && (state.risorse_iran ?? 0) >= 11) {
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout_economico',
       message: '☢️💰 Iran: breakout nucleare e autosufficienza economica raggiunti!' };
   }
 
-  // ── Coalizione: sanzioni al massimo → regime iraniano collassa ───────────
-  if (state.sanzioni >= 10) {
+  // ── Coalizione: sanzioni → regime iraniano collassa (v9) ─────────────────
+  if (state.sanzioni >= 15) {
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'collasso',
       message: '🏴 Le sanzioni hanno paralizzato il regime iraniano!' };
   }
-  // ── Coalizione: dominio economico ────────────────────────────────────────
-  if ((state.sanzioni ?? 0) >= 9 && (state.risorse_coalizione ?? 0) >= 10) {
+  // ── Coalizione: dominio economico (v9) ───────────────────────────────────
+  if ((state.sanzioni ?? 0) >= 12 && (state.risorse_coalizione ?? 0) >= 12) {
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'dominio_economico',
       message: '💵 La Coalizione ha imposto il dominio economico sulla regione!' };
   }
 
-  // ── Russia: egemonia militare regionale ──────────────────────────────────
-  // Influenza militare al massimo → controllo del campo di battaglia
-  if ((state.influenza_militare_russia ?? 0) >= 10) {
+  // ── Russia: egemonia militare regionale (v9) ──────────────────────────────
+  if ((state.influenza_militare_russia ?? 0) >= 12) {
     return { isOver: true, winner: 'Russia' as Faction, condition: 'egemonia_militare',
       message: '🐻 La Russia ha raggiunto l\'egemonia militare nella regione!' };
   }
 
-  // ── Cina: Via della Seta dominante ───────────────────────────────────────
-  // Influenza commerciale + stabilità rotte entrambe elevate
-  if ((state.influenza_commerciale_cina ?? 0) >= 9 && (state.stabilita_rotte_cina ?? 0) >= 9) {
+  // ── Cina: Via della Seta dominante (v9) ──────────────────────────────────
+  if ((state.influenza_commerciale_cina ?? 0) >= 10 && (state.stabilita_rotte_cina ?? 0) >= 10) {
     return { isOver: true, winner: 'Cina' as Faction, condition: 'via_seta',
       message: '🐉 La Cina domina le rotte commerciali del Medio Oriente!' };
   }
 
-  // ── Europa: pace garantita diplomaticamente ──────────────────────────────
-  // DEFCON massimo + opinione alta + minaccia nucleare contenuta
-  if ((state.defcon ?? 0) >= 5 && (state.opinione ?? 0) >= 9 && (state.nucleare ?? 0) <= 5) {
+  // ── Europa: pace diplomatica (v9) ────────────────────────────────────────
+  if ((state.opinione ?? 0) >= 8 && (state.defcon ?? 0) >= 5) {
     return { isOver: true, winner: 'Europa' as Faction, condition: 'pace_diplomatica',
       message: '🕊️ L\'Europa ha garantito la pace e la stabilità nella regione!' };
   }
