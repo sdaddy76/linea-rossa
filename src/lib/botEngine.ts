@@ -549,10 +549,10 @@ export function calcScores(
   }
 
   return {
-    // Iran: breakout nucleare×2 + risorse×2 − sanzioni/2 + influenza territori
+    // Iran: breakout nucleare×2 + risorse×3 − sanzioni/2 + influenza territori
     Iran: Math.round(
       (state.nucleare ?? 0) * 2 +
-      (state.risorse_iran ?? 0) * 2 -
+      (state.risorse_iran ?? 0) * 3 -
       (state.sanzioni ?? 0) / 2 +
       ti.Iran
     ),
@@ -593,6 +593,11 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout',
       message: '☢️ Iran ha raggiunto la capacità nucleare! Breakout completato.' };
   }
+  // ── Iran: breakout parziale + autosufficienza economica ─────────────────
+  if (state.nucleare >= 11 && (state.risorse_iran ?? 0) >= 8) {
+    return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout_economico',
+      message: '☢️💰 Iran: breakout nucleare e autosufficienza economica raggiunti!' };
+  }
 
   // ── Coalizione: sanzioni al massimo → regime iraniano collassa ───────────
   if (state.sanzioni >= 10) {
@@ -615,8 +620,8 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
   }
 
   // ── Europa: pace garantita diplomaticamente ──────────────────────────────
-  // DEFCON massimo + opinione globale positiva
-  if ((state.defcon ?? 0) >= 5 && (state.opinione ?? 0) >= 7) {
+  // DEFCON massimo + opinione alta + minaccia nucleare contenuta
+  if ((state.defcon ?? 0) >= 5 && (state.opinione ?? 0) >= 8 && (state.nucleare ?? 0) <= 5) {
     return { isOver: true, winner: 'Europa' as Faction, condition: 'pace_diplomatica',
       message: '🕊️ L\'Europa ha garantito la pace e la stabilità nella regione!' };
   }
