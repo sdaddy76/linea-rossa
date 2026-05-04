@@ -563,10 +563,10 @@ export function calcScores(
       (state.nucleare ?? 0) / 3 +
       ti.Coalizione
     ),
-    // Russia: egemonia militare + stabilità − opinione + influenza territori
+    // Russia: egemonia militare + stabilità×2.5 − opinione + influenza territori
     Russia: Math.round(
       (state.influenza_militare_russia ?? 0) * 3 +
-      (state.stabilita_russia ?? 0) * 2 -
+      (state.stabilita_russia ?? 0) * 2.5 -
       (state.opinione ?? 0) / 2 +
       ti.Russia
     ),
@@ -594,7 +594,7 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
       message: '☢️ Iran ha raggiunto la capacità nucleare! Breakout completato.' };
   }
   // ── Iran: breakout parziale + autosufficienza economica ─────────────────
-  if (state.nucleare >= 11 && (state.risorse_iran ?? 0) >= 8) {
+  if (state.nucleare >= 10 && (state.risorse_iran ?? 0) >= 8) {
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout_economico',
       message: '☢️💰 Iran: breakout nucleare e autosufficienza economica raggiunti!' };
   }
@@ -605,7 +605,7 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
       message: '🏴 Le sanzioni hanno paralizzato il regime iraniano!' };
   }
   // ── Coalizione: dominio economico ────────────────────────────────────────
-  if ((state.sanzioni ?? 0) >= 8 && (state.risorse_coalizione ?? 0) >= 9) {
+  if ((state.sanzioni ?? 0) >= 8 && (state.risorse_coalizione ?? 0) >= 10) {
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'dominio_economico',
       message: '💵 La Coalizione ha imposto il dominio economico sulla regione!' };
   }
