@@ -579,7 +579,7 @@ export function calcScores(
     ),
     // Europa: distensione + opinione − nucleare/3 + influenza territori
     Europa: Math.round(
-      (state.defcon ?? 0) * 6 +
+      (state.defcon ?? 0) * 5 +
       (state.opinione ?? 0) * 2 -
       (state.nucleare ?? 0) / 3 +
       ti.Europa
@@ -604,10 +604,15 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'collasso',
       message: '🏴 Le sanzioni hanno paralizzato il regime iraniano!' };
   }
+  // ── Coalizione: dominio economico ────────────────────────────────────────
+  if ((state.sanzioni ?? 0) >= 8 && (state.risorse_coalizione ?? 0) >= 9) {
+    return { isOver: true, winner: 'Coalizione' as Faction, condition: 'dominio_economico',
+      message: '💵 La Coalizione ha imposto il dominio economico sulla regione!' };
+  }
 
   // ── Russia: egemonia militare regionale ──────────────────────────────────
   // Influenza militare al massimo → controllo del campo di battaglia
-  if ((state.influenza_militare_russia ?? 0) >= 9) {
+  if ((state.influenza_militare_russia ?? 0) >= 10) {
     return { isOver: true, winner: 'Russia' as Faction, condition: 'egemonia_militare',
       message: '🐻 La Russia ha raggiunto l\'egemonia militare nella regione!' };
   }
