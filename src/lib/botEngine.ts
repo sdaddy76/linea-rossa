@@ -579,7 +579,7 @@ export function calcScores(
     ),
     // Europa: distensione + opinione − nucleare/3 + influenza territori
     Europa: Math.round(
-      (state.defcon ?? 0) * 5 +
+      (state.defcon ?? 0) * 4 +
       (state.opinione ?? 0) * 2 -
       (state.nucleare ?? 0) / 3 +
       ti.Europa
@@ -605,7 +605,7 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
       message: '🏴 Le sanzioni hanno paralizzato il regime iraniano!' };
   }
   // ── Coalizione: dominio economico ────────────────────────────────────────
-  if ((state.sanzioni ?? 0) >= 8 && (state.risorse_coalizione ?? 0) >= 10) {
+  if ((state.sanzioni ?? 0) >= 9 && (state.risorse_coalizione ?? 0) >= 10) {
     return { isOver: true, winner: 'Coalizione' as Faction, condition: 'dominio_economico',
       message: '💵 La Coalizione ha imposto il dominio economico sulla regione!' };
   }
@@ -626,7 +626,7 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
 
   // ── Europa: pace garantita diplomaticamente ──────────────────────────────
   // DEFCON massimo + opinione alta + minaccia nucleare contenuta
-  if ((state.defcon ?? 0) >= 5 && (state.opinione ?? 0) >= 8 && (state.nucleare ?? 0) <= 5) {
+  if ((state.defcon ?? 0) >= 5 && (state.opinione ?? 0) >= 9 && (state.nucleare ?? 0) <= 5) {
     return { isOver: true, winner: 'Europa' as Faction, condition: 'pace_diplomatica',
       message: '🕊️ L\'Europa ha garantito la pace e la stabilità nella regione!' };
   }
