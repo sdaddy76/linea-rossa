@@ -588,6 +588,17 @@ export function calcScores(
 }
 
 export function checkWinCondition(state: GameState, turn: number, maxTurns: number) {
+  // ── DEFCON 1: guerra nucleare — tutti perdono (sempre attivo) ────────────
+  if (state.defcon <= 1) {
+    return { isOver: true, winner: undefined, condition: 'defcon',
+      message: '💥 DEFCON 1 — Guerra Termonucleare. Nessun vincitore.' };
+  }
+
+  // ── Win condition attive solo dal turno 10 in poi ─────────────────────────
+  if (turn < 10) {
+    return { isOver: false };
+  }
+
   // ── Iran: breakout nucleare (v9) ─────────────────────────────────────────
   if (state.nucleare >= 13) {
     return { isOver: true, winner: 'Iran' as Faction, condition: 'breakout',
@@ -626,12 +637,6 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
   if ((state.opinione ?? 0) >= 8 && (state.defcon ?? 0) >= 5) {
     return { isOver: true, winner: 'Europa' as Faction, condition: 'pace_diplomatica',
       message: '🕊️ L\'Europa ha garantito la pace e la stabilità nella regione!' };
-  }
-
-  // ── Tutti perdono: DEFCON 1 = guerra nucleare ────────────────────────────
-  if (state.defcon <= 1) {
-    return { isOver: true, winner: undefined, condition: 'defcon',
-      message: '💥 DEFCON 1 — Guerra Termonucleare. Tutti hanno perso.' };
   }
 
   // ── Fine turni: vince chi ha punteggio più alto ───────────────────────────
