@@ -504,7 +504,7 @@ export function applyCardEffects(
     nucleare: Math.max(1, Math.min(15, curNucleare + dNucleare)),
     sanzioni: Math.max(1, Math.min(10, curSanzioni + dSanzioni)),
     opinione: Math.max(-10, Math.min(10, curOpinione + dOpinione)),
-    defcon:   Math.max(1, Math.min( 5, curDefcon + dDefcon)),
+    defcon:   Math.max(1, Math.min(10, curDefcon + dDefcon)),
     ...newStateFazioni,
   };
 
@@ -676,7 +676,7 @@ export const TERRITORY_CONTROL_THRESHOLD = 3;
 /**
  * Limiti esatti dai CHECK constraints del DB Supabase (game_state).
  * ATTENZIONE: il DB reale è stato aggiornato con migration manuali:
- *   - defcon:   1-5   (DB reale: BETWEEN 1 AND 5)
+ *   - defcon:   1-10  (DB reale: BETWEEN 1 AND 10)
  *   - sanzioni: 1-10  (DB reale: BETWEEN 1 AND 10)
  *   - risorse_coalizione: 1-15 (add_faction_tracks.sql)
  *   - risorse_cina:       1-12 (add_faction_tracks.sql)
@@ -687,7 +687,7 @@ const STATE_LIMITS: Record<string, [number, number]> = {
   nucleare:                         [1, 15],
   sanzioni:                         [1, 10],   // DB: BETWEEN 1 AND 10
   opinione:                         [-10, 10],
-  defcon:                           [1,  5],   // DB: BETWEEN 1 AND 5
+  defcon:                           [1, 10],   // DB: BETWEEN 1 AND 10
   // ── risorse per fazione ─────────────────────────────────────────
   risorse_iran:                     [1, 10],
   risorse_coalizione:               [1, 15],   // DB: ALTER aggiunge BETWEEN 1 AND 15

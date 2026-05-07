@@ -705,7 +705,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           if (k.startsWith('risorse_')   && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
-          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
+          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
           // tracciati fazione estesi: tutti BETWEEN 1 AND 10
@@ -979,7 +979,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           if (k.startsWith('risorse_')   && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('stabilita_') && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k.startsWith('forze_militari_') && typeof v === 'number') return [k, Math.max(0, Math.min(20, v))];
-          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(5, v))];
+          if (k === 'defcon' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'sanzioni' && typeof v === 'number') return [k, Math.max(1, Math.min(10, v))];
           if (k === 'nucleare' && typeof v === 'number') return [k, Math.max(1, Math.min(15, v))];
           // tracciati fazione estesi: tutti BETWEEN 1 AND 10
@@ -1837,7 +1837,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }, { onConflict: 'game_id,territory' }), 8000, 'attackTerritory-territories');
 
       // 2. Aggiorna DEFCON e stabilità interna
-      const newDefcon   = Math.max(1, Math.min(5, (gameState.defcon ?? 3) + defconChange));
+      const newDefcon   = Math.max(1, Math.min(10, (gameState.defcon ?? 7) + defconChange));
       const stabKey     = `stabilita_${myFaction.toLowerCase()}` as keyof typeof gameState;
       const newStab     = Math.max(1, Math.min(10, ((gameState[stabKey] as number) ?? 5) + stabilityChange));
 

@@ -51,13 +51,13 @@ export interface MarketState {
   faction: Faction;
 }
 
-// ─── Moltiplicatori DEFCON ─────────────────
+// ─── Moltiplicatori DEFCON (scala 1-10) ─────────────────
 function moltiplicatoreDefcon(defcon: number): { mult: number; label: string } {
-  if (defcon === 5) return { mult: 0.7,  label: 'Pace (+30% sconto)' };
-  if (defcon === 4) return { mult: 1.0,  label: 'Normale' };
-  if (defcon === 3) return { mult: 1.3,  label: 'Tensione (+30% costo)' };
-  if (defcon === 2) return { mult: 1.7,  label: 'Allerta (+70% costo)' };
-  /* defcon === 1 */  return { mult: 2.5,  label: 'Guerra (×2.5 costo)' };
+  if (defcon >= 9) return { mult: 0.7,  label: 'Pace (+30% sconto)' };
+  if (defcon >= 7) return { mult: 1.0,  label: 'Normale' };
+  if (defcon >= 5) return { mult: 1.3,  label: 'Tensione (+30% costo)' };
+  if (defcon >= 3) return { mult: 1.7,  label: 'Allerta (+70% costo)' };
+  /* defcon 1-2 */  return { mult: 2.5,  label: 'Guerra (×2.5 costo)' };
 }
 
 // ─── Moltiplicatori Sanzioni per fazione ──
