@@ -129,9 +129,9 @@ function calcAttackForce(
   }
 
   // ── Bonus situazionali ──────────────────────────────────────────────────────
-  if (input.gameState.defcon <= 3) {
+  if (input.gameState.defcon <= 4) {
     force += 1;
-    bd.push(`DEFCON ≤ 3 (escalation): +1 → ${force}`);
+    bd.push(`DEFCON ≤ 4 (crisi — scala 1-10): +1 → ${force}`);
   }
   if (input.allianceActive) {
     force += 1;
@@ -207,8 +207,8 @@ function calcDefenseForce(
     }
   }
 
-  // DEFCON 3: unità navali difensive +1 ciascuna
-  if (input.gameState.defcon <= 3 && tDef?.isNaval) {
+  // DEFCON critico (≤4 su scala 1-10): unità navali difensive +1 ciascuna
+  if (input.gameState.defcon <= 4 && tDef?.isNaval) {
     const navTypes: UnitType[] = ['NavaleGolfo','PortaereiBattleGroup','SottomariniAKULA','NavalePLA'];
     let bonus = 0;
     for (const nt of navTypes) {
@@ -216,7 +216,7 @@ function calcDefenseForce(
     }
     if (bonus > 0) {
       force += bonus;
-      bd.push(`DEFCON ≤3 (navali +1 cad., ×${bonus}): +${bonus} → ${force}`);
+      bd.push(`DEFCON ≤4/10 (navali +1 cad., ×${bonus}): +${bonus} → ${force}`);
     }
   }
 

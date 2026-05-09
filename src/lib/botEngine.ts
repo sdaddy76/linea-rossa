@@ -343,10 +343,10 @@ function scoreCard(card: GameCard, state: GameState, faction: Faction): number {
   if (mieRisorse <= 1 && dRisorse < 0) score -= 50;
   if (miaStabilita <= 1 && dStabilita < 0) score -= 40;
 
-  // DEFCON 1 = tutti perdono → evita assolutamente
-  if (defcon === 1 && dDefcon < 0) score -= 200;
-  if (defcon === 2 && dDefcon < 0) score -= 150;
-  if (defcon === 3 && dDefcon < 0) score -= 80;
+  // DEFCON critico (scala 1-10) → evita assolutamente di abbassarlo
+  if (defcon <= 2 && dDefcon < 0) score -= 200;  // quasi guerra nucleare
+  if (defcon <= 4 && dDefcon < 0) score -= 150;  // allerta alta
+  if (defcon <= 6 && dDefcon < 0) score -= 80;   // tensione
 
   return score;
 }

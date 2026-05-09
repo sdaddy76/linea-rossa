@@ -4,8 +4,8 @@
 // Regola: il costo base di 1 unità di risorsa militare
 // dipende da 3 fattori combinati:
 //
-// 1. DEFCON (5-1):  più basso = crisi in corso = costo alto
-//    5 → ×0.7  |  4 → ×1.0  |  3 → ×1.3  |  2 → ×1.7  |  1 → ×2.5
+// 1. DEFCON (10-1):  più basso = crisi in corso = costo alto
+//    ≥9 → ×0.7  |  ≥7 → ×1.0  |  ≥5 → ×1.3  |  ≥3 → ×1.7  |  1-2 → ×2.5
 //
 // 2. Sanzioni (1-10): più alte = economia compressa = costo alto per Iran
 //                                                   = costo basso per Coalizione

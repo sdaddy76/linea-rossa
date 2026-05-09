@@ -64,13 +64,22 @@ interface Props {
 }
 
 // ── Combat engine ─────────────────────────────────────────────────────────────
+// Dado singolo 1-6 (regola base: il risultato non può superare 6)
 function rollD6(): number { return Math.floor(Math.random() * 6) + 1; }
 
+// ── Soglie allineate a combatEngine.ts ──────────────────────────────────────
+// Attacco = atkForce + 1d6  |  Difesa = defForce + 1d6
+// diff = atk_total - def_total
+//   ≥ 3  → vittoria_decisiva
+//   ≥ 1  → vittoria
+//   = 0  → stallo
+//   ≥ -2 → sconfitta
+//   else → sconfitta_grave
 function resolveCombat(atkForce: number, defForce: number): CombatResult {
-  const roll_atk = rollD6() + rollD6();
-  const roll_def = rollD6() + rollD6();
-  const atk_total = Math.min(atkForce + roll_atk, 12 + atkForce); // dado max 6 per dado
-  const def_total = Math.min(defForce + roll_def, 12 + defForce);
+  const roll_atk = rollD6();
+  const roll_def = rollD6();
+  const atk_total = atkForce + roll_atk;
+  const def_total = defForce + roll_def;
   const diff = atk_total - def_total;
 
   let result: CombatResult['result'];
@@ -79,31 +88,30 @@ function resolveCombat(atkForce: number, defForce: number): CombatResult {
   let description = '';
   let unitPlaced = true;
 
-  if (diff >= 6) {
+  if (diff >= 3) {
     result = 'vittoria_decisiva';
-    inf_change_atk = 2; inf_change_def = -2; defcon_change = -1;
-    description = `Vittoria Decisiva! +2 influenza attaccante, -2 difensore, DEFCON -1.`;
+    inf_change_atk = 1; inf_change_def = -2; defcon_change = -1;
+    description = `Vittoria Decisiva! (+${diff}) +1 influenza attaccante, -2 difensore, DEFCON -1.`;
     unitPlaced = true;
-  } else if (diff >= 2) {
+  } else if (diff >= 1) {
     result = 'vittoria';
-    inf_change_atk = 1; inf_change_def = -1;
-    description = `Vittoria! +1 influenza attaccante, -1 difensore.`;
+    inf_change_def = -1;
+    description = `Vittoria! (+${diff}) -1 influenza difensore.`;
     unitPlaced = true;
-  } else if (diff >= -1) {
+  } else if (diff === 0) {
     result = 'stallo';
-    defcon_change = 1; attackerUnitsLost = 1;
-    description = `Stallo. Nessuna variazione influenza. DEFCON +1. L'unità è comunque schierata.`;
+    attackerUnitsLost = 1;
+    description = `Stallo. Nessuna variazione influenza. L'unità è comunque schierata.`;
     unitPlaced = true;
-  } else if (diff >= -4) {
+  } else if (diff >= -2) {
     result = 'sconfitta';
-    inf_change_atk = -1; inf_change_def = 1; attackerUnitsLost = 1; stabilityChange = -1;
-    description = `Sconfitta. -1 influenza attaccante, +1 difensore. L'unità è persa.`;
+    attackerUnitsLost = 1;
+    description = `Sconfitta. (${diff}) L'unità attaccante è persa.`;
     unitPlaced = false;
   } else {
     result = 'sconfitta_grave';
-    inf_change_atk = -2; inf_change_def = 2; defcon_change = 1;
-    attackerUnitsLost = 2; stabilityChange = -2;
-    description = `Sconfitta Grave! -2 influenza, +2 difensore, DEFCON +1. L'unità è distrutta.`;
+    attackerUnitsLost = 2; stabilityChange = -1;
+    description = `Sconfitta Grave! (${diff}) 2 unità perse, -1 Stabilità.`;
     unitPlaced = false;
   }
 
