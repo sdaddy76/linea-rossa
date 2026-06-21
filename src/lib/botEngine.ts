@@ -95,13 +95,15 @@ export function evaluateCondition(condition: string, state: GameState, faction: 
     if (k.includes('risorse') && k.includes('isr'))          return state.risorse_iran; // proxy Israele
     if (k.includes('risorse') && k.includes('rc'))           return state.risorse_russia;
     if (k.includes('risorse'))                               return state[risorseKey] as number;
-    if (k.includes('stabilità') && k.includes('iran'))       return state.stabilita_iran;
-    if (k.includes('stabilità') && k.includes('coalizione')) return state.stabilita_coalizione;
-    if (k.includes('stabilità') && k.includes('eu'))         return state.stabilita_europa;
-    if (k.includes('stabilità') && k.includes('russia'))     return state.stabilita_russia;
-    if (k.includes('stabilità') && k.includes('cina'))       return state.stabilita_cina;
-    if (k.includes('stabilità') && k.includes('isr'))        return state.stabilita_iran; // proxy
-    if (k.includes('stabilità'))                             return state[stabKey] as number;
+    // v12: accetta sia forma accentata (stabilità) che non accentata (stabilita)
+    const hasStab = k.includes('stabilità') || k.includes('stabilita');
+    if (hasStab && k.includes('iran'))       return state.stabilita_iran;
+    if (hasStab && k.includes('coalizione')) return state.stabilita_coalizione;
+    if (hasStab && k.includes('eu'))         return state.stabilita_europa;
+    if (hasStab && k.includes('russia'))     return state.stabilita_russia;
+    if (hasStab && k.includes('cina'))       return state.stabilita_cina;
+    if (hasStab && k.includes('isr'))        return state.stabilita_iran; // proxy
+    if (hasStab)                             return state[stabKey] as number;
     if (k.includes('influenza') || k.includes('supporto') ||
         k.includes('coesione')  || k.includes('deterrenza') ||
         k.includes('intelligence'))                          return state[stabKey] as number;
@@ -292,32 +294,48 @@ function scoreCard(card: GameCard, state: GameState, faction: Faction): number {
     if (defcon <= 4 && dDefcon > 0) score += dDefcon * 30;
   }
 
-  // --- LOGICA PER RUSSIA ---
+  // --- LOGICA PER RUSSIA (v12: allineata a calcScores — influenza_militare_russia × 2.5) ---
   if (faction === 'Russia') {
     // Russia supporta Iran: abbassa sanzioni, aumenta risorse Iran
     score += dSanzioni * 15; // dSanzioni < 0 favorisce Iran
     if (dNucleare > 0) score += dNucleare * 8; // supporto nucleare leggero
     // Russia vuole mantenere il defcon basso (pressione)
     if (dDefcon < 0) score += Math.abs(dDefcon) * 8;
-    // Risorse proprie
+    // Priorità primaria: alzare influenza_militare_russia (campo calcScores)
+    const dInfMilRussia = card.effects.influenza_militare_russia?.(state.influenza_militare_russia ?? 5) ?? 0;
+    if (dInfMilRussia > 0) score += dInfMilRussia * 30;
+    // Risorse proprie come supporto
     if (mieRisorse <= 2 && dRisorse > 0) score += dRisorse * 20;
-    if (dRisorse > 0) score += dRisorse * 10;
+    if (dRisorse > 0) score += dRisorse * 8;
+    // Stabilità Russia
+    if (dStabilita > 0) score += dStabilita * 12;
     // Se sanzioni Iran alte → priorità bloccarle
     if (sanzioni >= 7) score += (dSanzioni < 0 ? Math.abs(dSanzioni) * 20 : 0);
+    // Win condition: inf_mil >= 9 E stabilita >= 9
+    if ((state.influenza_militare_russia ?? 0) >= 7 && dInfMilRussia > 0) score += 30;
   }
 
-  // --- LOGICA PER CINA ---
+  // --- LOGICA PER CINA (v12: allineata a calcScores — influenza_commerciale_cina × 2.5) ---
   if (faction === 'Cina') {
-    // Cina come Russia: abbassa sanzioni, supporto economico
+    // Priorità primaria: alzare influenza_commerciale_cina (campo calcScores)
+    const dInfCommCina = card.effects.influenza_commerciale_cina?.(state.influenza_commerciale_cina ?? 5) ?? 0;
+    if (dInfCommCina > 0) score += dInfCommCina * 30;
+    // Stabilità rotte (secondo campo calcScores)
+    const dStabRotte = card.effects.stabilita_rotte_cina?.(state.stabilita_rotte_cina ?? 5) ?? 0;
+    if (dStabRotte > 0) score += dStabRotte * 20;
+    // Abbassare sanzioni favorisce commercio
     score += dSanzioni * 15;
     if (dNucleare > 0) score += dNucleare * 5;
-    if (dRisorse > 0) score += dRisorse * 12;
-    if (mieRisorse <= 2 && dRisorse > 0) score += dRisorse * 22;
-    // Cina preferisce diplomazia
+    // Risorse proprie
+    if (dRisorse > 0) score += dRisorse * 10;
+    if (mieRisorse <= 2 && dRisorse > 0) score += dRisorse * 20;
+    // Cina preferisce diplomazia ed economia
     if (card.card_type === 'Diplomatico') score += 10;
     if (card.card_type === 'Economico') score += 8;
     // Defcon basso → Cina spinge mediazione
     if (defcon <= 4 && dDefcon > 0) score += 30;
+    // Win condition: inf_comm >= 9 E stabilita_rotte >= 9
+    if ((state.influenza_commerciale_cina ?? 0) >= 7 && dInfCommCina > 0) score += 30;
   }
 
   // --- LOGICA PER EUROPA ---
@@ -621,19 +639,19 @@ export function checkWinCondition(state: GameState, turn: number, maxTurns: numb
       message: '💵 La Coalizione ha imposto il dominio economico sulla regione!' };
   }
 
-  // ── Russia: egemonia militare + stabilità interna (v11) ──────────────────
-  if ((state.influenza_militare_russia ?? 0) >= 12 && (state.stabilita_russia ?? 0) >= 10) {
+  // ── Russia: egemonia militare + stabilità interna (v12 — soglie entro STATE_LIMITS [1,10]) ─
+  if ((state.influenza_militare_russia ?? 0) >= 9 && (state.stabilita_russia ?? 0) >= 9) {
     return { isOver: true, winner: 'Russia' as Faction, condition: 'egemonia_militare',
       message: '🐻 La Russia ha raggiunto l\'egemonia militare nella regione!' };
   }
-  // ── Russia: egemonia consolidata (v11 — attiva da turno 15) ──────────────
-  if (turn >= 15 && (state.influenza_militare_russia ?? 0) >= 10 && (state.stabilita_russia ?? 0) >= 11) {
+  // ── Russia: egemonia consolidata (v12 — attiva da turno 15) ─────────────
+  if (turn >= 15 && (state.influenza_militare_russia ?? 0) >= 8 && (state.stabilita_russia ?? 0) >= 9) {
     return { isOver: true, winner: 'Russia' as Faction, condition: 'egemonia_consolidata',
       message: '🐻🔒 La Russia ha consolidato la sua egemonia nella regione!' };
   }
 
-  // ── Cina: Via della Seta dominante (v11) ─────────────────────────────────
-  if ((state.influenza_commerciale_cina ?? 0) >= 11 && (state.stabilita_rotte_cina ?? 0) >= 10) {
+  // ── Cina: Via della Seta dominante (v12 — soglie entro STATE_LIMITS [1,10]) ─────────────
+  if ((state.influenza_commerciale_cina ?? 0) >= 9 && (state.stabilita_rotte_cina ?? 0) >= 9) {
     return { isOver: true, winner: 'Cina' as Faction, condition: 'via_seta',
       message: '🐉 La Cina domina le rotte commerciali del Medio Oriente!' };
   }
