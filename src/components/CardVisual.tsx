@@ -27,6 +27,15 @@ export const CARD_ART: Record<string, string> = {
   Neutrale:   '/card-art/evento_art.png',
 };
 export const CARD_BACK = '/card-art/back.png';
+export const CARD_BACK_BY_FACTION: Record<string, string> = {
+  Iran: '/card-art/iran.png',
+  Coalizione: '/card-art/coalizione.png',
+  Russia: '/card-art/russia.png',
+  Cina: '/card-art/cina.png',
+  Europa: '/card-art/europa.png',
+  Neutrale: '/card-art/evento.png',
+};
+export const CARD_BACK_EVENTO = '/card-art/evento.png';
 
 // ─── Colori per tipo carta (bordo) ───────────
 export const CARD_TYPE_BORDER: Record<string, string> = {
@@ -478,20 +487,42 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
 }
 
 // ─── Componente Dorso ────────────────────────
-function CardBack({ scale }: { scale: number }) {
+function CardBack({ card, scale }: { card: GameCard | DeckCard; scale: number }) {
+  const faction = String(card.faction ?? 'Neutrale');
+  const isBot = String(card.card_id ?? '').toUpperCase().startsWith('BOT-');
+  const isEvento = String(card.card_type ?? '').toLowerCase() === 'evento' ||
+    String(card.card_id ?? '').toUpperCase().startsWith('E');
+  const backUrl = isBot
+    ? CARD_BACK
+    : isEvento
+      ? CARD_BACK_EVENTO
+      : CARD_BACK_BY_FACTION[faction] ?? CARD_BACK;
+  const backLabel = isBot
+    ? `BOT · ${faction.toUpperCase()}`
+    : isEvento
+      ? 'MAZZO EVENTI'
+      : `MAZZO ${faction.toUpperCase()}`;
+  const labelColor = isBot ? '#f97316' : isEvento ? '#38bdf8' : (FACTION_COLOR[faction] ?? '#e2e8f0');
+
   return (
     <div
-      className="absolute inset-0 rounded-xl overflow-hidden"
+      className="absolute inset-0 rounded-xl overflow-hidden bg-[#080d16]"
       style={{
-        border: `${Math.max(1.5, 2*scale)}px solid #8b0000`,
-        boxShadow: `0 0 0 ${Math.max(1, scale)}px #3a0000 inset`,
+        border: `${Math.max(1.5, 2*scale)}px solid ${labelColor}`,
+        boxShadow: `0 0 0 ${Math.max(1, scale)}px #05070b inset`,
       }}
     >
       <img
-        src={CARD_BACK}
-        alt="Dorso carta"
-        className="w-full h-full object-cover"
+        src={backUrl}
+        alt={`Dorso ${backLabel}`}
+        className="h-full w-full object-cover"
       />
+      <div
+        className="absolute bottom-2 left-2 right-2 rounded border px-1 py-1 text-center font-mono text-[7px] font-black tracking-[0.12em] backdrop-blur-sm"
+        style={{ color: labelColor, borderColor: `${labelColor}99`, background: '#05070bcc' }}
+      >
+        {backLabel}
+      </div>
     </div>
   );
 }
@@ -548,7 +579,7 @@ export default function CardVisual({
 
         {/* Carta (fronte o dorso) */}
         {isFlipped
-          ? <CardBack scale={scale} />
+          ? <CardBack card={card} scale={scale} />
           : <CardFront card={card} scale={scale} />
         }
 

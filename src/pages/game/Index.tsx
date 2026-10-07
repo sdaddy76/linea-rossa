@@ -33,6 +33,7 @@ import { ScoreTrack } from '@/components/ScoreTrack';
 import ScoreBoard from '@/components/ScoreBoard';
 import GlobalStats from '@/components/GlobalStats';
 import { TurnTrack } from '@/components/TurnTrack';
+import { GraphicFactionBoard, GraphicMainBoard } from '@/components/GraphicBoards';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -865,6 +866,12 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             {/* TAB: PLANCIA */}
             {activeTab === 'plancia' && (
               <div className="space-y-3">
+                <GraphicMainBoard
+                  territories={territoryState}
+                  gameState={gameState}
+                  trackPosition={gameState.track_position ?? 0}
+                  trackLimit={game.track_limit ?? 70}
+                />
                 {/* ── Pool unità militari del giocatore ── */}
                 {myFaction && (
                   <div className="p-3 rounded-xl border border-[#1e3a5f] bg-[#0a0e1a]">
@@ -962,6 +969,10 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           )}
                         </div>
                         {/* Card tracciati */}
+                        <GraphicFactionBoard
+                          faction={p.faction}
+                          gameState={gameState}
+                        />
                         <FactionTrackCard
                           faction={p.faction}
                           gameState={gameState}
@@ -1014,6 +1025,12 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
             {/* TAB: MAPPA / TEATRO OPERATIVO */}
             {activeTab === 'mappa' && (
               <div className="flex flex-col gap-3">
+                <div className="rounded-xl border border-[#1e3a5f] bg-[#0a0e1a] px-3 py-2">
+                  <p className="font-mono text-[10px] text-[#8899aa]">
+                    La plancia grafica è nella scheda <span className="font-bold text-[#00ff88]">PLANCIA TRACCIATI</span>.
+                    Qui resta disponibile la mappa interattiva per selezionare territori e consultare influenze/unità.
+                  </p>
+                </div>
                 <TerritoryMap
                   territories={territoryState}
                   myFaction={myFaction}
