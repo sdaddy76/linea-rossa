@@ -67,7 +67,9 @@ function readBoardAreas(): BoardAreas {
     const stored = window.localStorage.getItem(BOARD_AREAS_STORAGE_KEY);
     if (!stored) return DEFAULT_BOARD_AREAS;
     const parsed = JSON.parse(stored) as BoardAreas;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    return parsed && typeof parsed === 'object'
+      ? { ...DEFAULT_BOARD_AREAS, ...parsed }
+      : DEFAULT_BOARD_AREAS;
   } catch {
     return DEFAULT_BOARD_AREAS;
   }
