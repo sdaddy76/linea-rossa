@@ -10,7 +10,6 @@ import type { GameCard } from '@/types/game';
 // MilitaryMarket rimosso — meccanica unificata in OpsActionModal
 import { calcolaCosto, getForzeMilitari } from '@/lib/militaryMarket';
 import { TRACK_TOOLTIPS } from '@/lib/tooltips';
-import TerritoryMap from '@/components/TerritoryMap';
 // CombatPanel rimosso — combattimento integrato in OpsActionModal
 import PlayerActionPanel from '@/components/PlayerActionPanel';
 import type { PlayerActionType, PlayerActionPayload } from '@/components/PlayerActionPanel';
@@ -375,7 +374,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   const [showActionPanel, setShowActionPanel] = useState(false);
   const [showHand, setShowHand] = useState(true);
   const [prevState, setPrevState] = useState<GameState | null>(null);
-  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'mappa' | 'punteggi' | 'stats'>('plancia');
+  const [activeTab, setActiveTab] = useState<'plancia' | 'fazioni' | 'punteggi' | 'stats'>('plancia');
   // showMarket e showCombat rimossi — meccanica unificata in OpsActionModal
   const [selectedTerritory, setSelectedTerritory] = useState<TerritoryId | null>(null);
 
@@ -851,14 +850,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
           <div>
             {/* Tab plancia / fazioni */}
             <div className="flex items-center gap-2 mb-2 flex-wrap">
-              {((['plancia', 'fazioni', 'mappa', 'punteggi', 'stats'] as const)).map(t => (
+              {((['plancia', 'fazioni', 'punteggi', 'stats'] as const)).map(t => (
                 <button key={t} onClick={() => setActiveTab(t)}
                   className={`px-3 py-1 rounded font-mono text-xs font-bold transition-all ${
                     activeTab === t
                       ? 'bg-[#00ff88] text-[#0a0e1a]'
                       : 'border border-[#1e3a5f] text-[#8899aa] hover:text-white'
                   }`}>
-                  {t === 'plancia' ? '📊 PLANCIA TRACCIATI' : t === 'fazioni' ? '🎭 FAZIONI & RISORSE' : t === 'mappa' ? '🗺 TEATRO OPERATIVO' : t === 'stats' ? '📈 Statistiche Globali' : '🏆 Punteggi'}
+                  {t === 'plancia' ? '📊 PLANCIA GENERALE' : t === 'fazioni' ? '🎭 FAZIONI & RISORSE' : t === 'stats' ? '📈 Statistiche Globali' : '🏆 Punteggi'}
                 </button>
               ))}
             </div>
@@ -871,6 +870,8 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   gameState={gameState}
                   trackPosition={gameState.track_position ?? 0}
                   trackLimit={game.track_limit ?? 70}
+                  selectedTerritory={selectedTerritory}
+                  onSelectTerritory={id => setSelectedTerritory(id as TerritoryId)}
                 />
                 {/* ── Pool unità militari del giocatore ── */}
                 {myFaction && (
@@ -1022,29 +1023,6 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
               </div>
             )}
 
-            {/* TAB: MAPPA / TEATRO OPERATIVO */}
-            {activeTab === 'mappa' && (
-              <div className="flex flex-col gap-3">
-                <div className="rounded-xl border border-[#1e3a5f] bg-[#0a0e1a] px-3 py-2">
-                  <p className="font-mono text-[10px] text-[#8899aa]">
-                    La plancia grafica è nella scheda <span className="font-bold text-[#00ff88]">PLANCIA TRACCIATI</span>.
-                    Qui resta disponibile la mappa interattiva per selezionare territori e consultare influenze/unità.
-                  </p>
-                </div>
-                <TerritoryMap
-                  territories={territoryState}
-                  myFaction={myFaction}
-                  isMyTurn={isMyTurn}
-                  selectedTerritory={selectedTerritory}
-                  attackMode={false}
-                  onSelectTerritory={id => {
-                    setSelectedTerritory(id);
-                  }}
-                />
-
-                {/* CombatPanel rimosso: usa OpsActionModal → Acquista & Piazza */}
-              </div>
-            )}
           </div>
 
           {/* ═══ ZONA AZIONI: carte + log (su due colonne) ═══ */}
@@ -1367,6 +1345,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                   gameState={gameState}
                   territories={terrRecords}
                   militaryUnits={unitRecords}
+                  initialTerritory={selectedTerritory}
                   loading={loading}
                   onCancel={() => { setShowOpsModal(false); setSelectedUnifiedCard(null); }}
                   onDeploy={async (params) => {
@@ -1385,11 +1364,11 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                       stabilityChange:   params.combat?.stabilityChange,
                       unitPlaced:        params.combat?.unitPlaced,
                     });
-                    setShowOpsModal(false); setSelectedUnifiedCard(null);
+                    setShowOpsModal(false); setSelectedUnifiedCard(null); setSelectedTerritory(null);
                   }}
                   onInfluence={async (territory, opSpent) => {
                     await playCardOps(unifiedCardToPlay.card_id, 'influence', { territory, opSpent });
-                    setShowOpsModal(false); setSelectedUnifiedCard(null);
+                    setShowOpsModal(false); setSelectedUnifiedCard(null); setSelectedTerritory(null);
                   }}
                 />
               )}

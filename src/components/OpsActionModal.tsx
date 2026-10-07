@@ -57,6 +57,7 @@ interface Props {
   gameState: GameState;
   territories: TerritoryRecord[];
   militaryUnits: MilitaryUnitRecord[];
+  initialTerritory?: string | null;
   onDeploy:    (params: DeployParams) => Promise<void>;
   onInfluence: (territory: string, opSpent: number) => Promise<void>;
   onCancel:    () => void;
@@ -140,7 +141,7 @@ const RESULT_LABEL: Record<CombatResult['result'], string> = {
 // ── Componente principale ─────────────────────────────────────────────────────
 export default function OpsActionModal({
   card, myFaction, gameState, territories, militaryUnits,
-  onDeploy, onInfluence, onCancel, loading,
+  initialTerritory, onDeploy, onInfluence, onCancel, loading,
 }: Props) {
   const fColor  = FACTION_COLORS[myFaction] ?? '#8899aa';
   const opPoints = card.op_points;
@@ -151,11 +152,11 @@ export default function OpsActionModal({
   // Deploy state
   const [selUnit, setSelUnit]     = useState<string | null>(null);
   const [selQty,  setSelQty]      = useState(1);
-  const [selTerritory, setSelTerritory] = useState<string | null>(null);
+  const [selTerritory, setSelTerritory] = useState<string | null>(initialTerritory ?? null);
   const [combatResult, setCombatResult] = useState<CombatResult | null>(null);
 
   // Influence state
-  const [infTerritory, setInfTerritory] = useState<string | null>(null);
+  const [infTerritory, setInfTerritory] = useState<string | null>(initialTerritory ?? null);
   const [infOp, setInfOp]               = useState(1);
 
   // ── Unità disponibili per questa fazione ──

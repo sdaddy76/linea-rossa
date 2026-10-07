@@ -33,6 +33,57 @@ const TERRITORY_SPOTS: Record<string, { left: number; top: number }> = {
   Yemen: { left: 58, top: 82 },
 };
 
+type TrackTokenConfig = {
+  label: string;
+  icon: string;
+  color: string;
+  min: number;
+  max: number;
+  left: (value: number) => number;
+  top: (value: number) => number;
+};
+
+// Coordinate percentuali riferite alla grafica della plancia generale.
+// I tracciati sono già stampati sull'immagine: qui si muove solo il token.
+const TRACK_TOKEN_CONFIG: TrackTokenConfig[] = [
+  {
+    label: 'Nucleare iraniano',
+    icon: '☢️',
+    color: '#facc15',
+    min: 1,
+    max: 15,
+    left: () => 8.9,
+    top: value => 78 - ((value - 1) / 14) * 56,
+  },
+  {
+    label: 'Sanzioni / Stabilità',
+    icon: '💰',
+    color: '#fb923c',
+    min: 1,
+    max: 10,
+    left: () => 89.1,
+    top: value => 51 - ((value - 1) / 9) * 24,
+  },
+  {
+    label: 'DEFCON',
+    icon: '⚔️',
+    color: '#ef4444',
+    min: 1,
+    max: 10,
+    left: () => 89.1,
+    top: value => 55 + ((value - 1) / 9) * 24,
+  },
+  {
+    label: 'Opinione globale',
+    icon: '🌐',
+    color: '#a78bfa',
+    min: -10,
+    max: 10,
+    left: value => 17 + ((value + 10) / 20) * 66,
+    top: () => 92.1,
+  },
+];
+
 const FACTIONS: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
 
 const shortFaction: Record<Faction, string> = {
@@ -51,9 +102,13 @@ function readTrack(gameState: GameState, key: keyof GameState, fallback: number)
 function TerritoryMarker({
   territory,
   state,
+  selected,
+  onSelect,
 }: {
   territory: string;
   state: TerritoryState[string] | undefined;
+  selected?: boolean;
+  onSelect?: (territory: string) => void;
 }) {
   const spot = TERRITORY_SPOTS[territory];
   if (!spot) return null;
@@ -73,14 +128,25 @@ function TerritoryMarker({
       })),
   ).filter(entry => entry.definition);
 
-  if (!entries.length && !unitEntries.length) return null;
-
   return (
-    <div
-      className="absolute z-20 flex max-w-[132px] flex-wrap items-center justify-center gap-0.5 rounded-md border border-white/40 bg-[#050b14]/90 px-1 py-0.5 shadow-lg backdrop-blur-sm"
-      style={{ left: `${spot.left}%`, top: `${spot.top}%`, transform: 'translate(-50%, -50%)' }}
+    <button
+      type="button"
+      aria-label={`Seleziona ${territory}`}
+      onClick={() => onSelect?.(territory)}
+      className={`absolute z-20 flex min-h-8 min-w-14 max-w-[132px] -translate-x-1/2 -translate-y-1/2 flex-wrap items-center justify-center gap-0.5 rounded-md border px-1 py-0.5 shadow-lg backdrop-blur-sm transition-all ${
+        selected ? 'scale-110 ring-2 ring-[#00ff88]' : 'hover:scale-110'
+      }`}
+      style={{
+        left: `${spot.left}%`,
+        top: `${spot.top}%`,
+        background: entries.length || unitEntries.length ? '#050b14e8' : '#050b1466',
+        borderColor: selected ? '#00ff88' : '#ffffff66',
+      }}
       title={`${territory}: ${entries.map(e => `${e.faction} ${e.count}`).join(' · ')}${unitEntries.length ? ` · ${unitEntries.map(e => `${e.definition?.label} ×${e.quantity}`).join(' · ')}` : ''}`}
     >
+      {!entries.length && !unitEntries.length && (
+        <span className="font-mono text-[8px] font-bold text-white/70">{territory}</span>
+      )}
       {entries.map(({ faction, count }) => (
         <span
           key={faction}
@@ -103,7 +169,7 @@ function TerritoryMarker({
           <span>{quantity > 1 ? `×${quantity}` : ''}</span>
         </span>
       ))}
-    </div>
+    </button>
   );
 }
 
@@ -127,16 +193,75 @@ function StatPill({
   );
 }
 
+function TrackToken({ config, value }: { config: TrackTokenConfig; value: number }) {
+  const clamped = Math.max(config.min, Math.min(config.max, value));
+  return (
+    <div
+      className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
+      style={{ left: `${config.left(clamped)}%`, top: `${config.top(clamped)}%` }}
+      title={`${config.label}: ${clamped}`}
+    >
+      <div
+        className="flex h-7 min-w-7 items-center justify-center rounded-full border-2 bg-[#050b14]/95 px-1 text-[12px] shadow-[0_0_14px_rgba(0,0,0,0.8)]"
+        style={{ borderColor: config.color, boxShadow: `0 0 14px ${config.color}aa` }}
+      >
+        <span aria-hidden="true">{config.icon}</span>
+      </div>
+      <div
+        className="mt-0.5 rounded border bg-[#050b14]/95 px-1 py-0.5 text-center font-mono text-[7px] font-black leading-none"
+        style={{ color: config.color, borderColor: `${config.color}99` }}
+      >
+        {clamped}
+      </div>
+    </div>
+  );
+}
+
+function TurnToken({ position, limit }: { position: number; limit: number }) {
+  const normalized = Math.max(0, Math.min(99, ((position || 0) / Math.max(1, limit - 1)) * 99));
+  let left = 4;
+  let top = 3;
+  if (normalized <= 25) {
+    left = 4 + (normalized / 25) * 88;
+    top = 3;
+  } else if (normalized <= 50) {
+    left = 92;
+    top = 3 + ((normalized - 25) / 25) * 84;
+  } else if (normalized <= 75) {
+    left = 92 - ((normalized - 50) / 25) * 88;
+    top = 87;
+  } else {
+    left = 4;
+    top = 87 - ((normalized - 75) / 24) * 84;
+  }
+
+  return (
+    <div
+      className="pointer-events-none absolute z-30 -translate-x-1/2 -translate-y-1/2"
+      style={{ left: `${left}%`, top: `${top}%` }}
+      title={`Tracciato turni: ${position}/${limit}`}
+    >
+      <div className="flex h-7 min-w-7 items-center justify-center rounded-full border-2 border-[#38bdf8] bg-[#07101de8] px-1 font-mono text-[9px] font-black text-[#38bdf8] shadow-[0_0_14px_rgba(56,189,248,0.75)]">
+        {position}
+      </div>
+    </div>
+  );
+}
+
 export function GraphicMainBoard({
   territories,
   gameState,
   trackPosition,
   trackLimit,
+  selectedTerritory,
+  onSelectTerritory,
 }: {
   territories: TerritoryState;
   gameState: GameState;
   trackPosition?: number;
   trackLimit?: number;
+  selectedTerritory?: string | null;
+  onSelectTerritory?: (territory: string) => void;
 }) {
   const turn = trackPosition ?? 0;
   const limit = trackLimit ?? 70;
@@ -169,10 +294,39 @@ export function GraphicMainBoard({
           draggable={false}
         />
         <div className="pointer-events-none absolute inset-0">
+          <TurnToken position={turn} limit={limit} />
+          {TRACK_TOKEN_CONFIG.map(config => {
+            const value = config.label.startsWith('Nucleare')
+              ? nuclear
+              : config.label.startsWith('Sanzioni')
+                ? sanctions
+                : config.label === 'DEFCON'
+                  ? defcon
+                  : opinion;
+            return <TrackToken key={config.label} config={config} value={value} />;
+          })}
+        </div>
+        <div className="absolute inset-0">
           {Object.keys(TERRITORY_SPOTS).map(territory => (
-            <TerritoryMarker key={territory} territory={territory} state={territories[territory]} />
+            <TerritoryMarker
+              key={territory}
+              territory={territory}
+              state={territories[territory]}
+              selected={selectedTerritory === territory}
+              onSelect={onSelectTerritory}
+            />
           ))}
         </div>
+      </div>
+      <div className="flex items-center justify-between gap-2 border-t border-[#1e3a5f] bg-[#07101d] px-3 py-2">
+        <span className="font-mono text-[9px] text-slate-500">
+          Clicca sui quadrati influenza della plancia per selezionare uno stato e usarlo nell’azione OP.
+        </span>
+        {selectedTerritory && (
+          <span className="shrink-0 rounded border border-[#00ff88] bg-[#00ff8815] px-2 py-1 font-mono text-[9px] font-bold text-[#00ff88]">
+            STATO: {selectedTerritory}
+          </span>
+        )}
       </div>
     </section>
   );
