@@ -83,14 +83,12 @@ function BoardAreasOverlay({
   draft,
   selectedTerritory,
   editMode,
-  onSelect,
   onAddPoint,
 }: {
   areas: BoardAreas;
   draft: AreaPoint[];
   selectedTerritory?: string | null;
   editMode: boolean;
-  onSelect?: (territory: string) => void;
   onAddPoint: (point: AreaPoint) => void;
 }) {
   const handleClick = (event: MouseEvent<SVGSVGElement>) => {
@@ -116,33 +114,12 @@ function BoardAreasOverlay({
           <g key={territory}>
             <polygon
               points={areaPoints(points)}
-              fill={selected ? '#00ff8825' : '#00ff8808'}
-              stroke={selected ? '#00ff88' : '#00ff8866'}
+              fill={selected ? '#00ff8810' : 'transparent'}
+              stroke={selected ? '#00ff88' : '#00ff8844'}
               strokeWidth={selected ? 0.75 : 0.35}
               vectorEffect="non-scaling-stroke"
-              style={{ pointerEvents: editMode ? 'none' : 'auto', cursor: 'pointer' }}
-              onClick={event => {
-                if (!editMode) {
-                  event.stopPropagation();
-                  onSelect?.(territory);
-                }
-              }}
+              style={{ pointerEvents: 'none' }}
             />
-            {!editMode && (
-              <text
-                x={points.reduce((sum, [x]) => sum + x, 0) / points.length}
-                y={points.reduce((sum, [, y]) => sum + y, 0) / points.length}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill={selected ? '#00ff88' : '#ffffffbb'}
-                fontSize="1.25"
-                fontFamily="monospace"
-                fontWeight="bold"
-                style={{ pointerEvents: 'none', userSelect: 'none' }}
-              >
-                {territory}
-              </text>
-            )}
           </g>
         );
       })}
@@ -275,7 +252,7 @@ function TerritoryMarker({
       type="button"
       aria-label={`Seleziona ${territory}`}
       onClick={() => onSelect?.(territory)}
-      className={`absolute z-20 flex min-h-8 min-w-14 max-w-[132px] -translate-x-1/2 -translate-y-1/2 flex-wrap items-center justify-center gap-0.5 rounded-md border px-1 py-0.5 shadow-lg backdrop-blur-sm transition-all ${
+      className={`absolute z-20 flex min-h-8 min-w-14 max-w-[132px] -translate-x-1/2 -translate-y-1/2 flex-wrap items-center justify-center gap-0.5 rounded-md border px-1 py-0.5 transition-all ${
         selected ? 'scale-110 ring-2 ring-[#00ff88]' : 'hover:scale-110'
       }`}
       style={{
@@ -283,6 +260,7 @@ function TerritoryMarker({
         top: `${spot.top}%`,
         background: minimal ? 'transparent' : (entries.length || unitEntries.length ? '#050b14e8' : '#050b1466'),
         borderColor: selected ? '#00ff88' : minimal ? 'transparent' : '#ffffff66',
+        boxShadow: minimal ? 'none' : undefined,
       }}
       title={`${territory}: ${entries.map(e => `${e.faction} ${e.count}`).join(' · ')}${unitEntries.length ? ` · ${unitEntries.map(e => `${e.definition?.label} ×${e.quantity}`).join(' · ')}` : ''}`}
     >
@@ -344,16 +322,16 @@ function TrackToken({ config, value }: { config: TrackTokenConfig; value: number
       title={`${config.label}: ${clamped}`}
     >
       <div
-        className="flex h-7 min-w-7 items-center justify-center rounded-full border-2 bg-[#050b14]/95 px-1 text-[12px] shadow-[0_0_14px_rgba(0,0,0,0.8)]"
+        className="relative flex h-8 w-8 items-center justify-center rounded-full border-2 bg-[#050b14]/95 text-[11px] shadow-[0_0_14px_rgba(0,0,0,0.8)]"
         style={{ borderColor: config.color, boxShadow: `0 0 14px ${config.color}aa` }}
       >
         <span aria-hidden="true">{config.icon}</span>
-      </div>
-      <div
-        className="mt-0.5 rounded border bg-[#050b14]/95 px-1 py-0.5 text-center font-mono text-[7px] font-black leading-none"
-        style={{ color: config.color, borderColor: `${config.color}99` }}
-      >
-        {clamped}
+        <span
+          className="absolute -bottom-1 -right-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full border bg-[#050b14] px-0.5 font-mono text-[7px] font-black leading-none"
+          style={{ color: config.color, borderColor: `${config.color}99` }}
+        >
+          {clamped}
+        </span>
       </div>
     </div>
   );
@@ -589,7 +567,6 @@ export function GraphicMainBoard({
           selectedTerritory={selectedTerritory}
           draft={[]}
           editMode={false}
-          onSelect={onSelectTerritory}
           onAddPoint={() => undefined}
         />
         <div className="pointer-events-none absolute inset-0">
