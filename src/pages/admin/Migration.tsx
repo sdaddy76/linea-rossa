@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { BoardAreaSettings } from '@/components/GraphicBoards';
 
 const SQL_MIGRATION = `
 -- ============================================
@@ -62,10 +63,17 @@ SELECT 'Migration completata!' AS risultato;
 
 interface ColStatus { name: string; present: boolean; }
 
-export default function AdminMigration() {
+export default function AdminMigration({
+  initialSection = 'database',
+  onBack,
+}: {
+  initialSection?: 'database' | 'areas';
+  onBack?: () => void;
+}) {
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
   const [cols, setCols] = useState<ColStatus[]>([]);
+  const [section, setSection] = useState<'database' | 'areas'>(initialSection);
 
   const copy = () => {
     navigator.clipboard.writeText(SQL_MIGRATION);
@@ -89,45 +97,73 @@ export default function AdminMigration() {
   return (
     <div className="min-h-screen bg-[#0a0e1a] text-white p-6 font-mono">
       <div className="max-w-3xl mx-auto space-y-6">
-        <h1 className="text-2xl font-bold text-[#00ff88]">⚙️ Admin — Database Migration</h1>
-        <p className="text-[#8899aa] text-sm">
-          Esegui questo script nel <b>SQL Editor</b> del pannello Supabase
-          per aggiungere le colonne mancanti e correggere le RLS policies.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <button onClick={copy}
-            className="px-4 py-2 bg-[#00ff88] text-[#0a0e1a] font-bold rounded hover:bg-[#00dd77]">
-            {copied ? '✅ Copiato!' : '📋 Copia SQL'}
-          </button>
-          <button onClick={check} disabled={checking}
-            className="px-4 py-2 bg-[#1e3a5f] border border-[#334455] rounded hover:bg-[#2a4a6f]">
-            {checking ? '⏳ Verifico...' : '🔍 Verifica colonne DB'}
-          </button>
-          <a href="https://supabase.com/dashboard/project/zgatqhrafaorexqrftcv/sql/new"
-            target="_blank" rel="noreferrer"
-            className="px-4 py-2 bg-[#3ecf8e20] border border-[#3ecf8e] text-[#3ecf8e] rounded hover:bg-[#3ecf8e30]">
-            🚀 Apri SQL Editor Supabase
-          </a>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-[#00ff88]">⚙️ Area Admin</h1>
+          {onBack && (
+            <button onClick={onBack}
+              className="rounded border border-[#334455] px-3 py-1.5 text-xs text-[#8899aa] hover:border-white hover:text-white">
+              ◀ Torna al lobby
+            </button>
+          )}
         </div>
-        {cols.length > 0 && (
-          <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-4 space-y-1">
-            <p className="text-xs text-[#8899aa] mb-2">Stato colonne nel DB:</p>
-            {cols.map(c => (
-              <div key={c.name} className="flex items-center gap-2 text-xs">
-                <span className={c.present ? 'text-[#22c55e]' : 'text-[#ef4444]'}>{c.present ? '✓' : '✗'}</span>
-                <span className={c.present ? 'text-[#22c55e]' : 'text-[#ef4444]'}>{c.name}</span>
-                {!c.present && <span className="text-[#f59e0b]">← esegui lo script SQL</span>}
+        <div className="flex flex-wrap gap-2 border-b border-[#1e3a5f] pb-3">
+          <button
+            onClick={() => setSection('database')}
+            className={`rounded px-3 py-1.5 text-xs font-bold ${section === 'database' ? 'bg-[#00ff88] text-[#0a0e1a]' : 'border border-[#334455] text-[#8899aa]'}`}
+          >
+            ⚙️ Database
+          </button>
+          <button
+            onClick={() => setSection('areas')}
+            className={`rounded px-3 py-1.5 text-xs font-bold ${section === 'areas' ? 'bg-[#f59e0b] text-[#0a0e1a]' : 'border border-[#334455] text-[#8899aa]'}`}
+          >
+            🗺️ Aree plancia
+          </button>
+        </div>
+        {section === 'areas' ? (
+          <BoardAreaSettings />
+        ) : (
+          <>
+            <p className="text-[#8899aa] text-sm">
+              Esegui questo script nel <b>SQL Editor</b> del pannello Supabase
+              per aggiungere le colonne mancanti e correggere le RLS policies.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button onClick={copy}
+                className="px-4 py-2 bg-[#00ff88] text-[#0a0e1a] font-bold rounded hover:bg-[#00dd77]">
+                {copied ? '✅ Copiato!' : '📋 Copia SQL'}
+              </button>
+              <button onClick={check} disabled={checking}
+                className="px-4 py-2 bg-[#1e3a5f] border border-[#334455] rounded hover:bg-[#2a4a6f]">
+                {checking ? '⏳ Verifico...' : '🔍 Verifica colonne DB'}
+              </button>
+              <a href="https://supabase.com/dashboard/project/zgatqhrafaorexqrftcv/sql/new"
+                target="_blank" rel="noreferrer"
+                className="px-4 py-2 bg-[#3ecf8e20] border border-[#3ecf8e] text-[#3ecf8e] rounded hover:bg-[#3ecf8e30]">
+                🚀 Apri SQL Editor Supabase
+              </a>
+            </div>
+            {cols.length > 0 && (
+              <div className="bg-[#111827] border border-[#1e3a5f] rounded-xl p-4 space-y-1">
+                <p className="text-xs text-[#8899aa] mb-2">Stato colonne nel DB:</p>
+                {cols.map(c => (
+                  <div key={c.name} className="flex items-center gap-2 text-xs">
+                    <span className={c.present ? 'text-[#22c55e]' : 'text-[#ef4444]'}>{c.present ? '✓' : '✗'}</span>
+                    <span className={c.present ? 'text-[#22c55e]' : 'text-[#ef4444]'}>{c.name}</span>
+                    {!c.present && <span className="text-[#f59e0b]">← esegui lo script SQL</span>}
+                  </div>
+                ))}
+                {cols.every(c => c.present) && (
+                  <p className="text-[#22c55e] font-bold mt-2">✅ Tutte le colonne presenti — nessuna azione richiesta!</p>
+                )}
               </div>
-            ))}
-            {cols.every(c => c.present) && (
-              <p className="text-[#22c55e] font-bold mt-2">✅ Tutte le colonne presenti — nessuna azione richiesta!</p>
             )}
-          </div>
+            <pre className="bg-[#060a14] border border-[#1e3a5f] rounded-xl p-4 text-xs
+              text-[#22c55e] overflow-x-auto whitespace-pre-wrap max-h-[500px] overflow-y-auto">
+              {SQL_MIGRATION}
+            </pre>
+          </>
         )}
-        <pre className="bg-[#060a14] border border-[#1e3a5f] rounded-xl p-4 text-xs
-          text-[#22c55e] overflow-x-auto whitespace-pre-wrap max-h-[500px] overflow-y-auto">
-          {SQL_MIGRATION}
-        </pre>
       </div>
     </div>
   );

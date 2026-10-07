@@ -35,10 +35,21 @@ const TERRITORY_SPOTS: Record<string, { left: number; top: number }> = {
   Yemen: { left: 61, top: 87 },
 };
 
-type AreaPoint = [number, number];
-type BoardAreas = Record<string, AreaPoint[]>;
+export type AreaPoint = [number, number];
+export type BoardAreas = Record<string, AreaPoint[]>;
 
-const BOARD_AREAS_STORAGE_KEY = 'linea-rossa-board-areas-v1';
+export const BOARD_AREAS_STORAGE_KEY = 'linea-rossa-board-areas-v1';
+
+function readBoardAreas(): BoardAreas {
+  try {
+    const stored = window.localStorage.getItem(BOARD_AREAS_STORAGE_KEY);
+    if (!stored) return {};
+    const parsed = JSON.parse(stored) as BoardAreas;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
 
 const areaPoints = (points: AreaPoint[]) =>
   points.map(([x, y]) => `${x},${y}`).join(' ');
@@ -355,43 +366,15 @@ function TurnToken({ position, limit }: { position: number; limit: number }) {
   );
 }
 
-export function GraphicMainBoard({
-  territories,
-  gameState,
-  trackPosition,
-  trackLimit,
-  selectedTerritory,
-  onSelectTerritory,
-}: {
-  territories: TerritoryState;
-  gameState: GameState;
-  trackPosition?: number;
-  trackLimit?: number;
-  selectedTerritory?: string | null;
-  onSelectTerritory?: (territory: string) => void;
-}) {
-  const turn = trackPosition ?? 0;
-  const limit = trackLimit ?? 70;
-  const nuclear = readTrack(gameState, 'nucleare', 1);
-  const sanctions = readTrack(gameState, 'sanzioni', 1);
-  const defcon = readTrack(gameState, 'defcon', 10);
-  const opinion = readTrack(gameState, 'opinione', 0);
+export function BoardAreaSettings() {
   const territoryIds = Object.keys(TERRITORY_SPOTS);
-  const [areaEditMode, setAreaEditMode] = useState(false);
   const [areas, setAreas] = useState<BoardAreas>({});
   const [areaTerritory, setAreaTerritory] = useState(territoryIds[0] ?? '');
   const [draft, setDraft] = useState<AreaPoint[]>([]);
   const [areaExport, setAreaExport] = useState('');
 
   useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(BOARD_AREAS_STORAGE_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored) as BoardAreas;
-      if (parsed && typeof parsed === 'object') setAreas(parsed);
-    } catch {
-      // La configurazione locale è opzionale: la plancia resta utilizzabile anche senza di essa.
-    }
+    setAreas(readBoardAreas());
   }, []);
 
   const persistAreas = (next: BoardAreas) => {
@@ -419,7 +402,7 @@ export function GraphicMainBoard({
     try {
       await navigator.clipboard?.writeText(output);
     } catch {
-      // Se il browser non consente la clipboard, il JSON resta disponibile nella textarea.
+      // Il JSON resta comunque disponibile nella textarea.
     }
   };
 
@@ -430,6 +413,131 @@ export function GraphicMainBoard({
   };
 
   return (
+    <section className="overflow-hidden rounded-2xl border border-[#f59e0b66] bg-[#050b14] shadow-2xl shadow-black/40">
+      <div className="border-b border-[#f59e0b44] bg-[#111827] px-4 py-3">
+        <div className="font-mono text-sm font-black uppercase tracking-[0.14em] text-[#f59e0b]">
+          🗺️ Impostazioni aree della plancia
+        </div>
+        <p className="mt-1 font-mono text-[10px] leading-relaxed text-slate-400">
+          Seleziona uno stato, clicca i vertici direttamente sulla grafica e salva il poligono. La configurazione viene salvata in questo browser e può essere copiata per renderla definitiva nel gioco.
+        </p>
+      </div>
+
+      <div className="relative w-full bg-black">
+        <img
+          src={MAIN_BOARD_ASSET}
+          alt="Grafica della plancia principale per la delimitazione delle aree"
+          className="block h-auto w-full"
+          draggable={false}
+        />
+        <BoardAreasOverlay
+          areas={areas}
+          draft={draft}
+          editMode
+          onAddPoint={point => setDraft(points => [...points, point])}
+        />
+      </div>
+
+      <div className="border-t border-[#f59e0b44] bg-[#111827] px-4 py-3">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex min-w-[210px] flex-1 flex-col gap-1 font-mono text-[9px] font-bold uppercase tracking-wide text-[#facc15]">
+            Stato / nazione da delimitare
+            <select
+              value={areaTerritory}
+              onChange={event => {
+                setAreaTerritory(event.target.value);
+                setDraft([]);
+              }}
+              className="rounded border border-[#475569] bg-[#050b14] px-2 py-2 font-mono text-[11px] font-bold text-white outline-none focus:border-[#00ff88]"
+            >
+              {territoryIds.map(territory => (
+                <option key={territory} value={territory}>{territory}</option>
+              ))}
+            </select>
+          </label>
+          <span className="font-mono text-[10px] text-slate-400">
+            Vertici: <b className="text-white">{draft.length}</b> · Aree salvate: <b className="text-[#00ff88]">{Object.keys(areas).length}/{territoryIds.length}</b>
+          </span>
+          <button
+            type="button"
+            disabled={draft.length < 3}
+            onClick={finishArea}
+            className="rounded border border-[#00ff88] bg-[#00ff8815] px-2.5 py-2 font-mono text-[10px] font-bold text-[#00ff88] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            SALVA AREA
+          </button>
+          <button
+            type="button"
+            onClick={() => setDraft([])}
+            className="rounded border border-[#64748b] px-2.5 py-2 font-mono text-[10px] font-bold text-slate-300 hover:border-white hover:text-white"
+          >
+            ANNULLA PUNTI
+          </button>
+          <button
+            type="button"
+            onClick={removeArea}
+            disabled={!areas[areaTerritory]}
+            className="rounded border border-[#ef444466] px-2.5 py-2 font-mono text-[10px] font-bold text-[#f87171] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            RIMUOVI AREA
+          </button>
+          <button
+            type="button"
+            onClick={exportAreas}
+            className="rounded border border-[#38bdf8] px-2.5 py-2 font-mono text-[10px] font-bold text-[#38bdf8] hover:bg-[#38bdf815]"
+          >
+            COPIA COORDINATE
+          </button>
+          <button
+            type="button"
+            onClick={resetAreas}
+            className="rounded border border-[#ef444466] px-2.5 py-2 font-mono text-[10px] font-bold text-[#fca5a5] hover:bg-[#ef444415]"
+          >
+            RESET TUTTE
+          </button>
+        </div>
+        {areaExport && (
+          <textarea
+            readOnly
+            value={areaExport}
+            className="mt-3 h-36 w-full rounded border border-[#334155] bg-[#050b14] p-2 font-mono text-[9px] text-slate-300 outline-none"
+            aria-label="Coordinate esportate delle aree"
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+export function GraphicMainBoard({
+  territories,
+  gameState,
+  trackPosition,
+  trackLimit,
+  selectedTerritory,
+  onSelectTerritory,
+}: {
+  territories: TerritoryState;
+  gameState: GameState;
+  trackPosition?: number;
+  trackLimit?: number;
+  selectedTerritory?: string | null;
+  onSelectTerritory?: (territory: string) => void;
+}) {
+  const turn = trackPosition ?? 0;
+  const limit = trackLimit ?? 70;
+  const nuclear = readTrack(gameState, 'nucleare', 1);
+  const sanctions = readTrack(gameState, 'sanzioni', 1);
+  const defcon = readTrack(gameState, 'defcon', 10);
+  const opinion = readTrack(gameState, 'opinione', 0);
+  const territoryIds = Object.keys(TERRITORY_SPOTS);
+  const [areas, setAreas] = useState<BoardAreas>({});
+
+  useEffect(() => {
+    setAreas(readBoardAreas());
+  }, []);
+
+  return (
     <section className="overflow-hidden rounded-2xl border border-[#334155] bg-[#050b14] shadow-2xl shadow-black/40">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#1e3a5f] bg-[#091321] px-3 py-2">
         <div>
@@ -437,21 +545,6 @@ export function GraphicMainBoard({
           <div className="font-mono text-[10px] text-slate-500">Grafica Linea Rossa · stato dinamico della partita</div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              setAreaEditMode(value => !value);
-              setDraft([]);
-            }}
-            className={`rounded border px-2 py-1 font-mono text-[9px] font-bold transition-colors ${
-              areaEditMode
-                ? 'border-[#facc15] bg-[#facc1518] text-[#facc15]'
-                : 'border-[#334155] text-[#8899aa] hover:border-[#00ff88] hover:text-[#00ff88]'
-            }`}
-            title="Delimita le aree degli stati sulla grafica"
-          >
-            {areaEditMode ? '✕ CHIUDI EDITOR' : '✎ DELIMITA AREE'}
-          </button>
           <StatPill label="Turno" value={`${turn}/${limit}`} color="#38bdf8" />
           <StatPill label="Nucleare" value={nuclear} color="#facc15" />
           <StatPill label="Sanzioni" value={sanctions} color="#fb923c" />
@@ -469,11 +562,11 @@ export function GraphicMainBoard({
         />
         <BoardAreasOverlay
           areas={areas}
-          draft={draft}
           selectedTerritory={selectedTerritory}
-          editMode={areaEditMode}
+          draft={[]}
+          editMode={false}
           onSelect={onSelectTerritory}
-          onAddPoint={point => setDraft(points => [...points, point])}
+          onAddPoint={() => undefined}
         />
         <div className="pointer-events-none absolute inset-0">
           <TurnToken position={turn} limit={limit} />
@@ -488,7 +581,7 @@ export function GraphicMainBoard({
             return <TrackToken key={config.label} config={config} value={value} />;
           })}
         </div>
-        <div className={`absolute inset-0 ${areaEditMode ? 'pointer-events-none' : ''}`}>
+        <div className="absolute inset-0">
           {territoryIds.map(territory => (
             <TerritoryMarker
               key={territory}
@@ -501,78 +594,6 @@ export function GraphicMainBoard({
           ))}
         </div>
       </div>
-      {areaEditMode && (
-        <div className="border-t border-[#facc1544] bg-[#111827] px-3 py-3">
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex min-w-[180px] flex-1 flex-col gap-1 font-mono text-[9px] font-bold uppercase tracking-wide text-[#facc15]">
-              Nazione / area da delimitare
-              <select
-                value={areaTerritory}
-                onChange={event => {
-                  setAreaTerritory(event.target.value);
-                  setDraft([]);
-                }}
-                className="rounded border border-[#475569] bg-[#050b14] px-2 py-1.5 font-mono text-[11px] font-bold text-white outline-none focus:border-[#00ff88]"
-              >
-                {territoryIds.map(territory => (
-                  <option key={territory} value={territory}>{territory}</option>
-                ))}
-              </select>
-            </label>
-            <span className="font-mono text-[10px] text-slate-400">
-              Clic: aggiungi vertice · punti attuali: <b className="text-white">{draft.length}</b>
-            </span>
-            <button
-              type="button"
-              disabled={draft.length < 3}
-              onClick={finishArea}
-              className="rounded border border-[#00ff88] bg-[#00ff8815] px-2 py-1.5 font-mono text-[10px] font-bold text-[#00ff88] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              SALVA AREA
-            </button>
-            <button
-              type="button"
-              onClick={() => setDraft([])}
-              className="rounded border border-[#64748b] px-2 py-1.5 font-mono text-[10px] font-bold text-slate-300 hover:border-white hover:text-white"
-            >
-              ANNULLA PUNTI
-            </button>
-            <button
-              type="button"
-              onClick={removeArea}
-              disabled={!areas[areaTerritory]}
-              className="rounded border border-[#ef444466] px-2 py-1.5 font-mono text-[10px] font-bold text-[#f87171] disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              RIMUOVI AREA
-            </button>
-            <button
-              type="button"
-              onClick={exportAreas}
-              className="rounded border border-[#38bdf8] px-2 py-1.5 font-mono text-[10px] font-bold text-[#38bdf8] hover:bg-[#38bdf815]"
-            >
-              COPIA COORDINATE
-            </button>
-            <button
-              type="button"
-              onClick={resetAreas}
-              className="rounded border border-[#ef444466] px-2 py-1.5 font-mono text-[10px] font-bold text-[#fca5a5] hover:bg-[#ef444415]"
-            >
-              RESET TUTTE
-            </button>
-          </div>
-          <p className="mt-2 font-mono text-[9px] leading-relaxed text-slate-500">
-            Le aree vengono salvate solo in questo browser. Dopo averle delimitate, usa “Copia coordinate” e incollale qui per renderle definitive per tutti i giocatori.
-          </p>
-          {areaExport && (
-            <textarea
-              readOnly
-              value={areaExport}
-              className="mt-2 h-28 w-full rounded border border-[#334155] bg-[#050b14] p-2 font-mono text-[9px] text-slate-300 outline-none"
-              aria-label="Coordinate esportate delle aree"
-            />
-          )}
-        </div>
-      )}
       <div className="flex items-center justify-between gap-2 border-t border-[#1e3a5f] bg-[#07101d] px-3 py-2">
         <span className="font-mono text-[9px] text-slate-500">
           Clicca sui quadrati influenza della plancia per selezionare uno stato e usarlo nell’azione OP.

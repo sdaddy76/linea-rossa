@@ -34,7 +34,7 @@ function AppRouter() {
     return params.get('type') === 'recovery' && !!params.get('access_token');
   };
 
-  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin'>(
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas'>(
     detectRecovery() ? 'auth' : 'cover'  // se link reset → mostra auth direttamente
   );
   // Flag: siamo in flusso reset password (type=recovery) → non redirezionare a lobby automaticamente
@@ -127,14 +127,15 @@ function AppRouter() {
     isRecovery={isRecoveryFlow.current}
     onPasswordSaved={() => { isRecoveryFlow.current = false; setView('lobby'); }}
   />;
-  if (view === 'admin') return <AdminMigration />;
+  if (view === 'admin') return <AdminMigration onBack={() => setView('lobby')} />;
+  if (view === 'admin-areas') return <AdminMigration initialSection="areas" onBack={() => setView('lobby')} />;
 
   if (view === 'lobby' && profile) return (
     <LobbyPage
       profile={profile}
       onJoinGame={handleJoinGame}
       onLogout={handleLogout}
-      onAdmin={() => setView('admin')}
+      onAdmin={(section = 'database') => setView(section === 'areas' ? 'admin-areas' : 'admin')}
     />
   );
   if (view === 'game') return (

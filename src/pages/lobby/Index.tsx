@@ -16,7 +16,7 @@ interface LobbyPageProps {
   profile: Profile;
   onJoinGame: (gameId: string, chosenFaction?: string) => void;
   onLogout: () => void;
-  onAdmin?: () => void;
+  onAdmin?: (section?: 'database' | 'areas') => void;
 }
 
 const ALL_FACTIONS: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
@@ -655,7 +655,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                           { label: '🤖 Gestione BOT',       action: () => { setShowBotLibrary(true);       setShowAdminMenu(false); }, color: '#c8a55a' },
                           { label: '🎴 Gestione Eventi',    action: () => { setShowEventLibrary(true);     setShowAdminMenu(false); }, color: '#f97316' },
                           { label: '🚨 Gestione Obiettivi', action: () => { setShowObjectiveLibrary(true); setShowAdminMenu(false); }, color: '#8b5cf6' },
-                          { label: '⚙️ Database',           action: () => { onAdmin?.();                  setShowAdminMenu(false); }, color: '#64748b' },
+                          { label: '🗺️ Aree plancia',       action: () => { onAdmin?.('areas');            setShowAdminMenu(false); }, color: '#f59e0b' },
+                          { label: '⚙️ Database',           action: () => { onAdmin?.('database');         setShowAdminMenu(false); }, color: '#64748b' },
                         ].map(({ label, action, color }) => (
                           <button key={label} onClick={action}
                             className="w-full text-left px-4 py-2 font-mono text-xs hover:bg-[#ffffff08] transition-colors"
