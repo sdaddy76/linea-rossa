@@ -1,3 +1,4 @@
+import { useEffect, useState, type MouseEvent } from 'react';
 import type { Faction, GameState } from '@/types/game';
 import type { TerritoryState } from '@/components/TerritoryMap';
 import { FACTION_COLORS, FACTION_FLAGS } from '@/lib/factionColors';
@@ -33,6 +34,109 @@ const TERRITORY_SPOTS: Record<string, { left: number; top: number }> = {
   StrettoHormuz: { left: 87, top: 64 },
   Yemen: { left: 61, top: 87 },
 };
+
+type AreaPoint = [number, number];
+type BoardAreas = Record<string, AreaPoint[]>;
+
+const BOARD_AREAS_STORAGE_KEY = 'linea-rossa-board-areas-v1';
+
+const areaPoints = (points: AreaPoint[]) =>
+  points.map(([x, y]) => `${x},${y}`).join(' ');
+
+function BoardAreasOverlay({
+  areas,
+  draft,
+  selectedTerritory,
+  editMode,
+  onSelect,
+  onAddPoint,
+}: {
+  areas: BoardAreas;
+  draft: AreaPoint[];
+  selectedTerritory?: string | null;
+  editMode: boolean;
+  onSelect?: (territory: string) => void;
+  onAddPoint: (point: AreaPoint) => void;
+}) {
+  const handleClick = (event: MouseEvent<SVGSVGElement>) => {
+    if (!editMode) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+    const y = Math.max(0, Math.min(100, ((event.clientY - rect.top) / rect.height) * 100));
+    onAddPoint([Number(x.toFixed(2)), Number(y.toFixed(2))]);
+  };
+
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      className={`absolute inset-0 h-full w-full ${editMode ? 'z-40 cursor-crosshair' : 'z-10 pointer-events-none'}`}
+      onClick={handleClick}
+      aria-label={editMode ? 'Editor aree della plancia' : 'Aree territoriali della plancia'}
+    >
+      {Object.entries(areas).map(([territory, points]) => {
+        if (points.length < 3) return null;
+        const selected = selectedTerritory === territory;
+        return (
+          <g key={territory}>
+            <polygon
+              points={areaPoints(points)}
+              fill={selected ? '#00ff8825' : '#00ff8808'}
+              stroke={selected ? '#00ff88' : '#00ff8866'}
+              strokeWidth={selected ? 0.75 : 0.35}
+              vectorEffect="non-scaling-stroke"
+              style={{ pointerEvents: editMode ? 'none' : 'auto', cursor: 'pointer' }}
+              onClick={event => {
+                if (!editMode) {
+                  event.stopPropagation();
+                  onSelect?.(territory);
+                }
+              }}
+            />
+            {!editMode && (
+              <text
+                x={points.reduce((sum, [x]) => sum + x, 0) / points.length}
+                y={points.reduce((sum, [, y]) => sum + y, 0) / points.length}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={selected ? '#00ff88' : '#ffffffbb'}
+                fontSize="1.25"
+                fontFamily="monospace"
+                fontWeight="bold"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                {territory}
+              </text>
+            )}
+          </g>
+        );
+      })}
+      {editMode && draft.length > 0 && (
+        <>
+          <polyline
+            points={areaPoints(draft)}
+            fill="none"
+            stroke="#00ff88"
+            strokeWidth="0.7"
+            vectorEffect="non-scaling-stroke"
+          />
+          {draft.map(([x, y], index) => (
+            <circle
+              key={`${x}-${y}-${index}`}
+              cx={x}
+              cy={y}
+              r="0.85"
+              fill={index === 0 ? '#facc15' : '#00ff88'}
+              stroke="#06111e"
+              strokeWidth="0.3"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+        </>
+      )}
+    </svg>
+  );
+}
 
 type TrackTokenConfig = {
   label: string;
@@ -105,11 +209,13 @@ function TerritoryMarker({
   state,
   selected,
   onSelect,
+  minimal = false,
 }: {
   territory: string;
   state: TerritoryState[string] | undefined;
   selected?: boolean;
   onSelect?: (territory: string) => void;
+  minimal?: boolean;
 }) {
   const spot = TERRITORY_SPOTS[territory];
   if (!spot) return null;
@@ -140,15 +246,15 @@ function TerritoryMarker({
       style={{
         left: `${spot.left}%`,
         top: `${spot.top}%`,
-        background: entries.length || unitEntries.length ? '#050b14e8' : '#050b1466',
-        borderColor: selected ? '#00ff88' : '#ffffff66',
+        background: minimal ? 'transparent' : (entries.length || unitEntries.length ? '#050b14e8' : '#050b1466'),
+        borderColor: selected ? '#00ff88' : minimal ? 'transparent' : '#ffffff66',
       }}
       title={`${territory}: ${entries.map(e => `${e.faction} ${e.count}`).join(' · ')}${unitEntries.length ? ` · ${unitEntries.map(e => `${e.definition?.label} ×${e.quantity}`).join(' · ')}` : ''}`}
     >
-      {!entries.length && !unitEntries.length && (
+      {!minimal && !entries.length && !unitEntries.length && (
         <span className="font-mono text-[8px] font-bold text-white/70">{territory}</span>
       )}
-      {entries.map(({ faction, count }) => (
+      {!minimal && entries.map(({ faction, count }) => (
         <span
           key={faction}
           className="inline-flex h-4 min-w-4 items-center justify-center rounded px-0.5 text-[8px] font-black leading-none text-white"
@@ -157,7 +263,7 @@ function TerritoryMarker({
           {shortFaction[faction]}{count > 1 ? `×${count}` : ''}
         </span>
       ))}
-      {unitEntries.map(({ faction, unitType, quantity, definition }) => (
+      {!minimal && unitEntries.map(({ faction, unitType, quantity, definition }) => (
         <span
           key={`${territory}-${faction}-${unitType}`}
           className="inline-flex h-4 items-center gap-0.5 rounded border px-1 text-[8px] font-black leading-none text-white"
@@ -270,6 +376,58 @@ export function GraphicMainBoard({
   const sanctions = readTrack(gameState, 'sanzioni', 1);
   const defcon = readTrack(gameState, 'defcon', 10);
   const opinion = readTrack(gameState, 'opinione', 0);
+  const territoryIds = Object.keys(TERRITORY_SPOTS);
+  const [areaEditMode, setAreaEditMode] = useState(false);
+  const [areas, setAreas] = useState<BoardAreas>({});
+  const [areaTerritory, setAreaTerritory] = useState(territoryIds[0] ?? '');
+  const [draft, setDraft] = useState<AreaPoint[]>([]);
+  const [areaExport, setAreaExport] = useState('');
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(BOARD_AREAS_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as BoardAreas;
+      if (parsed && typeof parsed === 'object') setAreas(parsed);
+    } catch {
+      // La configurazione locale è opzionale: la plancia resta utilizzabile anche senza di essa.
+    }
+  }, []);
+
+  const persistAreas = (next: BoardAreas) => {
+    setAreas(next);
+    window.localStorage.setItem(BOARD_AREAS_STORAGE_KEY, JSON.stringify(next));
+  };
+
+  const finishArea = () => {
+    if (!areaTerritory || draft.length < 3) return;
+    persistAreas({ ...areas, [areaTerritory]: draft });
+    setDraft([]);
+  };
+
+  const removeArea = () => {
+    if (!areaTerritory) return;
+    const next = { ...areas };
+    delete next[areaTerritory];
+    persistAreas(next);
+    setDraft([]);
+  };
+
+  const exportAreas = async () => {
+    const output = JSON.stringify(areas, null, 2);
+    setAreaExport(output);
+    try {
+      await navigator.clipboard?.writeText(output);
+    } catch {
+      // Se il browser non consente la clipboard, il JSON resta disponibile nella textarea.
+    }
+  };
+
+  const resetAreas = () => {
+    persistAreas({});
+    setDraft([]);
+    setAreaExport('');
+  };
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[#334155] bg-[#050b14] shadow-2xl shadow-black/40">
@@ -278,7 +436,22 @@ export function GraphicMainBoard({
           <div className="font-mono text-xs font-black uppercase tracking-[0.16em] text-white">Plancia generale</div>
           <div className="font-mono text-[10px] text-slate-500">Grafica Linea Rossa · stato dinamico della partita</div>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setAreaEditMode(value => !value);
+              setDraft([]);
+            }}
+            className={`rounded border px-2 py-1 font-mono text-[9px] font-bold transition-colors ${
+              areaEditMode
+                ? 'border-[#facc15] bg-[#facc1518] text-[#facc15]'
+                : 'border-[#334155] text-[#8899aa] hover:border-[#00ff88] hover:text-[#00ff88]'
+            }`}
+            title="Delimita le aree degli stati sulla grafica"
+          >
+            {areaEditMode ? '✕ CHIUDI EDITOR' : '✎ DELIMITA AREE'}
+          </button>
           <StatPill label="Turno" value={`${turn}/${limit}`} color="#38bdf8" />
           <StatPill label="Nucleare" value={nuclear} color="#facc15" />
           <StatPill label="Sanzioni" value={sanctions} color="#fb923c" />
@@ -294,6 +467,14 @@ export function GraphicMainBoard({
           className="block h-auto w-full"
           draggable={false}
         />
+        <BoardAreasOverlay
+          areas={areas}
+          draft={draft}
+          selectedTerritory={selectedTerritory}
+          editMode={areaEditMode}
+          onSelect={onSelectTerritory}
+          onAddPoint={point => setDraft(points => [...points, point])}
+        />
         <div className="pointer-events-none absolute inset-0">
           <TurnToken position={turn} limit={limit} />
           {TRACK_TOKEN_CONFIG.map(config => {
@@ -307,18 +488,91 @@ export function GraphicMainBoard({
             return <TrackToken key={config.label} config={config} value={value} />;
           })}
         </div>
-        <div className="absolute inset-0">
-          {Object.keys(TERRITORY_SPOTS).map(territory => (
+        <div className={`absolute inset-0 ${areaEditMode ? 'pointer-events-none' : ''}`}>
+          {territoryIds.map(territory => (
             <TerritoryMarker
               key={territory}
               territory={territory}
               state={territories[territory]}
               selected={selectedTerritory === territory}
               onSelect={onSelectTerritory}
+              minimal
             />
           ))}
         </div>
       </div>
+      {areaEditMode && (
+        <div className="border-t border-[#facc1544] bg-[#111827] px-3 py-3">
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex min-w-[180px] flex-1 flex-col gap-1 font-mono text-[9px] font-bold uppercase tracking-wide text-[#facc15]">
+              Nazione / area da delimitare
+              <select
+                value={areaTerritory}
+                onChange={event => {
+                  setAreaTerritory(event.target.value);
+                  setDraft([]);
+                }}
+                className="rounded border border-[#475569] bg-[#050b14] px-2 py-1.5 font-mono text-[11px] font-bold text-white outline-none focus:border-[#00ff88]"
+              >
+                {territoryIds.map(territory => (
+                  <option key={territory} value={territory}>{territory}</option>
+                ))}
+              </select>
+            </label>
+            <span className="font-mono text-[10px] text-slate-400">
+              Clic: aggiungi vertice · punti attuali: <b className="text-white">{draft.length}</b>
+            </span>
+            <button
+              type="button"
+              disabled={draft.length < 3}
+              onClick={finishArea}
+              className="rounded border border-[#00ff88] bg-[#00ff8815] px-2 py-1.5 font-mono text-[10px] font-bold text-[#00ff88] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              SALVA AREA
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraft([])}
+              className="rounded border border-[#64748b] px-2 py-1.5 font-mono text-[10px] font-bold text-slate-300 hover:border-white hover:text-white"
+            >
+              ANNULLA PUNTI
+            </button>
+            <button
+              type="button"
+              onClick={removeArea}
+              disabled={!areas[areaTerritory]}
+              className="rounded border border-[#ef444466] px-2 py-1.5 font-mono text-[10px] font-bold text-[#f87171] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              RIMUOVI AREA
+            </button>
+            <button
+              type="button"
+              onClick={exportAreas}
+              className="rounded border border-[#38bdf8] px-2 py-1.5 font-mono text-[10px] font-bold text-[#38bdf8] hover:bg-[#38bdf815]"
+            >
+              COPIA COORDINATE
+            </button>
+            <button
+              type="button"
+              onClick={resetAreas}
+              className="rounded border border-[#ef444466] px-2 py-1.5 font-mono text-[10px] font-bold text-[#fca5a5] hover:bg-[#ef444415]"
+            >
+              RESET TUTTE
+            </button>
+          </div>
+          <p className="mt-2 font-mono text-[9px] leading-relaxed text-slate-500">
+            Le aree vengono salvate solo in questo browser. Dopo averle delimitate, usa “Copia coordinate” e incollale qui per renderle definitive per tutti i giocatori.
+          </p>
+          {areaExport && (
+            <textarea
+              readOnly
+              value={areaExport}
+              className="mt-2 h-28 w-full rounded border border-[#334155] bg-[#050b14] p-2 font-mono text-[9px] text-slate-300 outline-none"
+              aria-label="Coordinate esportate delle aree"
+            />
+          )}
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2 border-t border-[#1e3a5f] bg-[#07101d] px-3 py-2">
         <span className="font-mono text-[9px] text-slate-500">
           Clicca sui quadrati influenza della plancia per selezionare uno stato e usarlo nell’azione OP.
