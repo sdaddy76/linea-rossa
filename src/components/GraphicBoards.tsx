@@ -15,22 +15,23 @@ const FACTION_BOARD_ASSETS: Record<Faction, string> = {
 };
 
 const TERRITORY_SPOTS: Record<string, { left: number; top: number }> = {
-  Turchia: { left: 23, top: 22 },
-  Siria: { left: 40, top: 34 },
-  Libano: { left: 27, top: 40 },
-  Israele: { left: 34, top: 49 },
-  Giordania: { left: 43, top: 47 },
-  Egitto: { left: 25, top: 63 },
-  Iraq: { left: 56, top: 35 },
-  Iran: { left: 76, top: 34 },
-  Kuwait: { left: 70, top: 48 },
-  Bahrain: { left: 73, top: 57 },
-  Qatar: { left: 77, top: 62 },
-  'EmiratiArabi': { left: 72, top: 70 },
-  Oman: { left: 85, top: 75 },
-  ArabiaSaudita: { left: 53, top: 64 },
-  StrettoHormuz: { left: 84, top: 61 },
-  Yemen: { left: 58, top: 82 },
+  // Coordinate centrate sulle file dei quadrati influenza stampate sulla plancia.
+  Turchia: { left: 30, top: 29 },
+  Siria: { left: 44, top: 39 },
+  Libano: { left: 30, top: 45 },
+  Israele: { left: 35, top: 54 },
+  Giordania: { left: 45, top: 53 },
+  Egitto: { left: 28, top: 68 },
+  Iraq: { left: 57, top: 39 },
+  Iran: { left: 77, top: 43 },
+  Kuwait: { left: 70, top: 55 },
+  Bahrain: { left: 76, top: 63 },
+  Qatar: { left: 80, top: 67 },
+  'EmiratiArabi': { left: 72, top: 76 },
+  Oman: { left: 85, top: 81 },
+  ArabiaSaudita: { left: 55, top: 69 },
+  StrettoHormuz: { left: 87, top: 64 },
+  Yemen: { left: 61, top: 87 },
 };
 
 type TrackTokenConfig = {

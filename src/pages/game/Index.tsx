@@ -415,7 +415,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
     if (game?.id) loadTerritories();
   }, [game?.id]);
 
-  // Converti recordset DB → struttura TerritoryState per TerritoryMap
+  // Converti recordset DB → struttura usata dai marker della plancia generale
   const territoryState = useMemo<TerritoryState>(() => {
     const state: TerritoryState = {};
     for (const t of terrRecords) {
