@@ -16,6 +16,7 @@ import type { GameCard } from '@/types/game';
 import type { DeckCard } from '@/types/game';
 import CardDetailModal from './CardDetailModal';
 import { isGoodForFaction, groupDeltas, type DeltaItem } from '@/lib/cardColors';
+import { getFactionCardBack, getFactionCardFront } from '@/data/card-graphics';
 
 // ─── Asset ───────────────────────────────────
 export const CARD_ART: Record<string, string> = {
@@ -221,6 +222,26 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
   const prereqs    = getPrerequisites(card);
   const isSpecial  = 'deck_type' in card && (card.deck_type === 'speciale' || card.deck_type === 'speciale_locked');
   const unlocksSpec = 'unlocks_special' in card && (card as {unlocks_special?:boolean}).unlocks_special === true;
+  const suppliedFront = getFactionCardFront(card.card_id, faction);
+
+  if (suppliedFront) {
+    return (
+      <div
+        className="absolute inset-0 rounded-xl overflow-hidden bg-[#080d16]"
+        style={{
+          border: `${Math.max(1.5, 2 * scale)}px solid ${borderColor}`,
+          boxShadow: `0 0 0 ${Math.max(1, scale)}px #0a0e1a inset`,
+        }}
+      >
+        <img
+          src={suppliedFront}
+          alt={`${card.card_name} — fronte`}
+          className="h-full w-full object-cover"
+          draggable={false}
+        />
+      </div>
+    );
+  }
 
   // Base font/spacing scaled to card size
   const fs = (base: number) => Math.max(6, Math.round(base * scale));
@@ -492,11 +513,13 @@ function CardBack({ card, scale }: { card: GameCard | DeckCard; scale: number })
   const isBot = String(card.card_id ?? '').toUpperCase().startsWith('BOT-');
   const isEvento = String(card.card_type ?? '').toLowerCase() === 'evento' ||
     String(card.card_id ?? '').toUpperCase().startsWith('E');
-  const backUrl = isBot
-    ? CARD_BACK
-    : isEvento
-      ? CARD_BACK_EVENTO
-      : CARD_BACK_BY_FACTION[faction] ?? CARD_BACK;
+  const backUrl = getFactionCardBack(faction) ?? (
+    isBot
+      ? CARD_BACK
+      : isEvento
+        ? CARD_BACK_EVENTO
+        : CARD_BACK_BY_FACTION[faction] ?? CARD_BACK
+  );
   const backLabel = isBot
     ? `BOT · ${faction.toUpperCase()}`
     : isEvento

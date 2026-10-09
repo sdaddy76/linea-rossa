@@ -13,6 +13,7 @@ import {
   type ObjFazione,
 } from '@/data/obiettivi';
 import type { GameState } from '@/types/game';
+import { getObjectiveCardFront } from '@/data/card-graphics';
 
 interface Props {
   myFaction: string;
@@ -89,6 +90,14 @@ function ObjInlineCard({ obj, gsMap, onMarkComplete }: ObjInlineCardProps) {
         className="w-full text-left px-3 py-2 flex items-start gap-2"
         onClick={() => setExpanded(e => !e)}
       >
+        {getObjectiveCardFront(obj.obj_id) && (
+          <img
+            src={getObjectiveCardFront(obj.obj_id) ?? undefined}
+            alt={`${obj.nome} — fronte`}
+            className="h-16 w-11 shrink-0 rounded object-cover object-center border border-[#f59e0b55]"
+            draggable={false}
+          />
+        )}
         {/* Punteggio */}
         <div
           className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center mt-0.5"

@@ -13,6 +13,7 @@ import {
   type ObiettivoSegreto,
   type ObjFazione,
 } from '@/data/obiettivi';
+import { getObjectiveCardBack, getObjectiveCardFront } from '@/data/card-graphics';
 import type { GameState } from '@/types/game';
 
 interface Props {
@@ -273,6 +274,16 @@ function ObjGameCard({ obj, isMine, evalResult }: ObjGameCardProps) {
         className="w-full text-left px-3 py-2.5 flex items-start gap-2.5"
         onClick={() => setExpanded(!expanded)}>
 
+        {(getObjectiveCardFront(obj.obj_id) || (!isMine && getObjectiveCardBack(obj.faction))) && (
+          <img
+            src={isMine
+              ? (getObjectiveCardFront(obj.obj_id) ?? undefined)
+              : (getObjectiveCardBack(obj.faction) ?? undefined)}
+            alt={`${obj.nome} — ${isMine ? 'fronte' : 'retro'}`}
+            className="h-20 w-14 shrink-0 rounded object-cover object-center border border-[#f59e0b55]"
+            draggable={false}
+          />
+        )}
         {/* Punteggio */}
         <div className="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center"
           style={{ backgroundColor: '#f59e0b20', border: '1px solid #f59e0b30' }}>
@@ -333,4 +344,3 @@ function ObjGameCard({ obj, isMine, evalResult }: ObjGameCardProps) {
     </div>
   );
 }
-
