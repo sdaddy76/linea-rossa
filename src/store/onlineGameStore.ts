@@ -1396,6 +1396,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         .select('*')
         .eq('game_id', game.id)
         .eq('card_id', cardDbId)
+        .eq('held_by_faction', myFaction)
         .neq('status', 'played')
         .order('position')
         .limit(1);
@@ -2119,6 +2120,28 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           description?: string; attackerUnitsLost?: number; stabilityChange?: number;
           unitPlaced?: boolean;
         };
+
+        // La modale presenta questa azione come "Acquista & Piazza".
+        // Prima dello schieramento aggiungiamo quindi le unità acquistate
+        // al pool della fazione: deployUnit() gestisce soltanto unità già
+        // presenti nel pool e prima di questo passaggio l'azione falliva
+        // con "Unità insufficienti", senza produrre alcun risultato visibile.
+        const freshState = get().gameState;
+        if (!freshState) throw new Error('Stato partita non disponibile');
+        const unitsKey = `units_${myFaction.toLowerCase()}` as keyof typeof freshState;
+        const currentPool = { ...((freshState[unitsKey] as Record<string, number>) ?? {}) };
+        const purchasedPool = {
+          ...currentPool,
+          [unitType]: (currentPool[unitType] ?? 0) + Math.max(1, qty),
+        };
+        await withTimeout(
+          supabase.from('game_state').update({ [unitsKey]: purchasedPool }).eq('game_id', game.id),
+          8000,
+          'purchase-and-place-pool',
+        );
+        set(s => ({
+          gameState: { ...s.gameState!, [unitsKey]: purchasedPool } as typeof freshState,
+        }));
 
         const { militaryUnits: curUnits, territories: terrRecs } = get();
 
