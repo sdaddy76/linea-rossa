@@ -1,0 +1,428 @@
+import { FACTIONS, TRACKS, type Faction, type Track, type GlobalTrack, type TrackChange, type GlobalChange } from './catalog-types';
+import { FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, UNITS, TERRITORIES, CORRELATIONS, INITIAL_TRACKS } from './catalog';
+import { objectiveComplete } from './objectives';
+import { botCondition, botPlan, weakestTrack, chooseBotCorrelation, type BotAction } from './bots';
+
+export type RNG = () => number;
+export interface PlayerState {
+  bot: boolean; tracks: Record<Track, number>; points: number; hand: string[]; objectives: string[];
+  vetoUsed: boolean;
+}
+export interface PlacedUnit { id: string; type: string; faction: Faction; territory: string; placedRound: number; rotated: boolean }
+export interface Combat {
+  attacker: Faction; defender: Faction; territory: string;
+  supporters: Faction[]; supportIndex: number; support: Partial<Record<Faction, 'attacker' | 'defender' | 'none'>>;
+  attack?: number; defense?: number; dice?: [number, number]; winner?: Faction; loser?: Faction; casualties?: number;
+}
+type Effect =
+  | { kind: 'correlation'; change: TrackChange }
+  | { kind: 'globals'; changes: GlobalChange[] }
+  | { kind: 'track'; change: TrackChange }
+  | { kind: 'reward'; actor: Faction; favored: Faction; unlock: boolean }
+  | { kind: 'bot'; actor: Faction; track: Track; action: BotAction };
+export interface EngineState {
+  version: 3; phase: 'activation' | 'ops' | 'veto' | 'support' | 'casualty' | 'discard' | 'ended';
+  round: number; actualRound: number; lap: 1 | 2; turnIndex: number; activation: number;
+  players: Record<Faction, PlayerState>; globals: Record<GlobalTrack, number>;
+  order: Faction[]; advancers: Faction[]; roundBlocked: boolean; event: string | null;
+  deck: string[]; discard: string[]; specialReserve: string[]; removed: string[]; eventDeck: string[];
+  botDecks: Record<Faction, Record<Track, string[]>>; units: PlacedUnit[]; nextUnit: number;
+  ops: { actor: Faction; card: string; remaining: number; pressured: GlobalTrack[] } | null;
+  pending: { kind: 'veto'; actor: Faction; change: TrackChange } | { kind: 'support'; actor: Faction } |
+    { kind: 'casualty'; actor: Faction; count: number; unitIds: string[] } |
+    { kind: 'discard'; actor: Faction; count: number; limit: number } | null;
+  combat: Combat | null; queue: Effect[]; continuation: 'ops' | 'finish'; discardQueue: Faction[];
+  intel: Record<Faction, { target: Faction; hand: string[]; activation: number }[]>;
+  result: { reason: 'war' | 'nuclear' | 'sanctions' | 'points'; winners: Faction[]; scores: Record<Faction, number> } | null;
+  log: string[];
+}
+export type Command =
+  | { type: 'play-event'; cardId: string; option: number }
+  | { type: 'begin-ops'; cardId: string }
+  | { type: 'develop'; track: Track; correlation: number }
+  | { type: 'pressure'; track: GlobalTrack; delta: 1 | -1 }
+  | { type: 'deploy'; unitId: string; territoryId: string; target?: Faction; diplomacyEffect?: 'sanctions' | 'opinion' }
+  | { type: 'attack'; territoryId: string }
+  | { type: 'finish-ops' } | { type: 'skip' }
+  | { type: 'veto'; use: boolean }
+  | { type: 'support'; side: 'attacker' | 'defender' | 'none' }
+  | { type: 'casualties'; unitIds: string[] }
+  | { type: 'discard'; cardIds: string[] }
+  | { type: 'advance-bot' };
+
+const assert: (test: unknown, message: string) => asserts test = (test, message) => { if (!test) throw new Error(message); };
+const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
+const unitDef = (id: string) => { const d = UNITS.find(u => u.id === id); assert(d, 'Unità sconosciuta'); return d; };
+const territoryDef = (id: string) => { const d = TERRITORIES.find(t => t.id === id); assert(d, 'Territorio sconosciuto'); return d; };
+const cardDef = (id: string) => { const d = FACTION_CARDS.find(c => c.id === id); assert(d, 'Carta sconosciuta'); return d; };
+const named = (u: PlacedUnit, name: string) => unitDef(u.type).name.toLowerCase() === name.toLowerCase();
+const inNamed = (u: PlacedUnit, name: string) => territoryDef(u.territory).name.toLowerCase().includes(name.toLowerCase());
+export const zone = (value: number): 'crisis' | 'stable' | 'strong' => value <= 3 ? 'crisis' : value >= 8 ? 'strong' : 'stable';
+function random(rng: RNG) { const n = rng(); assert(Number.isFinite(n) && n >= 0 && n < 1, 'RNG deve restituire un numero in [0,1)'); return n; }
+function shuffle<T>(input: readonly T[], rng: RNG): T[] {
+  const out = [...input];
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(random(rng) * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out;
+}
+function record<T>(fn: (f: Faction) => T): Record<Faction, T> { return Object.fromEntries(FACTIONS.map(f => [f, fn(f)])) as Record<Faction, T>; }
+export function currentActor(s: EngineState): Faction | null {
+  return s.phase === 'ended' ? null : s.pending?.actor ?? s.ops?.actor ?? s.order[s.turnIndex] ?? null;
+}
+export function hormuzBlocked(s: EngineState): boolean {
+  const local = s.units.filter(u => inNamed(u, 'Hormuz'));
+  return local.filter(u => u.faction === 'Iran' && named(u, 'Flotta veloce del Golfo')).length >= 2 &&
+    !local.some(u => named(u, 'Carrier Strike Group'));
+}
+export function deployCost(s: EngineState, faction: Faction, unitId: string, territoryId: string): number {
+  const u = unitDef(unitId), t = territoryDef(territoryId), eco = s.players[faction].tracks.Economia, crisis = s.globals['Crisi Bellica'];
+  return Math.max(1, u.cost + (crisis <= 4 ? 2 : crisis <= 7 ? 1 : 0) +
+    (eco <= 3 ? 1 : eco >= 8 ? -1 : 0) + t.alignment[faction] + (faction === 'Coalizione' && hormuzBlocked(s) ? 1 : 0));
+}
+function changeTrack(s: EngineState, c: TrackChange) {
+  const before = s.players[c.faction].tracks[c.track];
+  s.players[c.faction].tracks[c.track] = clamp(before + c.delta, 1, 10);
+  s.log.push(`${c.faction}: ${c.track} ${before} → ${s.players[c.faction].tracks[c.track]}`);
+}
+function end(s: EngineState, reason: 'war' | 'nuclear' | 'sanctions') {
+  s.phase = 'ended'; s.pending = null; s.queue = []; s.ops = null;
+  s.result = { reason, winners: reason === 'war' ? [] : [reason === 'nuclear' ? 'Iran' : 'Coalizione'], scores: record(f => s.players[f].points) };
+  s.log.push(reason === 'war' ? 'Guerra totale: nessun vincitore.' : `Partita terminata: vince ${s.result.winners.join(', ')} (${reason === 'nuclear' ? 'Nucleare 15' : 'Sanzioni 10'}).`);
+}
+function globals(s: EngineState, changes: GlobalChange[]) {
+  let war = false, nuclear = false, sanctions = false;
+  for (const c of changes) {
+    const before = s.globals[c.track];
+    s.globals[c.track] = clamp(before + c.delta, c.track === 'Opinione' ? -10 : 1, c.track === 'Nucleare' ? 15 : 10);
+    s.log.push(`Globale: ${c.track} ${before} → ${s.globals[c.track]}`);
+    war ||= s.globals['Crisi Bellica'] === 1; nuclear ||= s.globals.Nucleare === 15; sanctions ||= s.globals.Sanzioni === 10;
+  }
+  if (war) end(s, 'war');
+  else if (nuclear) end(s, 'nuclear');
+  else if (sanctions) end(s, 'sanctions');
+}
+function draw(s: EngineState, rng: RNG): string | undefined {
+  if (!s.deck.length && s.discard.length) { s.deck = shuffle(s.discard, rng); s.discard = []; }
+  return s.deck.shift();
+}
+function dispose(s: EngineState, id: string) { (cardDef(id).special ? s.removed : s.discard).push(id); }
+function takeCard(s: EngineState, actor: Faction, id: string) {
+  const hand = s.players[actor].hand, i = hand.indexOf(id); assert(i >= 0, 'Carta non in mano');
+  hand.splice(i, 1); dispose(s, id); return cardDef(id);
+}
+function startRound(s: EngineState) {
+  s.lap = 1; s.turnIndex = 0; s.ops = null; s.pending = null; s.queue = []; s.phase = 'activation';
+  FACTIONS.forEach(f => { s.players[f].vetoUsed = false; });
+  const id = s.eventDeck.shift(); assert(id, 'Mazzo eventi esaurito');
+  const e = EVENTS.find(c => c.id === id)!; s.event = id; s.roundBlocked = e.blocksRound;
+  s.order = [...new Set([...e.order, ...FACTIONS])]; s.advancers = [...e.advancers];
+  s.log.push(`Round ${s.round} (${s.actualRound}): [${e.id}] ${e.name}`);
+  e.changes.forEach(c => changeTrack(s, c)); globals(s, e.globals);
+}
+export function createGame(options: { bots: Faction[] }, rng: RNG = Math.random): EngineState {
+  assert(options.bots.every(f => FACTIONS.includes(f)), 'Fazione BOT sconosciuta');
+  const s: EngineState = {
+    version: 3, phase: 'activation', round: 1, actualRound: 1, lap: 1, turnIndex: 0, activation: 1,
+    players: record(f => ({ bot: options.bots.includes(f), tracks: { ...INITIAL_TRACKS[f] }, points: 0, hand: [], objectives: [], vetoUsed: false })),
+    globals: { Nucleare: 4, Sanzioni: 3, 'Crisi Bellica': 7, Opinione: 0 }, order: [...FACTIONS], advancers: [], roundBlocked: false, event: null,
+    deck: shuffle(FACTION_CARDS.filter(c => !c.special).map(c => c.id), rng), discard: [],
+    specialReserve: shuffle(FACTION_CARDS.filter(c => c.special).map(c => c.id), rng), removed: [],
+    eventDeck: shuffle(EVENTS.map(e => e.id), rng),
+    botDecks: record(f => Object.fromEntries(TRACKS.map(t => [t, shuffle(BOT_CARDS.filter(c => c.faction === f && c.track === t).map(c => c.id), rng)])) as Record<Track, string[]>),
+    units: [], nextUnit: 1, ops: null, pending: null, combat: null, queue: [], continuation: 'finish', discardQueue: [],
+    intel: record(() => []), result: null, log: [],
+  };
+  FACTIONS.forEach(f => {
+    if (!s.players[f].bot) {
+      for (let n = 0; n < 5; n++) { const card = draw(s, rng); if (card) s.players[f].hand.push(card); }
+      s.players[f].objectives = shuffle(OBJECTIVES.filter(o => o.faction === f).map(o => o.id), rng).slice(0, 3);
+    }
+  });
+  startRound(s); return s;
+}
+function finalScore(s: EngineState) {
+  for (const f of FACTIONS) {
+    const p = s.players[f];
+    p.points += s.units.filter(u => u.faction === f).reduce((n, u) => n + 1 + territoryDef(u.territory).alignment[f], 0);
+    p.points += p.objectives.reduce((n, id) => n + (objectiveComplete(s, id) ? OBJECTIVES.find(o => o.id === id)!.points : 0), 0);
+    p.points += TRACKS.filter(t => p.tracks[t] === 10).length * 2;
+  }
+  const rank = (f: Faction) => [s.players[f].points, TRACKS.reduce((n, t) => n + s.players[f].tracks[t], 0), s.players[f].tracks.Consenso];
+  const compare = (a: Faction, b: Faction) => { const aa = rank(a), bb = rank(b); return aa[0] - bb[0] || aa[1] - bb[1] || aa[2] - bb[2]; };
+  const leader = [...FACTIONS].sort((a, b) => compare(b, a))[0];
+  s.result = { reason: 'points', winners: FACTIONS.filter(f => compare(f, leader) === 0), scores: record(f => s.players[f].points) };
+  s.phase = 'ended'; s.pending = null;
+  s.log.push(`Punteggio finale: ${FACTIONS.map(f => `${f} ${s.players[f].points} PV`).join(' · ')}. Vince: ${s.result.winners.join(', ')}.`);
+}
+function afterDiscards(s: EngineState) {
+  if ((s.round >= 6 && !s.roundBlocked) || s.actualRound >= 8) { finalScore(s); return; }
+  if (!s.roundBlocked) s.round++;
+  s.actualRound++; startRound(s);
+}
+function promptDiscard(s: EngineState) {
+  while (s.discardQueue.length) {
+    const f = s.discardQueue.shift()!, p = s.players[f], limit = p.tracks.Consenso <= 3 ? 5 : 7;
+    if (p.hand.length > limit) { s.phase = 'discard'; s.pending = { kind: 'discard', actor: f, count: p.hand.length - limit, limit }; return; }
+  }
+  afterDiscards(s);
+}
+function endRound(s: EngineState, rng: RNG) {
+  s.log.push(`Fine round ${s.round} (${s.actualRound}): Tensione, punteggio, durata unità e rifornimento.`);
+  if (s.globals.Sanzioni >= 8) changeTrack(s, { faction: 'Iran', track: 'Economia', delta: -1 });
+  if (s.globals.Nucleare >= 12) globals(s, [{ track: 'Crisi Bellica', delta: -1 }]);
+  if (s.phase === 'ended') return;
+  if (s.globals.Opinione <= -6) changeTrack(s, { faction: 'Iran', track: 'Diplomazia', delta: 1 });
+  if (s.globals.Opinione >= 6) changeTrack(s, { faction: 'Coalizione', track: 'Diplomazia', delta: 1 });
+  FACTIONS.forEach(f => {
+    const p = s.players[f], before = p.points;
+    p.points = Math.max(0, p.points + TRACKS.reduce((n, t) => n + (p.tracks[t] >= 8 ? 1 : p.tracks[t] <= 3 ? -1 : 0), 0));
+    s.log.push(`${f}: PV di fine round ${before} → ${p.points}`);
+  });
+  const expired = s.units.filter(u => u.rotated);
+  expired.forEach(u => s.log.push(`${u.faction}: ${unitDef(u.type).name} torna in riserva da ${territoryDef(u.territory).name}.`));
+  s.units = s.units.filter(u => !u.rotated); s.units.forEach(u => { u.rotated = true; });
+  FACTIONS.forEach(f => {
+    if (s.players[f].bot) return;
+    const count = (s.players[f].tracks.Consenso <= 3 ? 1 : s.players[f].tracks.Consenso >= 8 ? 3 : 2) + (s.advancers.includes(f) ? 1 : 0);
+    for (let i = 0; i < count; i++) { const card = draw(s, rng); if (card) s.players[f].hand.push(card); }
+  });
+  s.discardQueue = [...s.order]; promptDiscard(s);
+}
+function finish(s: EngineState, rng: RNG) {
+  s.ops = null; s.pending = null; s.combat = null; s.queue = []; s.phase = 'activation'; s.activation++;
+  s.turnIndex++;
+  if (s.turnIndex >= s.order.length) {
+    s.turnIndex = 0;
+    if (s.lap === 1) s.lap = 2; else endRound(s, rng);
+  }
+}
+function canVeto(s: EngineState, c: TrackChange) {
+  return c.delta < 0 && s.players[c.faction].tracks.Diplomazia >= 8 && !s.players[c.faction].vetoUsed;
+}
+function applyVeto(s: EngineState, c: TrackChange) {
+  s.log.push(`${c.faction}: Veto sulla correlazione ${c.track} ${c.delta}; costo −1 Diplomazia.`);
+  s.players[c.faction].vetoUsed = true; changeTrack(s, { faction: c.faction, track: 'Diplomazia', delta: -1 });
+}
+function drain(s: EngineState, rng: RNG) {
+  while (s.queue.length && s.phase !== 'ended') {
+    const effect = s.queue.shift()!;
+    if (effect.kind === 'correlation') {
+      if (canVeto(s, effect.change)) {
+        const p = s.players[effect.change.faction];
+        if (p.bot) { if (p.tracks[effect.change.track] <= 3) applyVeto(s, effect.change); else changeTrack(s, effect.change); }
+        else { s.phase = 'veto'; s.pending = { kind: 'veto', actor: effect.change.faction, change: effect.change }; return; }
+      } else changeTrack(s, effect.change);
+    } else if (effect.kind === 'track') changeTrack(s, effect.change);
+    else if (effect.kind === 'globals') globals(s, effect.changes);
+    else if (effect.kind === 'reward') {
+      if (effect.favored !== effect.actor) { s.players[effect.actor].points++; s.log.push(`${effect.actor}: dividendo diplomatico +1 PV.`); }
+      if (effect.unlock) { const id = s.specialReserve.shift(); if (id) { s.players[effect.actor].hand.push(id); s.log.push(`${effect.actor}: pesca una carta dalla Riserva speciale.`); } }
+    } else executeBotAction(s, effect.actor, effect.track, effect.action, rng);
+    if (s.phase === 'support' || s.phase === 'casualty') return;
+  }
+  if (s.phase === 'ended') return;
+  s.pending = null;
+  if (s.continuation === 'ops') s.phase = 'ops'; else finish(s, rng);
+}
+function development(s: EngineState, actor: Faction, track: Track, correlation: number) {
+  assert(TRACKS.includes(track), 'Tracciato non valido');
+  const change = CORRELATIONS[actor][track][correlation]; assert(change, 'Scegli una delle due correlazioni');
+  s.log.push(`${actor}: Sviluppo ${track}; correlazione ${change.faction} ${change.track} ${change.delta > 0 ? '+' : ''}${change.delta}.`);
+  changeTrack(s, { faction: actor, track, delta: 1 }); s.queue.unshift({ kind: 'correlation', change });
+}
+export function canDeploy(s: EngineState, faction: Faction, unitId: string, territoryId: string): boolean {
+  const u = UNITS.find(d => d.id === unitId), t = TERRITORIES.find(d => d.id === territoryId);
+  if (!u || !t || u.faction !== faction || (u.naval && t.name.toLowerCase().includes('giordania'))) return false;
+  const local = s.units.filter(x => x.territory === territoryId);
+  const max = u.maxPerTerritory ?? (/missili balistici/i.test(u.name) ? 2 : /caschi blu/i.test(u.name) ? 3 : undefined);
+  return local.length < t.capacity && (!max || local.filter(x => x.type === unitId).length < max);
+}
+function deployment(s: EngineState, actor: Faction, unitId: string, territoryId: string, target?: Faction, diplomacyEffect?: 'sanctions' | 'opinion') {
+  assert(canDeploy(s, actor, unitId, territoryId), 'Schieramento non valido: fazione, capacità o limite navale/unità');
+  const d = unitDef(unitId), name = d.name.toLowerCase();
+  const intelligence = /intelligence|satelliti/.test(name), cyber = name === 'cyber russia' || name === 'cyber unit';
+  if (intelligence) assert(target && FACTIONS.includes(target), 'Scegli esplicitamente la fazione di cui vedere la mano');
+  if (cyber) assert(target && target !== actor && s.units.some(u => u.territory === territoryId && u.faction === target), 'Cyber: scegli un avversario presente nello stesso territorio');
+  if (name === 'diplomazia ue') assert(diplomacyEffect === 'sanctions' || diplomacyEffect === 'opinion', 'Scegli l’effetto diplomatico');
+  s.log.push(`${actor}: schiera ${d.name} in ${territoryDef(territoryId).name}.`);
+  s.units.push({ id: `u${s.nextUnit++}`, type: unitId, faction: actor, territory: territoryId, placedRound: s.actualRound, rotated: false });
+  if (intelligence) s.intel[actor].push({ target: target!, hand: [...s.players[target!].hand], activation: s.activation });
+  if (cyber) changeTrack(s, { faction: target!, track: 'Economia', delta: -1 });
+  if (name === 'investimenti bri') changeTrack(s, { faction: 'Cina', track: 'Diplomazia', delta: 1 });
+  if (name === 'tecnologia duale') changeTrack(s, { faction: 'Cina', track: 'Militare', delta: 1 });
+  if (name === 'infrastrutture') changeTrack(s, { faction: 'Cina', track: 'Consenso', delta: 1 });
+  if (name === 'aiuti umanitari') changeTrack(s, { faction: 'Europa', track: 'Consenso', delta: 1 });
+  if (name === 'caschi blu') globals(s, [{ track: 'Opinione', delta: 1 }]);
+  if (name === 'diplomazia ue') globals(s, [{ track: diplomacyEffect === 'sanctions' ? 'Sanzioni' : 'Opinione', delta: diplomacyEffect === 'sanctions' ? -1 : 1 }]);
+}
+function beginAttack(s: EngineState, actor: Faction, territory: string, rng: RNG) {
+  assert(actor === 'Iran' || actor === 'Coalizione', 'Solo Iran e Coalizione possono attaccare');
+  const defender = actor === 'Iran' ? 'Coalizione' : 'Iran';
+  assert(s.units.some(u => u.territory === territory && u.faction === actor) && s.units.some(u => u.territory === territory && u.faction === defender), 'Servono unità di entrambe le fazioni belligeranti nel territorio');
+  s.log.push(`${actor}: attacco a ${defender} in ${territoryDef(territory).name}.`);
+  globals(s, [{ track: 'Crisi Bellica', delta: -1 }]); if (s.phase === 'ended') return;
+  s.combat = { attacker: actor, defender, territory, supporters: s.order.filter(f => f !== actor && f !== defender && s.units.some(u => u.faction === f && u.territory === territory)), supportIndex: 0, support: {} };
+  promptSupport(s, rng);
+}
+function promptSupport(s: EngineState, rng: RNG) {
+  const c = s.combat!;
+  while (c.supportIndex < c.supporters.length) {
+    const f = c.supporters[c.supportIndex];
+    if (s.players[f].bot) {
+      c.support[f] = f === 'Europa' ? (c.attacker === 'Coalizione' ? 'attacker' : 'defender') : (c.attacker === 'Iran' ? 'attacker' : 'defender');
+      s.log.push(`${f} BOT: sostiene ${c.support[f] === 'attacker' ? c.attacker : c.defender} in ${territoryDef(c.territory).name}.`);
+      c.supportIndex++;
+    }
+    else { s.phase = 'support'; s.pending = { kind: 'support', actor: f }; return; }
+  }
+  resolveCombat(s, rng);
+}
+function resolveCombat(s: EngineState, rng: RNG) {
+  const c = s.combat!, local = s.units.filter(u => u.territory === c.territory);
+  const attacking = local.filter(u => u.faction === c.attacker || c.support[u.faction] === 'attacker');
+  const defending = local.filter(u => u.faction === c.defender || c.support[u.faction] === 'defender');
+  const s400 = defending.some(u => named(u, 'Difesa aerea S-400')), shield = defending.some(u => named(u, 'Scudo Missilistico'));
+  const modifier = (f: Faction) => s.players[f].tracks.Militare <= 3 ? -1 : s.players[f].tracks.Militare >= 8 ? 1 : 0;
+  c.dice = [1 + Math.floor(random(rng) * 6), 1 + Math.floor(random(rng) * 6)];
+  c.attack = attacking.reduce((n, u) => n + (((s400 && named(u, 'Aviazione Tattica')) || (shield && named(u, 'Missili balistici'))) ? 0 : unitDef(u.type).attack), 0) + modifier(c.attacker) + c.dice[0];
+  c.defense = defending.reduce((n, u) => n + (named(u, 'IRGC') && inNamed(u, 'Iran') ? 5 :
+    named(u, 'Forniture armi') && c.support[u.faction] === 'defender' ? 1 : unitDef(u.type).defense), 0) +
+    modifier(c.defender) + c.dice[1] - attacking.filter(u => named(u, 'IRGC Cyber Unit')).length;
+  c.winner = c.attack > c.defense ? c.attacker : c.defender; c.loser = c.winner === c.attacker ? c.defender : c.attacker;
+  const eligible = local.filter(u => u.faction === c.loser).map(u => u.id);
+  c.casualties = Math.min(eligible.length, Math.abs(c.attack - c.defense) >= 4 ? 2 : 1);
+  s.phase = 'casualty'; s.pending = { kind: 'casualty', actor: c.loser, count: c.casualties, unitIds: eligible };
+  if (s.players[c.loser].bot) applyCasualties(s, eligible.sort((a, b) => {
+    const aa = unitDef(s.units.find(u => u.id === a)!.type), bb = unitDef(s.units.find(u => u.id === b)!.type);
+    return aa.cost - bb.cost;
+  }).slice(0, c.casualties), rng, false);
+}
+function applyCasualties(s: EngineState, ids: string[], rng: RNG, resume = true) {
+  const c = s.combat!, p = s.pending; assert(p?.kind === 'casualty', 'Nessuna perdita da scegliere');
+  assert(new Set(ids).size === ids.length && ids.length === p.count && ids.every(id => p.unitIds.includes(id)), 'Scegli esattamente le unità da rimuovere');
+  s.log.push(`${c.loser}: rimuove ${ids.map(id => unitDef(s.units.find(u => u.id === id)!.type).name).join(', ')} da ${territoryDef(c.territory).name}.`);
+  s.units = s.units.filter(u => !ids.includes(u.id)); changeTrack(s, { faction: c.loser!, track: 'Consenso', delta: -1 });
+  const winnerUnits = s.units.filter(u => u.territory === c.territory && u.faction === c.winner);
+  const bonus = winnerUnits.filter(u => named(u, 'Proxy regionali') || named(u, 'Droni Shahed')).length;
+  if (bonus) changeTrack(s, { faction: c.loser!, track: 'Consenso', delta: -bonus });
+  const specialForces = winnerUnits.filter(u => named(u, 'Forze Speciali')).length;
+  if (specialForces) changeTrack(s, { faction: 'Coalizione', track: 'Diplomazia', delta: specialForces });
+  const cruise = winnerUnits.filter(u => named(u, 'Missili da crociera') && inNamed(u, 'Iran')).length;
+  if (cruise) globals(s, [{ track: 'Nucleare', delta: -cruise }]);
+  s.log.push(`Combattimento: ${c.attacker} ${c.attack} / ${c.defender} ${c.defense} (dadi ${c.dice?.join(' / ')}); vince ${c.winner}`);
+  s.combat = null; s.pending = null;
+  if (s.phase !== 'ended') {
+    s.phase = s.continuation === 'ops' ? 'ops' : 'activation';
+    if (resume) drain(s, rng);
+  }
+}
+function executeBotAction(s: EngineState, actor: Faction, track: Track, action: BotAction, rng: RNG) {
+  if (action.kind === 'develop') development(s, actor, action.track, chooseBotCorrelation(s, actor, action.track));
+  else if (action.kind === 'global') globals(s, [{ track: action.track, delta: action.delta === 'zero' ? -Math.sign(s.globals.Opinione) : action.delta }]);
+  else if (action.kind === 'track') changeTrack(s, action.change);
+  else if (action.kind === 'attack') {
+    const territory = action.territory ?? TERRITORIES.find(t => s.units.some(u => u.faction === 'Iran' && u.territory === t.id) && s.units.some(u => u.faction === 'Coalizione' && u.territory === t.id))?.id;
+    if (territory && s.globals['Crisi Bellica'] > 3 && s.units.some(u => u.faction === actor && u.territory === territory) && s.units.some(u => u.faction === (actor === 'Iran' ? 'Coalizione' : 'Iran') && u.territory === territory)) beginAttack(s, actor, territory, rng);
+    else development(s, actor, track, chooseBotCorrelation(s, actor, track));
+  } else {
+    const def = UNITS.find(u => u.faction === actor && u.name.toLowerCase() === action.unit.toLowerCase());
+    if (!def) { development(s, actor, track, chooseBotCorrelation(s, actor, track)); return; }
+    // Appendix B specifies this order; the catalog follows the board layout, a different order.
+    const printedOrder = ['Turchia', 'Siria', 'Libano', 'Israele', 'Giordania', 'Egitto', 'Iraq', 'Iran', 'Kuwait', 'Arabia Saudita', 'Bahrein', 'Qatar', 'Emirati', 'Oman', 'Yemen'];
+    const friendly = printedOrder.flatMap(name => TERRITORIES.filter(t => t.name === name && t.alignment[actor] === 0).map(t => t.id));
+    const hormuz = TERRITORIES.find(t => t.name.includes('Hormuz'))?.id;
+    const candidates = def.naval ? [hormuz] : [action.territory, ...friendly];
+    let selected = candidates.find(t => t && canDeploy(s, actor, def.id, t));
+    const cyber = /^Cyber (Russia|Unit)$/i.test(def.name);
+    if (cyber) selected = candidates.find(t => t && canDeploy(s, actor, def.id, t) && s.units.some(u => u.territory === t && u.faction !== actor));
+    if (!selected) { development(s, actor, 'Militare', chooseBotCorrelation(s, actor, 'Militare')); return; }
+    const target = cyber ? s.units.find(u => u.territory === selected && u.faction !== actor)!.faction : FACTIONS.find(f => f !== actor)!;
+    deployment(s, actor, def.id, selected, target, 'opinion');
+  }
+}
+function botActivation(s: EngineState, actor: Faction, rng: RNG) {
+  const id = draw(s, rng); s.continuation = 'finish';
+  if (id) {
+    const card = cardDef(id); dispose(s, id); const option = card.options.find(o => o.boost.faction === actor);
+    s.log.push(`${actor} BOT rivela [${card.id}] ${card.name}${option ? ` — opzione ${card.options.indexOf(option) + 1}` : ' — nessuna opzione propria, passa al mazzo BOT'}.`);
+    if (option) { changeTrack(s, option.boost); s.queue = [{ kind: 'correlation', change: option.correlation }, { kind: 'globals', changes: option.globals }]; drain(s, rng); return; }
+  }
+  const track = weakestTrack(s, actor), deck = s.botDecks[actor][track], botId = deck.shift();
+  assert(botId, 'Mazzo BOT vuoto'); deck.push(botId);
+  const card = BOT_CARDS.find(b => b.id === botId)!;
+  let p1 = botCondition(s, actor, card.condition);
+  let actions = botPlan(s, actor, p1 ? card.priority1 : card.priority2, card.condition);
+  if (actions.some(a => a.kind === 'attack') && s.globals['Crisi Bellica'] <= 3) { p1 = false; actions = botPlan(s, actor, card.priority2, card.condition); }
+  s.log.push(`${actor}: [${card.id}] ${card.name} — ${p1 ? 'P1' : 'P2'} (${p1 ? card.priority1 : card.priority2})`);
+  s.queue = actions.map(action => ({ kind: 'bot', actor, track, action })); drain(s, rng);
+}
+export function reduce(state: EngineState, actor: Faction, command: Command, rng: RNG = Math.random): EngineState {
+  // Copy first: thrown validation and interrupted effects never mutate the caller's JSON state.
+  const s: EngineState = structuredClone(state);
+  assert(s.version === 3 && s.phase !== 'ended', 'Partita terminata o versione non valida');
+  assert(FACTIONS.includes(actor) && actor === currentActor(s), 'Non è il turno di questa fazione');
+  if (command.type === 'advance-bot') {
+    assert(s.players[actor].bot && s.phase === 'activation', 'Il BOT non può avanzare in questa fase'); botActivation(s, actor, rng); return s;
+  }
+  assert(!s.players[actor].bot, 'Usa advance-bot per la fazione automatica');
+  if (command.type === 'veto') {
+    const p = s.pending; assert(s.phase === 'veto' && p?.kind === 'veto', 'Nessun veto pendente');
+    if (command.use) { assert(canVeto(s, p.change), 'Veto non disponibile'); applyVeto(s, p.change); }
+    else { s.log.push(`${actor}: rinuncia al Veto.`); changeTrack(s, p.change); }
+    s.pending = null; s.phase = s.continuation === 'ops' ? 'ops' : 'activation'; drain(s, rng); return s;
+  }
+  if (command.type === 'support') {
+    assert(s.phase === 'support' && s.combat && ['attacker', 'defender', 'none'].includes(command.side), 'Sostegno non valido');
+    s.log.push(`${actor}: ${command.side === 'none' ? 'nessun sostegno' : `sostiene ${command.side === 'attacker' ? s.combat.attacker : s.combat.defender}`} in ${territoryDef(s.combat.territory).name}.`);
+    s.combat.support[actor] = command.side; s.combat.supportIndex++; s.pending = null; promptSupport(s, rng);
+    if (!s.pending && !s.result) drain(s, rng);
+    return s;
+  }
+  if (command.type === 'casualties') { assert(s.phase === 'casualty', 'Nessun combattimento pendente'); applyCasualties(s, command.unitIds, rng); return s; }
+  if (command.type === 'discard') {
+    const p = s.pending; assert(s.phase === 'discard' && p?.kind === 'discard', 'Nessuno scarto pendente');
+    assert(command.cardIds.length === p.count && new Set(command.cardIds).size === p.count && command.cardIds.every(id => s.players[actor].hand.includes(id)), 'Scarta il numero esatto di carte');
+    s.log.push(`${actor}: scarta ${p.count} ${p.count === 1 ? 'carta' : 'carte'} per il limite di mano ${p.limit}.`);
+    command.cardIds.forEach(id => { s.players[actor].hand.splice(s.players[actor].hand.indexOf(id), 1); dispose(s, id); });
+    s.pending = null; promptDiscard(s); return s;
+  }
+  if (command.type === 'skip') { assert(s.phase === 'activation' && !s.players[actor].hand.length, 'Puoi saltare solo senza carte'); s.log.push(`${actor}: salta l’attivazione, mano vuota.`); finish(s, rng); return s; }
+  if (command.type === 'play-event') {
+    assert(s.phase === 'activation', 'Non puoi giocare un evento in questa fase');
+    const card = takeCard(s, actor, command.cardId), o = card.options[command.option]; assert(o && Number.isInteger(command.option), 'Opzione non valida');
+    s.log.push(`${actor}: gioca [${card.id}] ${card.name} come evento — opzione ${command.option + 1}, a favore di ${o.boost.faction}.`);
+    s.continuation = 'finish'; changeTrack(s, o.boost);
+    s.queue = [{ kind: 'correlation', change: o.correlation }, { kind: 'globals', changes: o.globals }, { kind: 'reward', actor, favored: o.boost.faction, unlock: card.unlocksSpecial }];
+    drain(s, rng); return s;
+  }
+  if (command.type === 'begin-ops') {
+    assert(s.phase === 'activation', 'Non puoi iniziare OP in questa fase'); const card = takeCard(s, actor, command.cardId);
+    s.log.push(`${actor}: gioca [${card.id}] ${card.name} per ${card.cost} OP.`);
+    s.ops = { actor, card: card.id, remaining: card.cost, pressured: [] }; s.phase = 'ops'; s.continuation = 'ops'; return s;
+  }
+  assert(s.phase === 'ops' && s.ops, 'Serve una carta giocata come OP');
+  if (command.type === 'finish-ops') { s.log.push(`${actor}: conclude le azioni OP; ${s.ops.remaining} OP non spesi si perdono.`); finish(s, rng); return s; }
+  if (command.type === 'develop') {
+    assert(s.ops.remaining >= 2, 'Servono 2 OP'); s.ops.remaining -= 2;
+    s.log.push(`${actor}: spende 2 OP per Sviluppo; restano ${s.ops.remaining} OP.`);
+    development(s, actor, command.track, command.correlation); drain(s, rng);
+  } else if (command.type === 'pressure') {
+    const { track, delta } = command;
+    assert(['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'].includes(track) && (delta === 1 || delta === -1), 'Pressione non valida');
+    assert(!s.ops.pressured.includes(track), 'Massimo un passo per tracciato globale per attivazione');
+    assert(track !== 'Nucleare' || (delta === 1 ? actor === 'Iran' : actor === 'Coalizione' || actor === 'Europa'), 'Pressione sul Nucleare non consentita');
+    assert(track !== 'Sanzioni' || (delta === 1 ? actor === 'Coalizione' || actor === 'Europa' : actor === 'Iran' || actor === 'Russia' || actor === 'Cina'), 'Pressione sulle Sanzioni non consentita');
+    const dip = s.players[actor].tracks.Diplomazia, cost = dip <= 3 ? 3 : dip >= 8 ? 1 : 2;
+    assert(s.ops.remaining >= cost, 'OP insufficienti'); s.ops.remaining -= cost; s.ops.pressured.push(track);
+    s.log.push(`${actor}: Pressione ${track} ${delta > 0 ? '+' : ''}${delta}, costo ${cost} OP; restano ${s.ops.remaining} OP.`);
+    globals(s, [{ track, delta }]);
+  } else if (command.type === 'deploy') {
+    const cost = deployCost(s, actor, command.unitId, command.territoryId); assert(s.ops.remaining >= cost, 'OP insufficienti');
+    s.log.push(`${actor}: spende ${cost} OP per Schieramento; restano ${s.ops.remaining - cost} OP.`);
+    deployment(s, actor, command.unitId, command.territoryId, command.target, command.diplomacyEffect); if (s.ops) s.ops.remaining -= cost;
+  } else if (command.type === 'attack') {
+    assert(s.ops.remaining >= 2, 'Servono 2 OP'); s.ops.remaining -= 2;
+    s.log.push(`${actor}: spende 2 OP per Attacco; restano ${s.ops.remaining} OP.`);
+    beginAttack(s, actor, command.territoryId, rng);
+  } else throw new Error('Comando sconosciuto');
+  return s;
+}

@@ -11,12 +11,14 @@ import BotCardLibraryManager from '@/components/BotCardLibraryManager';
 import EventLibraryManager from '@/components/EventLibraryManager';
 import ObjectiveLibraryManager from '@/components/ObjectiveLibraryManager';
 import WaitingRoom from '@/components/WaitingRoom';
+import { Materials } from '@/game-v3/Materials';
 
 interface LobbyPageProps {
   profile: Profile;
   onJoinGame: (gameId: string, chosenFaction?: string) => void;
   onLogout: () => void;
   onAdmin?: (section?: 'database' | 'areas') => void;
+  onTutorial?: () => void;
 }
 
 const ALL_FACTIONS: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
@@ -41,11 +43,11 @@ const makeCode = () => {
   return `${p}-${Math.floor(Math.random() * 900 + 10)}`;
 };
 
-export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: LobbyPageProps) {
+export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTutorial }: LobbyPageProps) {
   // ── Stato form crea ──────────────────────────────────────────────────────
   const [isPublic, setIsPublic]     = useState(true);   // aperta vs riservata
   const [customCode, setCustomCode] = useState('');      // codice scelto dall'host (riservata)
-  const [gameLength, setGameLength] = useState<'breve' | 'media' | 'lunga'>('media');
+  const [showMaterials, setShowMaterials] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
 
@@ -55,7 +57,6 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
 
   // ── Setup pre-creazione ────────────────────────────────────────────────────
   const [setupFaction, setSetupFaction] = useState<string | null>(null);
-  const [setupBots, setSetupBots] = useState<Set<string>>(new Set());
   const [showPreSetup, setShowPreSetup] = useState(false);
 
   // ── Sala d'attesa ────────────────────────────────────────────────────────
@@ -78,23 +79,18 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
     if (!confirmed) return;
     setDeletingId(game.id);
     try {
-      // DELETE a cascata: elimina prima le tabelle dipendenti, poi games
-      await Promise.all([
-        supabase.from('game_state').delete().eq('game_id', game.id),
-        supabase.from('game_players').delete().eq('game_id', game.id),
-        supabase.from('cards_deck').delete().eq('game_id', game.id),
-        supabase.from('moves_log').delete().eq('game_id', game.id),
-        supabase.from('territories').delete().eq('game_id', game.id),
-        supabase.from('military_units').delete().eq('game_id', game.id),
-        supabase.from('game_objectives').delete().eq('game_id', game.id),
-      ]);
-      await supabase.from('games').delete().eq('id', game.id);
+      // Un'unica cancellazione: le FK ON DELETE CASCADE mantengono l'atomicità.
+      // Mai svuotare prima le tabelle figlie se poi RLS nega il DELETE del tavolo.
+      const {data, error: deleteError} = await supabase.from('games').delete()
+        .eq('id', game.id).eq('created_by', profile.id).select('id');
+      if (deleteError) throw deleteError;
+      if (!data?.length) throw new Error('Cancellazione non autorizzata o partita già rimossa.');
       // Rimuovi dalle liste locali
       setOpenGames(prev => prev.filter(g => g.id !== game.id));
       setRecentGames(prev => prev.filter(g => g.id !== game.id));
     } catch (err) {
       console.error('[deleteGame]', err);
-      alert('Errore durante l\'eliminazione. Riprova.');
+      alert(err instanceof Error ? err.message : 'Errore durante l\'eliminazione. Riprova.');
     } finally {
       setDeletingId(null);
     }
@@ -275,7 +271,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       const buildPayload = (withIsPublic: boolean) => ({
         code,
         name: code,
-        max_turns: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70,
+        max_turns: 6,
         // game_length e track_limit salvati separatamente dopo l'insert
         // (colonne opzionali non ancora in tutte le installazioni DB)
         created_by: profile.id,
@@ -302,19 +298,6 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       if (gameError) throw new Error(gameError.message ?? 'Errore nella creazione');
       if (!game) throw new Error('Partita non creata');
 
-      // Salva game_length e track_limit come update fire-and-forget
-      // (colonne opzionali: ignorato se non ancora in schema DB)
-      supabase.from('games')
-        .update({
-          game_length: gameLength,
-          track_limit: gameLength === 'breve' ? 40 : gameLength === 'lunga' ? 100 : 70,
-        })
-        .eq('id', game.id)
-        .then(({ error: glErr }) => {
-          if (glErr && glErr.code !== '42703' && glErr.code !== 'PGRST204')
-            console.warn('[createGame] game_length update:', glErr.message);
-        })
-        .catch(() => {});
 
       // Tavolo creato nel DB: ferma il safetyTimer (startGame può durare altri 10-15s)
       clearTimeout(safetyTimer);
@@ -324,7 +307,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
         hostFaction: setupFaction ?? undefined,
         hostBots: mode === 'solo'
           ? new Set(['Iran','Coalizione','Russia','Cina','Europa'].filter(f => f !== setupFaction))
-          : setupBots,
+          : undefined,
       });
     } catch (err: unknown) {
       clearTimeout(safetyTimer);
@@ -361,13 +344,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       }
 
       if (game.status === 'active') {
-        // Partita in corso: rientra se già dentro, altrimenti apri WaitingRoom se ci sono fazioni libere
-        const alreadyIn = players.some(p => p.player_id === profile.id && !p.is_bot);
-        if (alreadyIn) { onJoinGame(game.id); return; }
-        const takenByHumans = new Set(players.filter(p => p.player_id && !p.is_bot).map(p => p.faction));
-        const allFactions = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
-        const hasFree = allFactions.some(f => !takenByHumans.has(f));
-        if (!hasFree) { onJoinGame(game.id); return; } // piena → spettatore
+        // An active tabletop game has a frozen human/BOT roster.
+        onJoinGame(game.id);
+        return;
       }
 
       // status='lobby' o 'active' con posto libero → apri WaitingRoom per scegliere fazione
@@ -385,9 +364,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
 
   // ── ENTRA IN TAVOLO APERTO ────────────────────────────────────────────────
   const joinOpen = async (game: GameWithPlayers) => {
-    const humanPs = (game._players ?? []).filter(p => !p.is_bot && p.player_id);
-    const alreadyInGame = humanPs.some(p => p.player_id === profile.id);
-    if (game.status === 'active' && alreadyInGame) {
+    if (game.status === 'active' || game.status === 'finished') {
       // Già in partita → rientra direttamente
       onJoinGame(game.id);
       return;
@@ -449,11 +426,6 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
     const isMine        = game.created_by === profile.id;
     // Sono già in questa partita come giocatore?
     const alreadyIn     = humanPlayers.some(p => p.player_id === profile.id);
-    // Ci sono ancora fazioni libere (non prese da umani)?
-    const allFactions: string[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
-    const hasFreeFaction = allFactions.some(f => !takenFactions.has(f));
-    // Posso unirmi: partita attiva, non sono già dentro, c'è una fazione libera
-    const canJoinActive = isActive && !alreadyIn && hasFreeFaction;
 
     return (
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3
@@ -498,7 +470,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
           {/* Turno (partite attive/chiuse) */}
           {(isActive || isFinished) && (
             <span className="text-[#556677] text-xs font-mono whitespace-nowrap">
-              Turno {game.current_turn}/{game.max_turns}
+              {game.max_turns === 6 ? 'Edizione da tavolo · 6 round' : `Legacy · turno ${game.current_turn}/${game.max_turns}`}
               {game.winner_faction && (
                 <span className="ml-1.5 text-[#00ff88]">
                   · 🏆 {game.winner_faction}
@@ -533,17 +505,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                   ↩ Rientra
                 </button>
               )}
-              {/* Non dentro + fazione libera → Unisciti alla partita in corso */}
-              {canJoinActive && (
-                <button
-                  onClick={() => joinOpen(game)}
-                  className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all"
-                  style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#0a0e1a' }}>
-                  ⚔️ Unisciti
-                </button>
-              )}
               {/* Non dentro + partita piena → solo spettatore */}
-              {!alreadyIn && !canJoinActive && (
+              {!alreadyIn && (
                 <button
                   onClick={() => onJoinGame(game.id)}
                   className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all
@@ -618,6 +581,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* ── Pulsanti visibili a tutti ── */}
+            <button onClick={() => setShowMaterials(true)}
+              className="px-3 py-1.5 border border-[#1e3a5f] text-slate-200 rounded-lg text-xs">
+              Materiali ufficiali v3
+            </button>
+            {onTutorial&&<button onClick={onTutorial} className="px-3 py-1.5 border border-amber-600 text-amber-200 rounded-lg text-xs">Partita guidata</button>}
             <button onClick={() => { setShowStats(true); loadPlayerStats(); }}
               className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#22c55e]
                 text-[#8899aa] hover:text-[#22c55e] rounded-lg font-mono text-xs transition-colors">
@@ -651,10 +619,10 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                       </div>
                       <div className="py-1">
                         {[
-                          { label: '🃏 Gestione Carte',     action: () => { setShowLibrary(true);          setShowAdminMenu(false); }, color: '#00ff88' },
-                          { label: '🤖 Gestione BOT',       action: () => { setShowBotLibrary(true);       setShowAdminMenu(false); }, color: '#c8a55a' },
-                          { label: '🎴 Gestione Eventi',    action: () => { setShowEventLibrary(true);     setShowAdminMenu(false); }, color: '#f97316' },
-                          { label: '🚨 Gestione Obiettivi', action: () => { setShowObjectiveLibrary(true); setShowAdminMenu(false); }, color: '#8b5cf6' },
+                          { label: '🃏 Carte legacy',     action: () => { setShowLibrary(true);          setShowAdminMenu(false); }, color: '#00ff88' },
+                          { label: '🤖 BOT legacy',       action: () => { setShowBotLibrary(true);       setShowAdminMenu(false); }, color: '#c8a55a' },
+                          { label: '🎴 Eventi legacy',    action: () => { setShowEventLibrary(true);     setShowAdminMenu(false); }, color: '#f97316' },
+                          { label: '🚨 Obiettivi legacy', action: () => { setShowObjectiveLibrary(true); setShowAdminMenu(false); }, color: '#8b5cf6' },
                           { label: '🗺️ Aree plancia',       action: () => { onAdmin?.('areas');            setShowAdminMenu(false); }, color: '#f59e0b' },
                           { label: '⚙️ Database',           action: () => { onAdmin?.('database');         setShowAdminMenu(false); }, color: '#64748b' },
                         ].map(({ label, action, color }) => (
@@ -766,30 +734,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                 </div>
               )}
 
-              {/* Durata partita — sostituisce il vecchio selettore numerico turni */}
-              <div>
-                <label className="block text-[10px] font-mono text-[#8899aa] uppercase tracking-widest mb-1.5">
-                  ⏱️ Durata Partita
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    { key: 'breve', label: '⚡ Breve',  sub: '~11 round · 40 caselle', color: '#f97316' },
-                    { key: 'media', label: '⚖️ Media',  sub: '~20 round · 70 caselle', color: '#f59e0b' },
-                    { key: 'lunga', label: '🕰️ Lunga',  sub: '~29 round · 100 caselle', color: '#22c55e' },
-                  ] as const).map(opt => (
-                    <button key={opt.key}
-                      onClick={() => setGameLength(opt.key)}
-                      className="py-2 px-2 rounded-lg font-mono text-xs font-bold transition-all text-center"
-                      style={{
-                        backgroundColor: gameLength === opt.key ? `${opt.color}20` : 'transparent',
-                        border: `1px solid ${gameLength === opt.key ? opt.color : '#1e3a5f'}`,
-                        color: gameLength === opt.key ? opt.color : '#556677',
-                      }}>
-                      {opt.label}
-                      <span className="block text-[9px] font-normal mt-0.5 opacity-70">{opt.sub}</span>
-                    </button>
-                  ))}
-                </div>
+              <div className="rounded-lg border border-[#1e3a5f] p-4 text-sm text-slate-300">
+                Regolamento da tavolo v3 · 6 round, due attivazioni per fazione. Gli eventi di blocco possono estendere la partita fino a 8 round effettivi.
               </div>
 
               {error && (
@@ -823,41 +769,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
                     </div>
                   </div>
 
-                  {/* Assegna bot alle altre fazioni */}
-                  {setupFaction && (
-                    <div className="rounded-xl border border-[#1e3a5f] bg-[#060d18] p-4">
-                      <p className="text-xs font-mono font-bold text-[#8899aa] uppercase mb-3">Assegna Bot (opzionale)</p>
-                      <div className="grid grid-cols-1 gap-1.5">
-                        {(['Iran','Coalizione','Russia','Cina','Europa'] as const).filter(f => f !== setupFaction).map(f => {
-                          const COLORS: Record<string,string> = {Iran:'#ef4444',Coalizione:'#3b82f6',Russia:'#8b5cf6',Cina:'#f59e0b',Europa:'#22d3ee'};
-                          const FLAGS: Record<string,string> = {Iran:'🇮🇷',Coalizione:'🇺🇸',Russia:'🇷🇺',Cina:'🇨🇳',Europa:'🇪🇺'};
-                          const isBot = setupBots.has(f);
-                          return (
-                            <button key={f}
-                              onClick={() => setSetupBots(prev => { const n = new Set(prev); if (isBot) { n.delete(f); } else { n.add(f); } return n; })}
-                              className="flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all"
-                              style={{ borderColor: isBot ? '#f59e0b88' : '#1e3a5f', backgroundColor: isBot ? '#f59e0b12' : '#060a10' }}>
-                              <div className="flex items-center gap-2">
-                                <span>{FLAGS[f]}</span>
-                                <span className="font-mono text-xs font-bold" style={{ color: isBot ? '#f59e0b' : '#8899aa' }}>{f}</span>
-                              </div>
-                              <span className="text-[10px] font-mono font-bold px-2 py-1 rounded"
-                                style={{ backgroundColor: isBot ? '#f59e0b' : '#1e2a3a', color: isBot ? '#0a0e1a' : '#445566' }}>
-                                {isBot ? '🤖 BOT' : '⏳ libera'}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        <button
-                          onClick={() => setSetupBots(new Set((['Iran','Coalizione','Russia','Cina','Europa'] as const).filter(f => f !== setupFaction)))}
-                          className="flex-1 text-[9px] font-mono py-1.5 rounded border border-[#f59e0b44] text-[#f59e0b]">🤖 Bot tutte</button>
-                        <button onClick={() => setSetupBots(new Set())}
-                          className="flex-1 text-[9px] font-mono py-1.5 rounded border border-[#1e3a5f] text-[#445566]">✕ Nessun bot</button>
-                      </div>
-                    </div>
-                  )}
+                  <p className="text-sm text-slate-300">In solitaria, le altre quattro fazioni usano i mazzi BOT ufficiali. Per giocare in gruppo, apri il tavolo e invita gli altri prima di avviare.</p>
 
                   {/* Pulsanti azione */}
                   <div className="grid grid-cols-1 gap-2">
@@ -974,6 +886,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin }: Lo
       </div>
 
       {/* ── Modali ── */}
+      {showMaterials && <Materials onClose={() => setShowMaterials(false)} />}
       {showLibrary    && <CardLibraryManager   onClose={() => setShowLibrary(false)} />}
       {showEventLibrary && <EventLibraryManager onClose={() => setShowEventLibrary(false)} />}
       {showObjectiveLibrary && <ObjectiveLibraryManager onClose={() => setShowObjectiveLibrary(false)} />}

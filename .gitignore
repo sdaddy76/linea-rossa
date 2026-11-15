@@ -1,5 +1,6 @@
 # --- Dependencies ---
 node_modules/
+node_modules
 jspm_packages/
 
 # --- Package manager caches / debug logs ---
@@ -101,3 +102,7 @@ uploaded_files/
 
 .ipynb
 *.dill
+
+# --- Local Python tooling caches ---
+__pycache__/
+*.py[cod]

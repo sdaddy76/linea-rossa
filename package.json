@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "VITE_ENABLE_ROUTE_MESSAGING=true vite",
     "build": "vite build",
+    "verify:tabletop": "node scripts/test-tabletop.mjs",
     "build:dev": "VITE_ENABLE_ROUTE_MESSAGING=true vite build --mode development --sourcemap",
     "build:map": "VITE_ENABLE_ROUTE_MESSAGING=true vite build --sourcemap",
     "lint": "eslint .",

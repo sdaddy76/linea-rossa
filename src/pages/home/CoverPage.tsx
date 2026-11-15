@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   onPlay: () => void;
+  onTutorial?: () => void;
 }
 
 interface LiveStats {
@@ -135,7 +136,7 @@ const FACTION_FLAGS = [
   { emoji: '🇪🇺', label: 'Europa',       color: '#10b981', sub: '' },
 ];
 
-export default function CoverPage({ onPlay }: Props) {
+export default function CoverPage({ onPlay, onTutorial }: Props) {
   const stats = useLiveStats();
   return (
     <div
@@ -255,6 +256,7 @@ export default function CoverPage({ onPlay }: Props) {
           }}>
           ▶ &nbsp;INIZIA LA PARTITA
         </button>
+        {onTutorial&&<button onClick={onTutorial} className="mt-4 px-6 py-3 rounded-xl border border-amber-600 text-amber-200 font-bold focus-visible:outline-white">Partita guidata · impara in 2 round</button>}
 
         <p className="mt-4 text-xs font-mono" style={{ color: '#334155' }}>
           Multiplayer online · fino a 5 fazioni

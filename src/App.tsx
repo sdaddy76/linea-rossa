@@ -13,6 +13,9 @@ import AuthPage from "./pages/auth/Index";
 import LobbyPage from "./pages/lobby/Index";
 import AdminMigration from '@/pages/admin/Migration';
 import GamePage from "./pages/game/Index";
+import TabletopGamePage from "./game-v3/TabletopGamePage";
+import GuidedGame from "./game-v3/tutorial/GuidedGame";
+import { readTabletop } from "./game-v3/online";
 import NotFound from "./pages/not-found/Index";
 
 const queryClient = new QueryClient();
@@ -21,7 +24,7 @@ const queryClient = new QueryClient();
 // Router principale con autenticazione + navigazione
 // ------------------------------------------------
 function AppRouter() {
-  const { profile, session, game, initAuth, loadGame, resetGame, subscribeToGame, logout } = useOnlineGameStore();
+  const { profile, session, game, gameState, initAuth, loadGame, resetGame, subscribeToGame, logout } = useOnlineGameStore();
 
   // ── Rilevamento sincrono type=recovery PRIMA di qualsiasi render ──────────
   // Leggiamo l'URL subito (fuori da useEffect) per impostare il flag prima
@@ -34,8 +37,8 @@ function AppRouter() {
     return params.get('type') === 'recovery' && !!params.get('access_token');
   };
 
-  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas'>(
-    detectRecovery() ? 'auth' : 'cover'  // se link reset → mostra auth direttamente
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas' | 'tutorial'>(
+    detectRecovery() ? 'auth' : window.location.hash === '#/partita-guidata' ? 'tutorial' : 'cover'
   );
   // Flag: siamo in flusso reset password (type=recovery) → non redirezionare a lobby automaticamente
   const isRecoveryFlow = useRef(detectRecovery());
@@ -119,10 +122,19 @@ function AppRouter() {
 
   const handleLogout = async () => {
     await logout();
-    setView('home');
+    setView('cover');
+  };
+  const openTutorial = () => {
+    window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}#/partita-guidata`);
+    setView('tutorial');
+  };
+  const leaveTutorial = (play: boolean) => {
+    window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}`);
+    setView(session && profile ? 'lobby' : play ? 'auth' : 'cover');
   };
 
   // Render basato su view
+  if (view === 'tutorial') return <GuidedGame onExit={() => leaveTutorial(false)} onPlay={() => leaveTutorial(true)}/>;
   if (view === 'auth') return <AuthPage
     isRecovery={isRecoveryFlow.current}
     onPasswordSaved={() => { isRecoveryFlow.current = false; setView('lobby'); }}
@@ -136,16 +148,20 @@ function AppRouter() {
       onJoinGame={handleJoinGame}
       onLogout={handleLogout}
       onAdmin={(section = 'database') => setView(section === 'areas' ? 'admin-areas' : 'admin')}
+      onTutorial={openTutorial}
     />
   );
   if (view === 'game') return (
-    <GamePage onBack={handleBackToLobby} />
+    readTabletop(gameState)
+      ? <TabletopGamePage onBack={handleBackToLobby} />
+      : <GamePage onBack={handleBackToLobby} />
   );
 
   // Cover page (default / home)
   return (
     <CoverPage
       onPlay={() => session ? setView('lobby') : setView('auth')}
+      onTutorial={openTutorial}
     />
   );
 }

@@ -41,6 +41,7 @@ function calcTrackAdvance(
 
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
+import { initializeTabletop, readTabletop } from '@/game-v3/online';
 import type {
   Game, GamePlayer, GameState, MoveLog,
   Profile, Faction, DeckCard,
@@ -494,14 +495,14 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       });
 
       // Carica/assegna obiettivi segreti se ho una fazione
-      if (resolvedFaction) {
+      if (resolvedFaction && !readTabletop(stateRes.data)) {
         setTimeout(() => get().loadMyObjectives(resolvedFaction), 500);
       }
 
       // Se la partita è attiva e il turno corrente è di un bot → avvia il bot
       const loadedState = stateRes.data as GameState;
       const loadedGame  = gameRes.data as Game;
-      if (loadedGame?.status === 'active' && loadedState?.active_faction) {
+      if (loadedGame?.status === 'active' && loadedState?.active_faction && !readTabletop(loadedState)) {
         const activeFactionBot = (playersRes.data ?? []).find(
           (p: { faction: string; is_bot: boolean }) =>
             p.faction === loadedState.active_faction && p.is_bot
@@ -517,110 +518,15 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   // -----------------------------------------------
   startGame: async () => {
-    const { game, players } = get();
-    if (!game) return;
-    set({ loading: true });
+    const { game, profile } = get();
+    if (!game || !profile) return;
+    set({ loading: true, error: null });
     try {
-
-    // 1. Aggiorna stato partita ad "active"
-    await supabase.from('games').update({ status: 'active', started_at: new Date().toISOString() }).eq('id', game.id);
-
-    // 2. Inizializza mazzi: crea cards_deck per ogni fazione
-    //    Le prime CLASSIC_HAND_SIZE carte di ogni fazione vanno subito in mano (in_hand),
-    //    il resto rimane disponibile nel mazzo (available).
-    const deckRows: {
-      game_id: string; faction: string; card_id: string;
-      card_name: string; card_type: string; op_points: number;
-      deck_type: string; status: string; position: number;
-      held_by_faction: string | null;
-    }[] = [];
-
-    const factions = players.map(p => p.faction) as Faction[];
-    for (const faction of factions) {
-      const deck = getFullDeck(faction);   // già mescolato
-      deck.forEach((card, idx) => {
-        const inHand = idx < CLASSIC_HAND_SIZE;
-        deckRows.push({
-          game_id:         game.id,
-          faction,
-          card_id:         card.card_id,
-          card_name:       card.card_name,
-          card_type:       card.card_type,
-          op_points:       card.op_points,
-          deck_type:       card.deck_type,
-          status:          inHand ? 'in_hand' : 'available',
-          held_by_faction: inHand ? faction   : null,
-          position:        idx + 1,
-        });
-      });
-    }
-    await supabase.from('cards_deck').insert(deckRows);
-
-    // 3. Inizializza territori con influenze a zero
-    const terrRows = TERRITORIES.map(t => ({
-      game_id: game.id,
-      territory: t.id,
-      inf_iran:       0,
-      inf_coalizione: 0,
-      inf_russia:     0,
-      inf_cina:       0,
-      inf_europa:     0,
-    }));
-    await supabase.from('territories').upsert(terrRows, { onConflict: 'game_id,territory' });
-
-    // 4. Assegna obiettivi segreti a ogni fazione (3 casuali ciascuna)
-    const FACTION_TO_OBJ_MAP: Record<string, ObjFazione> = {
-      'Iran':      'Iran',
-      'Coalizione':'Coalizione Occidentale',
-      'Russia':    'Russia',
-      'Cina':      'Cina',
-      'Europa':    'Unione Europea',
-    };
-    for (const faction of factions) {
-      try {
-        const objFaz: ObjFazione = FACTION_TO_OBJ_MAP[faction] ?? (faction as ObjFazione);
-        const localObs = assignObjectives(objFaz, 3);
-        if (localObs.length > 0) {
-          // DELETE prima di INSERT: rimuove righe orfane di partite precedenti
-          // con lo stesso game_id+faction che causano il 409 conflict
-          await supabase.from('game_objectives')
-            .delete()
-            .eq('game_id', game.id)
-            .eq('faction', faction as string);
-          const { error: objErr } = await supabase.from('game_objectives').upsert(
-            localObs.map(o => ({
-              game_id:    game.id,
-              faction:    faction as string,
-              obj_id:     o.obj_id,
-              completato: false,
-              punteggio:  0,
-            })),
-            { onConflict: 'game_id,faction,obj_id', ignoreDuplicates: true }
-          );
-          if (objErr) {
-            console.warn(`[startGame] game_objectives insert warn (${faction}):`, objErr.message);
-          }
-        }
-      } catch (e) {
-        console.warn(`[startGame] obiettivi ${faction} fallback locale:`, e);
-      }
-    }
-
-    // 5. Ricarica tutto (stato + mazzo + territori appena creati)
-    await get().loadGame(game.id);
-
-    // 5. Se il primo turno è di un bot, eseguilo
-    const state = get().gameState;
-    const firstPlayer = players.find(p => p.faction === state?.active_faction);
-    if (firstPlayer?.is_bot) {
-      setTimeout(() => get().runBotTurn(), 1500);
-    }
-    } catch (err: unknown) {
-      console.error('[startGame] errore:', err instanceof Error ? err.message : err);
+      await initializeTabletop(game.id, profile.id);
+      await get().loadGame(game.id);
+    } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Errore avvio partita' });
-    } finally {
-      set({ loading: false });
-    }
+    } finally { set({ loading: false }); }
   },
 
   // -----------------------------------------------
@@ -880,6 +786,8 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   // -----------------------------------------------
   runBotTurn: async () => {
+    // The tabletop edition has its own reducer and revision-safe BOT driver.
+    if (readTabletop(get().gameState)) return;
     const { game, gameState, players, isBotThinking } = get();
     if (!game || !gameState || game.status !== 'active') return;
     if (isBotThinking) return; // guard: evita doppia esecuzione concorrente
