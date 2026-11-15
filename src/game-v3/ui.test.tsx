@@ -5,7 +5,9 @@ import { createHash } from 'node:crypto';
 import { renderToStaticMarkup } from 'react-dom/server';
 import TabletopGamePage from './TabletopGamePage';
 import { uiFixture } from './test-ui-store';
-import { createGame } from './engine';
+import { createGame, reduce } from './engine';
+import { TabletopBoard } from './Boards';
+import { TERRITORY_LAYOUT, territorySlot } from './board-layout';
 import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, TERRITORIES, UNITS } from './catalog';
 import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL } from './art';
 
@@ -20,6 +22,45 @@ test('new game renders all sixteen selectable territories and every printed slot
   for (const t of TERRITORIES) assert.ok(html.includes(`${t.name}, riquadro 1`), t.id);
   assert.equal((html.match(/riquadro \d+: libero/g) ?? []).length, TERRITORIES.reduce((n, t) => n + t.capacity, 0));
   assert.ok(html.includes('Round 1/6')); assert.ok(html.includes(BOARD_ART));
+});
+test('each territory has individually anchored square slots within the original map', () => {
+  assert.deepEqual(Object.keys(TERRITORY_LAYOUT).sort(), TERRITORIES.map(t=>t.id).sort());
+  for (const t of TERRITORIES) {
+    const slots=Array.from({length:t.capacity},(_,i)=>territorySlot(t.id,i));
+    for(const [i,pos] of slots.entries()) {
+      assert.ok(pos.x>20&&pos.x<82&&pos.y>20&&pos.y<78,`${t.id} slot ${i+1}`);
+      if(i) assert.ok(pos.x>slots[i-1].x+1.5,`${t.id}: non-overlapping slots`);
+    }
+  }
+  assert.deepEqual(territorySlot('iran',0),{x:67.4,y:31.09});
+  assert.deepEqual(territorySlot('siria',0),{x:38.02,y:32.81});
+});
+test('all five factions render inside map slots, including a mixed territory and rotated units', () => {
+  const units=FACTIONS.map((f,i)=>({
+    id:`map-${i}`,faction:f,type:UNITS.find(u=>u.faction===f)!.id,territory:'iran',deployedAt:i===0?1:2,
+  }));
+  const html=renderToStaticMarkup(<TabletopBoard globals={uiFixture.state.globals} round={2} elapsed={2}
+    units={units} pv={{Iran:0,Coalizione:0,Russia:0,Cina:0,Europa:0}} selected="iran" onSelect={()=>{}}/>);
+  assert.equal((html.match(/data-unit-id=/g)??[]).length,5);
+  for (const [i,u] of units.entries()) {
+    assert.ok(html.includes(`data-territory="iran" data-slot="${i+1}" data-unit-id="${u.id}" data-faction="${u.faction}"`));
+    assert.ok(html.includes(unitFrontArt(u.type)));
+  }
+  assert.ok(html.includes('data-rotated="true"'));
+  assert.ok(html.includes('rotate(90deg)'));
+  assert.ok(html.includes('Zoom della mappa'));
+  assert.ok(html.includes('5/6 riquadri occupati'));
+});
+test('a successful deploy command puts the same saved unit on its exact map territory', () => {
+  const s=uiFixture.state;
+  s.phase='ops'; s.ops={actor:'Iran',remaining:20,card:s.players.Iran.hand[0],pressured:[]};
+  uiFixture.state=reduce(s,'Iran',{type:'deploy',unitId:'IR-U01',territoryId:'iraq'});
+  const unit=uiFixture.state.units[0];
+  assert.equal(unit.territory,'iraq');
+  const html=render();
+  assert.ok(html.includes(`data-territory="iraq" data-slot="1" data-unit-id="${unit.id}" data-faction="Iran"`));
+  assert.ok(!html.includes(`data-territory="iran" data-slot="1" data-unit-id="${unit.id}"`));
+  assert.ok(html.includes('left:52.97%;top:34.61%'));
 });
 test('only the current player hand/objectives are rendered, spectators have neither', () => {
   const state = uiFixture.state;

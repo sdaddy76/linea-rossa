@@ -41,11 +41,10 @@
 .guide-section-label{font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#839aae;margin:0 0 10px}
 .guide-section-label>span:first-child{display:flex;align-items:center;gap:7px;color:#c2d3e2}
 .guide-board{background:#101b28;border:1px solid #253447;border-radius:13px;padding:12px}
-.guide-board>div>div:first-child{border-radius:7px}
-.guide-board .min-w-\[780px\]{min-width:650px}
-.guide-board>div>p{font-size:10px;margin-bottom:5px}
-.guide-board>div>div:last-child{gap:4px}
-.guide-board>div>div:last-child button{font-size:9px;padding:4px 6px;border-radius:5px;min-height:29px}
+.guide-board [aria-label="Tabellone scorrevole"]{border-radius:7px}
+.guide-board [aria-label="Mappa delle unità schierate"]>p{font-size:10px;margin-bottom:5px}
+.guide-board [data-board-territories]{gap:4px}
+.guide-board [data-board-territories] button{font-size:9px;padding:4px 6px;border-radius:5px;min-height:29px}
 .guide-iraq{border:1px solid #28384b;border-radius:10px;display:flex;align-items:center;gap:18px;background:#111d2b;margin-top:12px;padding:13px 15px;min-height:124px}
 .guide-iraq>div:first-child{flex:0 0 155px}
 .guide-iraq .guide-eyebrow{font-size:8px;letter-spacing:1.5px;margin:0}

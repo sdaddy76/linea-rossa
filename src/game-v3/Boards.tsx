@@ -2,15 +2,10 @@ import {useEffect, useState, type ReactNode} from 'react';
 import {TERRITORIES, UNITS} from './catalog';
 import {FACTIONS, TRACKS, type Faction, type GlobalTrack, type Track} from './catalog-types';
 import {unitFrontArt} from './art';
+import {territorySlot} from './board-layout';
 
 export const COLORS: Record<Faction,string> = {Iran:'#4ade80',Coalizione:'#60a5fa',Russia:'#f87171',Cina:'#fbbf24',Europa:'#c4b5fd'};
 export const SHORT: Record<Faction,string> = {Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'};
-const SPOTS: Record<string,[number,number]> = {
-  turchia:[29.7,23],siria:[41.1,32.9],libano:[30.9,35.7],israele:[32,44.7],
-  giordania:[40,42.9],egitto:[25.4,55.5],iraq:[54.7,34.5],iran:[71.3,31.2],
-  kuwait:[62,45.4],bahrein:[64.8,53.3],qatar:[71,58.5],emirati:[68.4,66.4],
-  oman:[79.4,70.5],'arabia-saudita':[48.3,55.1],hormuz:[76.6,53.4],yemen:[62.2,75.4],
-};
 export interface BoardUnit {id:string;faction:Faction;type:string;territory:string;deployedAt:number}
 function Point({x,y,label,color,children}: {x:number;y:number;label:string;color:string;children:ReactNode}) {
   return <span title={label} aria-label={label} style={{left:`${x}%`,top:`${y}%`,background:color,transition:'left var(--guide-duration, 400ms) ease, top var(--guide-duration, 400ms) ease'}}
@@ -28,9 +23,19 @@ export function TabletopBoard({globals,round,elapsed,units,pv,selected,onSelect}
   globals:Record<GlobalTrack,number>;round:number;elapsed:number;units:BoardUnit[];
   pv:Record<Faction,number>;selected:string;onSelect:(id:string)=>void;
 }) {
-  return <div>
-    <div className="overflow-x-auto rounded-xl border border-slate-700">
-      <div className="relative min-w-[780px]">
+  const [zoom,setZoom]=useState(100);
+  const territory=TERRITORIES.find(t=>t.id===selected);
+  return <section aria-label="Mappa delle unità schierate" className="min-w-0 space-y-3">
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div><h2 className="font-bold text-lg">Plancia generale · unità sui territori</h2>
+        <p className="text-sm text-slate-300" aria-live="polite">{territory?.name} · {units.filter(u=>u.territory===selected).length}/{territory?.capacity} riquadri occupati</p></div>
+      <div role="group" aria-label="Zoom della mappa" className="flex gap-2">
+        {[100,150,200].map(value=><button key={value} type="button" aria-pressed={zoom===value} onClick={()=>setZoom(value)}
+          className={`rounded-lg border px-3 py-2 text-sm focus-visible:outline-white ${zoom===value?'border-emerald-400 bg-emerald-950':'border-slate-600 bg-slate-900'}`}>{value}%</button>)}
+      </div>
+    </div>
+    <div className="overflow-x-auto rounded-xl border border-slate-700" tabIndex={0} role="region" aria-label="Tabellone scorrevole">
+      <div data-board-map style={{width:`${zoom}%`,minWidth:`${1040*zoom/100}px`}} className="relative">
         <img data-image-slot="tabletop.board" src="/assets/tabletop-v3/board.jpg" alt="Tabellone ufficiale: territori, allineamenti, PV e tracciati globali" className="w-full h-auto"/>
         <Point x={8.2} y={74.8-(globals.Nucleare-1)*3.58} label={`Nucleare ${globals.Nucleare}`} color="#facc15">{globals.Nucleare}</Point>
         <Point x={85.8} y={51.6-(globals.Sanzioni-1)*3.01} label={`Sanzioni ${globals.Sanzioni}`} color="#fb923c">{globals.Sanzioni}</Point>
@@ -38,23 +43,32 @@ export function TabletopBoard({globals,round,elapsed,units,pv,selected,onSelect}
         <Point x={18.9+(globals.Opinione+10)*3.54} y={89.9} label={`Opinione ${globals.Opinione}`} color="#f9a8d4">{globals.Opinione}</Point>
         <Point x={46.7+(round-1)*1.94} y={82.4} label={`Round ${round}, ${elapsed} round effettivi`} color="#fef08a">R</Point>
         {FACTIONS.map((f,i)=>{const [x,y]=scorePoint(pv[f]);return <Point key={f} x={x+(i-2)*0.25} y={y+(i-2)*0.55} label={`${f}: ${pv[f]} PV`} color={COLORS[f]}>{SHORT[f]}</Point>;})}
-        {TERRITORIES.map(t=>{
-          const pos=SPOTS[t.id];if(!pos)return null;
+        {TERRITORIES.flatMap(t=>{
           const local=units.filter(u=>u.territory===t.id);
-          return <div key={t.id} style={{left:`${pos[0]}%`,top:`${pos[1]}%`,width:`${t.capacity*1.62}%`}} className="absolute -translate-x-1/2 -translate-y-1/2 flex gap-px">
-            {Array.from({length:t.capacity},(_,i)=>{const u=local[i];return <button key={i} onClick={()=>onSelect(t.id)} aria-label={`${t.name}, riquadro ${i+1}: ${u?`${u.faction}, ${UNITS.find(d=>d.id===u.type)?.name??u.type}`:'libero'}`}
-              title={`${t.name}${u?` · ${u.faction} · ${u.deployedAt<elapsed?'ruotata, rientra a fine round':'nuova'}`:''}`}
-              className={`aspect-square flex-1 rounded-sm border focus-visible:outline-white ${selected===t.id?'ring-1 ring-yellow-300':'border-transparent'}`}
-              style={{background:u?COLORS[u.faction]:'transparent',transform:u&&u.deployedAt<elapsed?'rotate(90deg)':'none',color:'#020617'}}>
-              {u&&<img src={unitFrontArt(u.type)} alt={`${u.faction}: ${UNITS.find(d=>d.id===u.type)?.name??u.type}`} className="block w-full h-full object-contain" />}
-            </button>;})}
-          </div>;
+          return Array.from({length:t.capacity},(_,i)=>{
+            const u=local[i], pos=territorySlot(t.id,i);
+            const name=u?(UNITS.find(d=>d.id===u.type)?.name??u.type):'';
+            const rotated=!!u&&u.deployedAt<elapsed;
+            return <button key={`${t.id}-${i}`} type="button" onClick={()=>onSelect(t.id)}
+              data-territory={t.id} data-slot={i+1} data-unit-id={u?.id} data-faction={u?.faction} data-rotated={u?rotated:undefined}
+              aria-pressed={selected===t.id}
+              aria-label={`${t.name}, riquadro ${i+1}: ${u?`${u.faction}, ${name}${rotated?', ruotata':''}`:'libero'}`}
+              title={`${t.name} · ${u?`${u.faction} · ${name} · ${rotated?'ruotata, rientra a fine round':'nuova'}`:'riquadro libero: seleziona questo territorio'}`}
+              className={`absolute min-w-0 p-0 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${selected===t.id?'ring-2 ring-yellow-300':'hover:ring-2 hover:ring-white'}`}
+              style={{left:`${pos.x}%`,top:`${pos.y}%`,width:'1.5%',height:'2.25%',background:u?COLORS[u.faction]:'transparent',borderColor:u?COLORS[u.faction]:'transparent'}}>
+              {u&&<><img src={unitFrontArt(u.type)} alt={`${u.faction}: ${name}`} draggable={false}
+                className="block w-full h-full object-contain" style={{transform:rotated?'rotate(90deg)':'none'}}/>
+                <span aria-hidden="true" className="absolute -bottom-1 -right-1 rounded-sm px-0.5 leading-tight font-black text-slate-950"
+                  style={{background:COLORS[u.faction],fontSize:'clamp(6px, 0.6vw, 10px)'}}>{SHORT[u.faction]}</span></>}
+            </button>;
+          });
         })}
       </div>
     </div>
-    <p className="my-2 text-xs text-slate-400">Scorri orizzontalmente su schermi piccoli. Seleziona un riquadro o un territorio qui sotto. Le unità ruotate rientrano a fine round.</p>
-    <div className="flex flex-wrap gap-2">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs rounded-lg border px-3 py-2 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length}/{t.capacity}</button>)}</div>
-  </div>;
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Colori delle fazioni">{FACTIONS.map(f=><span key={f} style={{color:COLORS[f]}}>{SHORT[f]} · {f} · {units.filter(u=>u.faction===f).length} unità</span>)}</div>
+    <p className="my-2 text-xs text-slate-400">Ogni pedina occupa un riquadro del proprio territorio. Seleziona il territorio sulla mappa e usa Schiera nelle Operazioni. Ingrandisci e scorri per leggere le unità. Le unità ruotate rientrano a fine round.</p>
+    <div data-board-territories className="flex flex-wrap gap-2">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs rounded-lg border px-3 py-2 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length}/{t.capacity}</button>)}</div>
+  </section>;
 }
 export function FactionBoard({faction,tracks,pv}: {faction:Faction;tracks:Record<Track,number>;pv:number}) {
   return <div className="overflow-x-auto rounded-xl border border-slate-700">

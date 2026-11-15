@@ -145,10 +145,10 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
             {s.result!.reason === 'points' && <p className="text-xs mt-2 text-slate-300">Round/dividendi: {s.players[f].points - unitPoints - objectivePoints - maximums}<br />Unità: {unitPoints} · Obiettivi: {objectivePoints} · Tracciati 10: {maximums}</p>}</div>;
         })}</div>
       </Panel>}
-      <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-5">
-        <div className="space-y-5">
-          <TabletopBoard globals={s.globals} round={s.round} elapsed={s.actualRound}
+      <TabletopBoard globals={s.globals} round={s.round} elapsed={s.actualRound}
             units={s.units.map(u => ({ ...u, deployedAt: u.placedRound }))} pv={points} selected={selected} onSelect={setSelected} />
+      <div className="grid xl:grid-cols-[minmax(0,1fr)_340px] gap-5">
+        <div className="space-y-5 min-w-0">
           <Panel title={`${territory.name} · ${localUnits.length}/${territory.capacity} riquadri`}>
             <p className="text-xs text-slate-400">Allineamento e valore finale: {FACTIONS.map(f => `${f} ${['amico', 'neutrale', 'nemico'][territory.alignment[f]]} (${1 + territory.alignment[f]} PF)`).join(' · ')}</p>
             {!localUnits.length && <p className="text-slate-400 text-sm">Nessuna unità schierata.</p>}

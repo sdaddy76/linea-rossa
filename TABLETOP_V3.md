@@ -68,6 +68,11 @@ backup delle partite.
   plance PDF non sono più proposte nella galleria.
 - Le partite attive legacy conservano il vecchio motore. Solo i nuovi avvii
   usano l'edizione v3. Nessuna conversione distruttiva di partite esistenti.
+- La plancia generale è a tutta larghezza: ogni unità schierata occupa il suo
+  singolo riquadro stampato sul territorio, con fronte originale, colore e sigla
+  di fazione. Lo zoom 100/150/200% mantiene le pedine ancorate alla mappa.
+  Selezionare un riquadro cambia il territorio delle Operazioni; non sposta unità
+  già schierate e non aggira costi, capacità o regole di rientro.
 
 ## Chiarimento Scudo/Missili incorporato nella fonte
 
@@ -122,9 +127,9 @@ python3 scripts/import-tabletop-catalog.test.py
 npm run build
 ```
 
-Il runner focalizzato verifica 37 scenari di motore, sei di persistenza, sei
+Il runner focalizzato verifica 37 scenari di motore, sei di persistenza, nove
 di interfaccia/asset, dodici di logica tutorial e due di UI tutorial.
-L'importer ha nove test dedicati. Totale: 72 test focalizzati.
+L'importer ha nove test dedicati. Totale: 75 test focalizzati.
 La build Vite passa. Restano avvisi di bundle grande/import misti e numerosi
 errori TypeScript preesistenti nel motore legacy: non è stata dichiarata una
 compilazione TypeScript globale pulita.
