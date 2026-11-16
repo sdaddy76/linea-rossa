@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Focused catalog tests; no app build, network or dependencies required."""
 import copy
+import hashlib
 import importlib.util
 import json
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+UPLOADS = ROOT.parent / "uploaded_files"
+LATEST_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (8)-c6048b2b6af028df.pdf"
+PREVIOUS_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (6)-bd3fbb532c3385aa.pdf"
+LATEST_SHA256 = "868714201acdf7444787da5082fe15fe4347c6aa901e24c950e0cdf0c580fad1"
 spec = importlib.util.spec_from_file_location("catalog_import", Path(__file__).with_name("import-tabletop-catalog.py"))
 importer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(importer)
@@ -44,7 +49,40 @@ class CatalogTest(unittest.TestCase):
         self.assertIn("+0", units["CO-U06"]["effect"])
         self.assertEqual(units["RU-U02"]["name"], "Difesa aerea S-400")
         self.assertEqual(self.data["provenance"]["rulebookSha256"],
-                         "5c20f82d2616d1562b2b00b733fa57020fd27122cf93aad6b84dfc826e35ec4d")
+                         LATEST_SHA256)
+
+    def test_latest_source_hash_page_map_and_complete_roundtrip(self):
+        self.assertEqual(hashlib.sha256(LATEST_PDF.read_bytes()).hexdigest(), LATEST_SHA256)
+        self.assertEqual(self.data["provenance"]["rulebook"], LATEST_PDF.name)
+        self.assertEqual(self.data["provenance"]["rulebookPageCount"], 47)
+        self.assertEqual(self.data["provenance"]["pages"], {
+            "factionCards": "26–37", "bots": "38–42", "events": "43–44",
+            "objectives": "45–47", "correlations": "9–10", "units": "17–18", "initialTracks": "5",
+        })
+        self.assertEqual(importer.build_catalog(LATEST_PDF), self.data)
+
+    def test_latest_appendices_units_and_correlations_match_previous_source(self):
+        previous = importer.build_catalog(PREVIOUS_PDF)
+        for key in self.data:
+            if key != "provenance":
+                with self.subTest(section=key):
+                    self.assertEqual(self.data[key], previous[key])
+
+    def test_bot_influence_territories_remain_source_gap_not_guessed(self):
+        self.assertTrue(any("Influence territories for all 120 BOT cards are absent" in gap
+                            for gap in self.data["provenance"]["gaps"]))
+        for bot in self.data["bots"]:
+            self.assertEqual(set(bot), {"id", "name", "faction", "track", "condition", "priority1", "priority2"})
+
+    def test_wrapped_unit_names_and_effects_do_not_include_prose_before_table(self):
+        units = {u["id"]: u for u in self.data["units"]}
+        self.assertEqual(units["IR-U01"]["name"], "Forze convenzionali")
+        self.assertEqual(units["IR-U05"]["name"], "Flotta veloce del Golfo")
+        self.assertEqual(units["CO-U04"]["name"], "Carrier Strike Group")
+        self.assertEqual(units["RU-U04"]["name"], "Flotta nel Mediterraneo")
+        self.assertEqual(units["EU-U02"]["name"], "Missione navale UE")
+        self.assertEqual(units["IR-U04"]["effect"],
+                         "Solo attacco; max 2 per territorio. Valgono +0 se nel territorio c'è uno Scudo Missilistico.")
 
     def test_source_verbatim_first_card_and_wrapped_cells(self):
         cards = {c["id"]: c for c in self.data["factionCards"]}

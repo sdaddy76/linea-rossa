@@ -20,6 +20,16 @@ test('start persists a complete game before activating it, with four official BO
   const activate = database.calls.findIndex(c => c.table === 'games' && c.operation === 'update');
   assert.ok(activate > stateWrite);
   assert.equal(database.game.status, 'active');
+  assert.equal(saved.state.rulesRevision, '2026-11-16');
+  assert.equal(database.game.game_length, 'media');
+  assert.equal(database.game.track_limit, 60);
+});
+test('host-selected tabletop duration persists the matching turn marker threshold', async () => {
+  await initializeTabletop('game', 'host', 'breve');
+  assert.equal(readTabletop(database.state)!.state.mode, 'breve');
+  assert.equal(database.game.max_turns, 30);
+  assert.equal(database.game.game_length, 'breve');
+  assert.equal(database.game.track_limit, 30);
 });
 test('a persistence failure is surfaced and never marks the game active', async () => {
   database.failState = true;

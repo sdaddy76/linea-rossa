@@ -1,11 +1,10 @@
 import { FACTIONS, TRACKS, type Faction, type Objective } from './catalog-types';
 import { OBJECTIVES, UNITS, TERRITORIES } from './catalog';
-import type { EngineState } from './engine';
+import { territoryController, usesOfficialRules, type EngineState } from './engine';
 
 const clean = (s: string) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 export function controlsTerritory(state: EngineState, faction: Faction, territory: string): boolean {
-  const counts = FACTIONS.map(f => state.units.filter(u => u.faction === f && u.territory === territory).length);
-  return counts[FACTIONS.indexOf(faction)] > 0 && counts.every((n, i) => i === FACTIONS.indexOf(faction) || n < counts[FACTIONS.indexOf(faction)]);
+  return territoryController(state, territory) === faction;
 }
 /** Evaluates the 75 printed objectives by faction and printed number, not fragile prose parsing. */
 export function objectiveComplete(state: EngineState, objective: Objective | string): boolean {
@@ -13,8 +12,9 @@ export function objectiveComplete(state: EngineState, objective: Objective | str
   if (!o) return false;
   const f = o.faction, t = state.players[f].tracks, g = state.globals;
   const units = state.units.filter(u => u.faction === f);
+  const pieces = usesOfficialRules(state) ? [...units, ...(state.influence ?? []).filter(i => i.faction === f)] : units;
   const named = (name: string) => units.filter(u => clean(UNITS.find(d => d.id === u.type)?.name ?? '') === clean(name));
-  const at = (name: string) => units.filter(u => clean(TERRITORIES.find(d => d.id === u.territory)?.name ?? u.territory).includes(clean(name)));
+  const at = (name: string) => pieces.filter(u => clean(TERRITORIES.find(d => d.id === u.territory)?.name ?? u.territory).includes(clean(name)));
   const presence = (names: string[]) => names.filter(n => at(n).length > 0).length;
   const distinct = (name: string) => new Set(named(name).map(u => u.territory)).size;
   const control = (names: string[]) => names.filter(n => {
@@ -29,7 +29,7 @@ export function objectiveComplete(state: EngineState, objective: Objective | str
       presence(['Iraq', 'Yemen', 'Bahrein', 'Kuwait', 'Emirati']) >= 3,
       control(['Libano', 'Siria', 'Iraq', 'Yemen']) >= 3,
       track('Coalizione', 'Consenso') <= 3,
-      named('Flotta veloce del Golfo').some(u => at('Hormuz').includes(u)),
+      named('Flotta veloce del Golfo').some(u => at('Hormuz').some(p => p.id === u.id)),
       c <= 3 && n >= 8, t.Consenso >= 7, named('Missili balistici').length >= 2,
       presence(['Iran', 'Iraq', 'Siria']) === 3, distinct('Proxy regionali') >= 3,
       distinct('IRGC Cyber Unit') >= 2, t.Militare >= 8 && at('Hormuz').length > 0,
@@ -41,7 +41,7 @@ export function objectiveComplete(state: EngineState, objective: Objective | str
       named('Scudo Missilistico').length >= 2,
       presence(['Kuwait', 'Bahrein', 'Qatar', 'Emirati', 'Oman', 'Arabia Saudita']) >= 3,
       n <= 4 && at('Iran').length > 0, t.Militare >= 8,
-      named('Carrier Strike Group').some(u => at('Hormuz').includes(u)),
+      named('Carrier Strike Group').some(u => at('Hormuz').some(p => p.id === u.id)),
     ],
     Russia: [
       t.Militare >= 8, t.Diplomazia >= 7 && s <= 5, t.Economia >= 8 && track('Europa', 'Economia') <= 4,

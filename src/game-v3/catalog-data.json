@@ -1,12 +1,13 @@
 {
   "provenance": {
-    "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (6)-bd3fbb532c3385aa.pdf",
-    "rulebookSha256": "5c20f82d2616d1562b2b00b733fa57020fd27122cf93aad6b84dfc826e35ec4d",
+    "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (8)-c6048b2b6af028df.pdf",
+    "rulebookSha256": "868714201acdf7444787da5082fe15fe4347c6aa901e24c950e0cdf0c580fad1",
+    "rulebookPageCount": 47,
     "pages": {
-      "factionCards": "25–36",
-      "bots": "37–41",
-      "events": "42–43",
-      "objectives": "44–46",
+      "factionCards": "26–37",
+      "bots": "38–42",
+      "events": "43–44",
+      "objectives": "45–47",
       "correlations": "9–10",
       "units": "17–18",
       "initialTracks": "5"
@@ -111,7 +112,8 @@
       "Corrected rulebook p17/p19: one defending Scudo Missilistico cancels all attacking Missili balistici bonuses. No override of the latest PDF is required."
     ],
     "gaps": [
-      "Unlock flags C032/C045/NI34 are inherited by exact ID, not independently graphic-verified: corresponding original fronts are absent from the supplied faction ZIPs. Appendix A does not list unlock flags. No additional flags are invented."
+      "Unlock flags C032/C045/NI34 are inherited by exact ID, not independently graphic-verified: corresponding original fronts are absent from the supplied faction ZIPs. Appendix A does not list unlock flags. No additional flags are invented.",
+      "Rulebook p22 specifies an Influence-at-end-of-round State printed in each BOT card header, but Appendix B p38–42 supplies only ID, title, condition P1, priority 1 and priority 2. Influence territories for all 120 BOT cards are absent from this source and are not inferred from deployment priorities."
     ]
   },
   "factionCards": [

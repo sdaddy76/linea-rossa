@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { FACTIONS, TRACKS } from '../catalog';
-import { applyChoice, back, choose, choicesFor, currentLesson, deploymentPreview, freshSession, initialTutorial, parseSession, recommendedChoice, replaySession, type Session } from './model';
+import { applyChoice, back, choose, choicesFor, currentLesson, deploymentPreview, freshSession, initialTutorial, parseSession, recommendedChoice, replaySession, STORAGE_KEY, type Session } from './model';
 
 function play(overrides: Record<string, string> = {}) {
   let t = initialTutorial(), turns = 0;
@@ -31,6 +31,17 @@ test('all recommended choices match authoritative final fixture, computed by rea
   for (const f of FACTIONS) assert.deepEqual([...TRACKS.map(track => t.game.players[f].tracks[track]), t.game.players[f].points], expected[f], f);
   assert.deepEqual(t.game.globals, { Nucleare: 5, Sanzioni: 6, 'Crisi Bellica': 7, Opinione: 2 });
   assert.equal(t.game.units.length, 0);
+});
+test('tutorial uses revised rules, exposes a 60-space marker and documents the two end-round gaps', () => {
+  let t = initialTutorial();
+  assert.equal(t.game.rulesRevision, '2026-11-16');
+  assert.equal(t.game.mode, 'media');
+  assert.equal(t.game.turnMarker, 0);
+  assert.match(currentLesson(t).why, /segna-turni/i);
+  while (currentLesson(t).id !== 'bot1') t = applyChoice(t, recommendedChoice(t)!.id);
+  t = applyChoice(t, recommendedChoice(t)!.id);
+  assert.ok(currentLesson(t).id === 'control1' || currentLesson(t).id === 'event2');
+  assert.equal(STORAGE_KEY, 'linea-rossa.guided-game.v2');
 });
 test('alternative event propagates boosts, correlation, dividend and later zones', () => {
   const standard = play(), alternative = play({ china: 'event:2' });

@@ -47,6 +47,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
   // ── Stato form crea ──────────────────────────────────────────────────────
   const [isPublic, setIsPublic]     = useState(true);   // aperta vs riservata
   const [customCode, setCustomCode] = useState('');      // codice scelto dall'host (riservata)
+  const [tabletopMode, setTabletopMode] = useState<'breve' | 'media' | 'lunga'>('media');
   const [showMaterials, setShowMaterials] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
@@ -62,7 +63,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
   // ── Sala d'attesa ────────────────────────────────────────────────────────
   const [waitingGame, setWaitingGame] = useState<{
     id: string; code: string; name?: string; isHost: boolean; isPublic: boolean;
-    autoStart?: boolean; hostFaction?: string; hostBots?: Set<string>;
+    autoStart?: boolean; hostFaction?: string; hostBots?: Set<string>; tabletopMode?: 'breve' | 'media' | 'lunga';
   } | null>(null);
 
   // ── Lista tavoli ─────────────────────────────────────────────────────────
@@ -271,7 +272,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       const buildPayload = (withIsPublic: boolean) => ({
         code,
         name: code,
-        max_turns: 6,
+        max_turns: tabletopMode === 'breve' ? 30 : tabletopMode === 'media' ? 60 : 80,
         // game_length e track_limit salvati separatamente dopo l'insert
         // (colonne opzionali non ancora in tutte le installazioni DB)
         created_by: profile.id,
@@ -303,6 +304,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       clearTimeout(safetyTimer);
       setWaitingGame({
         id: game.id, code: game.code, isHost: true, isPublic: game.is_public ?? isPublic,
+        tabletopMode,
         autoStart: mode === 'solo',
         hostFaction: setupFaction ?? undefined,
         hostBots: mode === 'solo'
@@ -391,6 +393,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
         initialFaction={waitingGame.hostFaction}
         initialBots={waitingGame.hostBots}
         autoStart={waitingGame.autoStart}
+        tabletopMode={waitingGame.tabletopMode}
       />
     );
   }
@@ -470,7 +473,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
           {/* Turno (partite attive/chiuse) */}
           {(isActive || isFinished) && (
             <span className="text-[#556677] text-xs font-mono whitespace-nowrap">
-              {game.max_turns === 6 ? 'Edizione da tavolo · 6 round' : `Legacy · turno ${game.current_turn}/${game.max_turns}`}
+              {game.game_length && game.game_length !== 'legacy'
+                ? `Edizione da tavolo · ${game.game_length} · segna-turni ${game.current_turn}/${game.track_limit ?? game.max_turns}`
+                : `Legacy · turno ${game.current_turn}/${game.max_turns}`}
               {game.winner_faction && (
                 <span className="ml-1.5 text-[#00ff88]">
                   · 🏆 {game.winner_faction}
@@ -735,7 +740,14 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
               )}
 
               <div className="rounded-lg border border-[#1e3a5f] p-4 text-sm text-slate-300">
-                Regolamento da tavolo v3 · 6 round, due attivazioni per fazione. Gli eventi di blocco possono estendere la partita fino a 8 round effettivi.
+                <label className="block text-xs uppercase tracking-widest text-slate-400 mb-2" htmlFor="tabletop-mode">Durata della partita</label>
+                <select id="tabletop-mode" className="w-full rounded-lg bg-[#060d18] border border-[#1e3a5f] p-2 text-slate-100"
+                  value={tabletopMode} onChange={event => setTabletopMode(event.target.value as 'breve' | 'media' | 'lunga')}>
+                  <option value="breve">Breve · 30 caselle</option>
+                  <option value="media">Media · 60 caselle</option>
+                  <option value="lunga">Lunga · 80 caselle</option>
+                </select>
+                <p className="mt-2">Regolamento illustrato v3 aggiornato · due attivazioni per fazione; si completa il round in cui il segnalino raggiunge la soglia.</p>
               </div>
 
               {error && (

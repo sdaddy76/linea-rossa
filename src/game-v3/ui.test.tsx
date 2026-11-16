@@ -21,7 +21,7 @@ test('new game renders all sixteen selectable territories and every printed slot
   const html = render();
   for (const t of TERRITORIES) assert.ok(html.includes(`${t.name}, riquadro 1`), t.id);
   assert.equal((html.match(/riquadro \d+: libero/g) ?? []).length, TERRITORIES.reduce((n, t) => n + t.capacity, 0));
-  assert.ok(html.includes('Round 1/6')); assert.ok(html.includes(BOARD_ART));
+  assert.ok(html.includes('media')); assert.ok(html.includes('segna-turni 0/60')); assert.ok(html.includes(BOARD_ART));
 });
 test('each territory has individually anchored square slots within the original map', () => {
   assert.deepEqual(Object.keys(TERRITORY_LAYOUT).sort(), TERRITORIES.map(t=>t.id).sort());
@@ -95,16 +95,16 @@ test('pending veto, casualty, support and discard decisions have an owning UI', 
   assert.ok(!render().includes('Conferma scarto'));
 });
 test('all official gameplay fronts/backs and PDFs resolve to real local deploy assets', () => {
-  const paths = [BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL,
-    ...FACTIONS.flatMap(f => [factionBoardArt(f), unitBackArt(f)]),
+  const paths = [BOARD_ART.split('?')[0], EVENT_BACK, RULEBOOK_URL.split('?')[0], UNIT_REFERENCE_URL, PLAYER_BOARDS_URL,
+    ...FACTIONS.flatMap(f => [factionBoardArt(f).split('?')[0], unitBackArt(f)]),
     ...UNITS.map(u => unitFrontArt(u.id)), ...EVENTS.map(e => eventFrontArt(e.id)),
     ...BOT_CARDS.flatMap(c => [botFrontArt(c.id), botBackArt(c.faction, c.track)])];
   for (const path of new Set(paths)) assert.ok(existsSync(`public${path}`), path);
 });
-test('release binds the latest rulebook, unit reference and all five unchanged original JPEGs', () => {
+test('release binds the latest rulebook, unit reference, five faction boards and the main board', () => {
   const release = JSON.parse(readFileSync('public/assets/tabletop-v3/release.json', 'utf8'));
-  assert.equal(release.release, 'tabletop-2026-11-15-guidata');
-  assert.equal(Object.keys(release.assets).length, 7);
+  assert.equal(release.release, 'tabletop-2026-11-16-influenza');
+  assert.equal(Object.keys(release.assets).length, 8);
   for (const [url, expected] of Object.entries(release.assets)) {
     const actual = createHash('sha256').update(readFileSync(`public${url}`)).digest('hex');
     assert.equal(actual, expected, url);

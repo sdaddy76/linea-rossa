@@ -1,15 +1,16 @@
 {
-  "release": "tabletop-2026-11-15-guidata",
-  "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (6).pdf",
+  "release": "tabletop-2026-11-16-influenza",
+  "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (8).pdf",
   "unitReference": "Linea_Rossa_Scheda_Unita_A4 (1).pdf",
   "boardSource": "LineaRossa_Plance.zip",
   "assets": {
-    "/assets/tabletop-v3/regolamento.pdf": "5c20f82d2616d1562b2b00b733fa57020fd27122cf93aad6b84dfc826e35ec4d",
+    "/assets/tabletop-v3/regolamento.pdf": "868714201acdf7444787da5082fe15fe4347c6aa901e24c950e0cdf0c580fad1",
     "/assets/tabletop-v3/scheda-unita.pdf": "eea41298fc5ef108f002302b53428202a27262e3338e37aaf6b5f291d46e121e",
-    "/assets/tabletop-v3/boards/Iran.jpg": "cc856d1fe3df9d12c0aa6e1c9c341f62ae6d18b7b5aa67a9d7d4d57998dcbc2a",
-    "/assets/tabletop-v3/boards/Coalizione.jpg": "32c0ae15a534e079e06c48a05d1c7499e3a5aee52f7334499a28565c6456080c",
-    "/assets/tabletop-v3/boards/Russia.jpg": "f290a85096231da733248f703ba4ee22f510d53bc99797e964040277007d4b2d",
-    "/assets/tabletop-v3/boards/Cina.jpg": "ac226c0598904937cbd64d04f59a1fe26a07da42fb96c538ec3c5a35e894eda9",
-    "/assets/tabletop-v3/boards/Europa.jpg": "4604840ecf1b9805e0b1a9b53270abb2b9d654aba0e54f630fadcf871abbff83"
+    "/assets/tabletop-v3/boards/Iran.jpg": "d574fcc556bb6b32da391e9f88fce142721c28ff470515ba9d6dc0a070f3301d",
+    "/assets/tabletop-v3/boards/Coalizione.jpg": "027ab123fce78c646e869b6ef51307d5dddc2d5689ea1cee871ff62ac54483cb",
+    "/assets/tabletop-v3/boards/Russia.jpg": "ee1e24dd27868c24bf58f328ba588d6f105942ca0877da048c188fceb0497133",
+    "/assets/tabletop-v3/boards/Cina.jpg": "1ebda1a7595646c6770805db64c21ab53bfb49bb9814a1927899c73f7f22d0f3",
+    "/assets/tabletop-v3/boards/Europa.jpg": "1b812796caedfe6c5b128a9b8bc754ae8fff2eb31264c1bb943514d8e7fcf330",
+    "/assets/tabletop-v3/board.jpg": "71d4cb90f6b5c2d8f31c7cb2b51e333b265981f0b22c034e61a5965758a73cd8"
   }
 }

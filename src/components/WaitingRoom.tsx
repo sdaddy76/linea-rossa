@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Profile } from '@/types/game';
 import { FACTIONS, type Faction } from '@/game-v3/catalog-types';
+import type { GameMode } from '@/game-v3/engine';
 import { initializeTabletop, readTabletop } from '@/game-v3/online';
 import { Materials } from '@/game-v3/Materials';
 
@@ -10,12 +11,14 @@ interface Props {
   gameId: string; gameCode: string; gameName?: string; isPublic?: boolean; profile: Profile; isHost: boolean;
   onGameStart: (faction: string | null) => void; onLeave: () => void;
   initialFaction?: string; initialBots?: Set<string>; autoStart?: boolean;
+  tabletopMode?: GameMode;
 }
-export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, profile, isHost, onGameStart, onLeave, initialFaction, autoStart }: Props) {
+export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, profile, isHost, onGameStart, onLeave, initialFaction, autoStart, tabletopMode }: Props) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [materials, setMaterials] = useState(false);
+  const [gameMode, setGameMode] = useState<GameMode>(tabletopMode ?? 'media');
   const [copied, setCopied] = useState(false);
   const mounted = useRef(true);
   const launched = useRef(false);
@@ -70,13 +73,13 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
     if (!factionRef.current || launched.current) return;
     launched.current = true; setBusy(true); setError('');
     try {
-      await initializeTabletop(gameId, profile.id);
+      await initializeTabletop(gameId, profile.id, gameMode);
       startCallback.current(factionRef.current);
     } catch (err) {
       launched.current = false;
       if (mounted.current) setError(err instanceof Error ? err.message : 'Avvio non riuscito. Riprova.');
     } finally { if (mounted.current) setBusy(false); }
-  }, [gameId, profile.id]);
+  }, [gameId, profile.id, gameMode]);
   useEffect(() => {
     if (initialFaction && isHost && !initialChosen.current) {
       initialChosen.current = true;
@@ -117,10 +120,17 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
           </button>;
         })}</div>
       </section>
+      {isHost && <section className="p-5 rounded-xl bg-slate-900 border border-slate-700">
+        <label htmlFor="waiting-game-mode" className="block font-bold mb-2">Durata della partita</label>
+        <select id="waiting-game-mode" className="w-full rounded-lg bg-slate-800 border border-slate-600 p-3" disabled={busy}
+          value={gameMode} onChange={event => setGameMode(event.target.value as GameMode)}>
+          <option value="breve">Breve · 30 caselle</option><option value="media">Media · 60 caselle</option><option value="lunga">Lunga · 80 caselle</option>
+        </select>
+      </section>}
       <section className="text-sm text-slate-300 space-y-2 p-5 border border-slate-700 rounded-xl">
-        <p>Regolamento v3: mazzo fazione condiviso, speciali in riserva, tre obiettivi segreti per giocatore e due attivazioni per fazione in ogni round.</p>
-        <p>Durata: 6 round sul tracciato, massimo 8 effettivi con gli eventi di blocco. Nessuna unità iniziale gratuita.</p>
-        <p>Errata approvata: lo Scudo Missilistico annulla il bonus dei Missili balistici attaccanti.</p>
+        <p>Nuovo regolamento: due attivazioni per fazione, segnalini Influenza permanenti, controllo dato dalla presenza e bonus territoriali a fine round.</p>
+        <p>Durata: soglia segna-turni 30 / 60 / 80 secondo la modalità; gli eventi di blocco fermano l’avanzamento. Nessuna unità iniziale gratuita.</p>
+        <p>Il BOT si ferma quando manca la destinazione d’Influenza, che non è stampata nell’appendice B del materiale ricevuto.</p>
         <button className="underline text-red-300" onClick={() => setMaterials(true)}>Sfoglia carte, tabellone, plance e regolamento</button>
       </section>
       {error && <p role="alert" className="p-4 bg-red-950 text-red-200 border border-red-700 rounded-lg">{error}</p>}

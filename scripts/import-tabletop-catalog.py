@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded, fail-closed import from the supplied 46-page tabletop rulebook.
+"""Bounded, fail-closed import from the supplied 46/47-page tabletop rulebooks.
 
 Requires only Python's stdlib and Poppler pdftotext. No OCR or generated card
 formula is used: PDF word coordinates preserve each printed table cell.
@@ -154,9 +154,9 @@ def option(value):
             "globals": [global_change(p) for p in parts]}
 
 
-def faction_cards(pages, unlocks):
+def faction_cards(pages, unlocks, numbers):
     result = []
-    for number in range(25, 37):
+    for number in numbers:
         ws = words(pages[number - 1])
         ids = sorted([w for w in ws if w["x"] < 90 and CARD_ID.fullmatch(w["s"])], key=lambda w: w["y"])
         require(ids, f"No faction cards on page {number}")
@@ -183,15 +183,15 @@ def faction_cards(pages, unlocks):
     return result
 
 
-def bots(pages):
+def bots(pages, numbers):
     result = []
-    for number in range(37, 42):
+    for number in numbers:
         ws = words(pages[number - 1])
         ids = sorted([w for w in ws if w["x"] < 80 and w["s"].startswith("BOT-")], key=lambda w: w["y"])
         # Column starts are the first word in each first-row cell. They vary by page.
         # Repeated row starts identify name, condition and both priorities reliably.
         # Explicit source coordinates avoid matching words within wrapped prose.
-        starts = BOT_COLUMNS[number]
+        starts = BOT_COLUMNS
         for i, row in enumerate(ids):
             c = cells(ws, starts, row["y"], ids[i + 1]["y"] if i + 1 < len(ids) else 795)
             cid = c[0].replace(" ", "")
@@ -203,9 +203,9 @@ def bots(pages):
     return result
 
 
-def events(pages, turns):
+def events(pages, turns, numbers):
     result = []
-    for number in [42, 43]:
+    for number in numbers:
         ws = words(pages[number - 1])
         rows = sorted([w for w in ws if w["x"] < 70 and re.fullmatch(r"E\d{2}", w["s"])], key=lambda w: w["y"])
         first = rows[0]
@@ -228,12 +228,12 @@ def events(pages, turns):
     return result
 
 
-def objectives(pages):
+def objectives(pages, numbers):
     result = []
-    for number in [44, 45, 46]:
+    for number in numbers:
         ws = words(pages[number - 1])
         rows = sorted([w for w in ws if w["x"] < 80 and w["s"] in FACTIONS], key=lambda w: w["y"])
-        starts = OBJECTIVE_COLUMNS[number]
+        starts = OBJECTIVE_COLUMNS
         for i, row in enumerate(rows):
             c = cells(ws, starts, row["y"], rows[i + 1]["y"] if i + 1 < len(rows) else 795)
             m = re.fullmatch(r"(?:Facile|Media|Difficile) · \+([346])", c[4])
@@ -243,11 +243,11 @@ def objectives(pages):
     return result
 
 
-def correlations(pages):
+def correlations(pdf):
     result = {f: {t: [] for t in TRACKS} for f in FACTIONS}
     pattern = r"^(Iran|Coalizione|Russia|Cina|Europa)\s+(Economia|Militare|Diplomazia|Consenso)\s+(Iran|Coalizione|Russia|Cina|Europa)\s+(Economia|Militare|Diplomazia|Consenso)\s+([+−-]\d+)\s+"
     for number in [9, 10]:
-        raw = subprocess.check_output(["pdftotext", "-f", str(number), "-l", str(number), "-layout", str(PDF), "-"], text=True)
+        raw = subprocess.check_output(["pdftotext", "-f", str(number), "-l", str(number), "-layout", str(pdf), "-"], text=True)
         for line in raw.splitlines():
             m = re.match(pattern, line.strip())
             if m:
@@ -258,16 +258,19 @@ def correlations(pages):
 
 def units(pages):
     result = []
-    # The corrected PDF shifts the Effect column by 8pt. Read its actual
+    # Reflowed editions shift the Effect column. Read its actual
     # header rather than allowing the first effect word into the Defense cell.
     headers = [w for w in words(pages[16]) if w["s"] == "Effetto" and 300 < w["x"] < 380]
     require(len(headers) == 1, "Unit Effect column header not uniquely identified")
     effect_x = headers[0]["x"]
     for number in [17, 18]:
         ws = words(pages[number - 1])
-        rows = sorted([w for w in ws if w["x"] < 80 and w["s"] in FACTIONS], key=lambda w: w["y"])
+        # The latest p17 also has Iran in preceding Influence/control prose.
+        # Only faction cells below the actual table header start unit rows.
+        table_top = headers[0]["y"] if number == 17 else 0
+        rows = sorted([w for w in ws if w["x"] < 80 and w["s"] in FACTIONS and w["y"] > table_top], key=lambda w: w["y"])
         for i, row in enumerate(rows):
-            starts = [*UNIT_COLUMNS[number][:-1], effect_x]
+            starts = [*UNIT_COLUMNS[:-1], effect_x]
             c = cells(ws, starts, row["y"], rows[i + 1]["y"] if i + 1 < len(rows) else 795)
             require(len(c) == 6 and all(c), f"Bad unit p{number}: {c}")
             f = c[0]
@@ -324,9 +327,9 @@ def validate(data):
 
 
 # Source x-coordinates are audited below, then fixed for reproducible extraction.
-BOT_COLUMNS = {n: [48.96, 85.38, 163.25, 295.03, 446.67] for n in range(37, 42)}
-OBJECTIVE_COLUMNS = {n: [53.5, 107.67, 124.91, 251.48, 507.63] for n in [44, 45, 46]}
-UNIT_COLUMNS = {n: [55.2, 112.77, 210, 250, 295, 339.55] for n in [17, 18]}
+BOT_COLUMNS = [48.96, 85.38, 163.25, 295.03, 446.67]
+OBJECTIVE_COLUMNS = [53.5, 107.67, 124.91, 251.48, 507.63]
+UNIT_COLUMNS = [55.2, 112.77, 210, 250, 295, 339.55]
 
 # Board circles: friendly 0, neutral 1, hostile 2; visually transcribed from the
 # exact supplied corrected board. The order is explicitly FACTIONS above.
@@ -350,32 +353,46 @@ BOARD = [
 ]
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--pdf", required=True, type=Path)
-    parser.add_argument("--output", type=Path, default=Path("src/game-v3/catalog-data.json"))
-    parser.add_argument("--inspect", action="store_true", help="Print first row word coordinates, do not write")
-    parser.add_argument("--check", action="store_true", help="Verify checked-in JSON matches the complete source import")
-    args = parser.parse_args()
-    PDF = args.pdf
-    root = Path(__file__).resolve().parents[1]
-    xml = subprocess.check_output(["pdftotext", "-bbox-layout", str(PDF), "-"])
+def read_pdf(pdf):
+    xml = subprocess.check_output(["pdftotext", "-bbox-layout", str(pdf), "-"])
     pages = ET.fromstring(xml).findall(f".//{NS}page")
-    require(len(pages) == 46, f"Expected 46 pages, got {len(pages)}")
-    if args.inspect:
-        for number in list(range(25, 47)) + [17, 18]:
-            ws = words(pages[number - 1])
-            candidates = [w for w in ws if w["x"] < 90 and (CARD_ID.fullmatch(w["s"]) or w["s"].startswith("BOT-") or w["s"] in FACTIONS or re.fullmatch(r"E\d{2}", w["s"]))]
-            first = min(candidates, key=lambda w: w["y"])
-            print(number, [(round(w["x"], 2), w["s"]) for w in sorted(ws, key=lambda w: w["x"]) if abs(w["y"] - first["y"]) < 3.5])
-        raise SystemExit(0)
+    require(len(pages) in (46, 47), f"Expected 46 or 47 pages, got {len(pages)}")
+    return pages
+
+
+def source_pages(pages):
+    # The 47-page edition adds a BOT-rule continuation at p23. Only the
+    # appendices move by one page: correlations, units and preparation do not.
+    offset = len(pages) - 46
+    result = {
+        "factionCards": list(range(25 + offset, 37 + offset)),
+        "bots": list(range(37 + offset, 42 + offset)),
+        "events": [42 + offset, 43 + offset],
+        "objectives": [44 + offset, 45 + offset, 46 + offset],
+        "correlations": [9, 10], "units": [17, 18], "initialTracks": [5],
+    }
+    for key, letter in [("factionCards", "A"), ("bots", "B"), ("events", "C"), ("objectives", "D")]:
+        number = result[key][0]
+        header = text([w for w in words(pages[number - 1]) if w["y"] < 100])
+        require(f"APPENDICE{letter}" in re.sub(r"\s+", "", header),
+                f"Missing Appendix {letter} header on page {number}")
+    return result
+
+
+def build_catalog(pdf, root=None, pages=None):
+    pdf = Path(pdf)
+    root = Path(root) if root is not None else Path(__file__).resolve().parents[1]
+    pages = read_pdf(pdf) if pages is None else pages
+    numbers = source_pages(pages)
+    page_labels = {key: str(value[0]) if len(value) == 1 else f"{value[0]}–{value[-1]}"
+                   for key, value in numbers.items()}
     turns, unlocks = verified_turn_metadata(), legacy_unlocks(root)
-    cards = faction_cards(pages, unlocks)
+    cards = faction_cards(pages, unlocks, numbers["factionCards"])
     initial = dict(zip(FACTIONS, [dict(zip(TRACKS, values)) for values in [(4, 7, 4, 5), (5, 7, 4, 4), (6, 6, 4, 4), (7, 4, 5, 4), (6, 4, 6, 4)]]))
     data = {
         "provenance": {
-            "rulebook": PDF.name, "rulebookSha256": hashlib.sha256(PDF.read_bytes()).hexdigest(),
-            "pages": {"factionCards": "25–36", "bots": "37–41", "events": "42–43", "objectives": "44–46", "correlations": "9–10", "units": "17–18", "initialTracks": "5"},
+            "rulebook": pdf.name, "rulebookSha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
+            "rulebookPageCount": len(pages), "pages": page_labels,
             "extraction": "pdftotext -bbox-layout; printed cells verbatim, whitespace normalized",
             "eventTurns": "All 75 supplied Mazzo_Eventi/fronti original images, order icons AND printed Avanzano names visually verified; explicit source table VERIFIED_EVENT_TURNS in importer, independent of legacy eventi.ts.",
             "eventTurnVerifiedIds": [f"E{n:02}" for n in range(1, 76)],
@@ -389,14 +406,39 @@ if __name__ == "__main__":
             "unmatchedLegacyUnlockIds": sorted(unlocks - {c["id"] for c in cards}),
             "board": "Linea_Rossa_Tabellone_corretto (2)-911f6aba85683265.jpg; visual transcription",
             "rulings": ["Corrected rulebook p17/p19: one defending Scudo Missilistico cancels all attacking Missili balistici bonuses. No override of the latest PDF is required."],
-            "gaps": ["Unlock flags C032/C045/NI34 are inherited by exact ID, not independently graphic-verified: corresponding original fronts are absent from the supplied faction ZIPs. Appendix A does not list unlock flags. No additional flags are invented."],
+            "gaps": [
+                "Unlock flags C032/C045/NI34 are inherited by exact ID, not independently graphic-verified: corresponding original fronts are absent from the supplied faction ZIPs. Appendix A does not list unlock flags. No additional flags are invented.",
+                *([
+                    "Rulebook p22 specifies an Influence-at-end-of-round State printed in each BOT card header, but Appendix B p38–42 supplies only ID, title, condition P1, priority 1 and priority 2. Influence territories for all 120 BOT cards are absent from this source and are not inferred from deployment priorities."
+                ] if len(pages) == 47 else []),
+            ],
         },
-        "factionCards": cards, "bots": bots(pages), "events": events(pages, turns),
-        "objectives": objectives(pages), "units": units(pages),
+        "factionCards": cards, "bots": bots(pages, numbers["bots"]), "events": events(pages, turns, numbers["events"]),
+        "objectives": objectives(pages, numbers["objectives"]), "units": units(pages),
         "territories": [{"id": tid, "name": name, "capacity": capacity, "alignment": dict(zip(FACTIONS, values))} for tid, name, capacity, values in BOARD],
-        "correlations": correlations(pages), "initialTracks": initial,
+        "correlations": correlations(pdf), "initialTracks": initial,
     }
     validate(data)
+    return data
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--pdf", required=True, type=Path)
+    parser.add_argument("--output", type=Path, default=Path("src/game-v3/catalog-data.json"))
+    parser.add_argument("--inspect", action="store_true", help="Print first row word coordinates, do not write")
+    parser.add_argument("--check", action="store_true", help="Verify checked-in JSON matches the complete source import")
+    args = parser.parse_args()
+    pages = read_pdf(args.pdf)
+    numbers = source_pages(pages)
+    if args.inspect:
+        for number in [n for key in ["factionCards", "bots", "events", "objectives", "units"] for n in numbers[key]]:
+            ws = words(pages[number - 1])
+            candidates = [w for w in ws if w["x"] < 90 and (CARD_ID.fullmatch(w["s"]) or w["s"].startswith("BOT-") or w["s"] in FACTIONS or re.fullmatch(r"E\d{2}", w["s"]))]
+            first = min(candidates, key=lambda w: w["y"])
+            print(number, [(round(w["x"], 2), w["s"]) for w in sorted(ws, key=lambda w: w["x"]) if abs(w["y"] - first["y"]) < 3.5])
+        raise SystemExit(0)
+    data = build_catalog(args.pdf, pages=pages)
     serialized = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
     if args.check:
         require(args.output.read_text() == serialized, "Checked-in catalog differs from source import")

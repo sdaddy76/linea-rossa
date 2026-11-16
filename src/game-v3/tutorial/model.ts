@@ -1,7 +1,7 @@
 import { createGame, reduce, currentActor, deployCost, type EngineState, type Command, type RNG } from '../engine';
 import { FACTIONS, TRACKS, FACTION_CARDS, EVENTS, INITIAL_TRACKS, CORRELATIONS, UNITS, TERRITORIES, type Faction, type Track, type GlobalTrack, type TrackChange } from '../catalog';
 
-export const STORAGE_KEY = 'linea-rossa.guided-game.v1';
+export const STORAGE_KEY = 'linea-rossa.guided-game.v2';
 export type Speed = 'lenta' | 'normale' | 'veloce';
 export interface Session { version: 1; choices: string[]; cursor: number; speed: Speed }
 export interface Choice { id: string; label: string; recommended?: boolean; detail?: string; unavailableReason?: string }
@@ -19,7 +19,7 @@ export const changeLabel = (c: TrackChange) => `${c.faction} ${c.track} ${c.delt
 const lesson = (id: string, number: number, title: string, text: string, why: string, extra: Partial<Lesson> = {}): Lesson =>
   ({ id, number, title, text, why, ...extra });
 export const LESSONS: Lesson[] = [
-  lesson('intro', 0, 'Cinque potenze. Una crisi.', 'Cinque potenze, quattro tracciati uguali per tutte. Ogni carta può favorire tre fazioni diverse.', 'Per brevità ogni fazione si attiva una volta per round. Nella partita vera si attiva due volte per round e la partita dura 6 round.', { card: 'C097' }),
+  lesson('intro', 0, 'Cinque potenze. Una crisi.', 'Cinque potenze, quattro tracciati uguali per tutte. Ogni carta può favorire tre fazioni diverse.', 'Per brevità, questo copione mostra una sola attivazione per fazione a round. La partita vera ne prevede due; il segna-turni avanza con gli OP delle carte Avanza fino alla soglia della modalità scelta.', { card: 'C097' }),
   lesson('event1', 1, 'La crisi si apre', 'Rivela E01 e osserva i segnalini. Europa → Iran → Cina → Coalizione → Russia. Avanza: Cina.', 'All’inizio di ogni round un evento cambia la crisi e decide l’ordine. Gli eventi non attivano correlazioni.', { event: 'E01' }),
   lesson('europe', 2, 'Una carta, tre alleati possibili', 'Scegli un’opzione di Mediazione UE oppure usa i suoi 3 OP. Le tue scelte cambiano davvero il seguito.', 'L’opzione alza un tracciato, applica la correlazione e gli eventuali globali. Diplomazia Forte rende la Pressione economica e abilita il Veto.', { actor: 'Europa', card: 'C097' }),
   lesson('iran-deploy', 3, 'Schiera l’IRGC in Iraq', 'Usa C025 come OP. In questo tutorial questa mossa è obbligatoria per mostrarti il combattimento.', 'Il costo dipende da unità, Crisi Bellica, zona Economia e allineamento. Le unità schierate non si muovono.', { actor: 'Iran', card: 'C025', mandatory: true }),
@@ -29,7 +29,9 @@ export const LESSONS: Lesson[] = [
   lesson('tension1', 7, 'Fine round · 1 / 4 · Tensione', 'Controlla Sanzioni, Nucleare e Opinione: il motore applica le soglie reali.', 'Sanzioni ≥8 riduce l’Economia iraniana; Nucleare ≥12 abbassa la Crisi Bellica; Opinione estrema modifica la Diplomazia.'),
   lesson('score1', 7, 'Fine round · 2 / 4 · Punteggio', 'Ogni tracciato Forte vale +1 PV; ogni tracciato in Crisi vale −1 PV.', 'Il punteggio è calcolato dai tracciati che hai costruito: le alternative non vengono annullate. I PV non scendono sotto zero.'),
   lesson('units1', 7, 'Fine round · 3 / 4 · Durata', 'Le tre unità in Iraq ruotano di 90°.', 'Ogni unità resta due round: alla prima fine round si ruota, alla successiva rientra nella riserva.'),
-  lesson('draw1', 7, 'Fine round · 4 / 4 · Pesca', 'Pesca secondo il Consenso. La fazione Avanza pesca una carta in più.', 'Consenso in Crisi: 1 carta; Stabile: 2; Forte: 3. Avanza aggiunge una carta.'),
+  lesson('bot1', 7, 'Fine round · 4 / 6 · Influenza BOT', 'I BOT piazzano Influenza in base alla carta rivelata. Nel materiale ricevuto mancano le intestazioni che indicano lo Stato di destinazione.', 'Le destinazioni delle carte BOT non si possono ricostruire dal regolamento disponibile; questa simulazione guidata ha cinque fazioni umane e non inventa mosse BOT.'),
+  lesson('control1', 7, 'Fine round · 5 / 6 · Controllo', 'Il controllo somma unità e Influenza. Qui Iraq resta in parità e non assegna bonus.', 'I bonus dei territori controllati sono quelli stampati sulla plancia; Iraq richiede la scelta Economia o Militare.'),
+  lesson('refill1', 7, 'Fine round · 6 / 6 · Punteggio e rifornimento', 'Si applicano i punti di zona, ruotano le unità e si pesca in base al Consenso.', 'Consenso in Crisi: 1 carta; Stabile: 2; Forte: 3. Non c’è una pesca extra per la fazione Avanza.'),
   lesson('event2', 8, 'Round 2 · Un canale segreto', 'Rivela E37. Cina → Coalizione → Iran → Russia → Europa. Avanza: Cina.', 'Gli aumenti di Diplomazia dell’evento non applicano correlazioni.', { event: 'E37' }),
   lesson('development', 9, 'Sviluppo · scegli un tracciato', 'C091C vale 2 OP: scegli quale tracciato della Cina sviluppare.', 'Sviluppo costa 2 OP e alza di 1 il tracciato scelto; devi applicare una delle sue due correlazioni.', { actor: 'Cina', card: 'C091C' }),
   lesson('correlation', 9, 'Sviluppo · scegli la correlazione', 'Applica una delle due correlazioni stampate sulla plancia cinese.', 'La correlazione è obbligatoria. La consigliata di Diplomazia aiuta la mediazione europea.', { actor: 'Cina', card: 'C091C' }),
@@ -41,11 +43,11 @@ export const LESSONS: Lesson[] = [
   lesson('oil', 11, 'Il petrolio e il Veto', 'Scegli una delle tre opzioni di NI04. Se una correlazione è negativa e la Diplomazia del bersaglio è Forte, potrà usare il Veto.', 'Il Veto annulla soltanto la correlazione: costa −1 Diplomazia ed è disponibile una volta per round.', { actor: 'Iran', card: 'NI04' }),
   lesson('russia', 12, 'L’influenza diplomatica russa', 'Scegli un’opzione di Veto ONU Russia. Il titolo della carta non è l’azione di Veto.', 'Anche qui si applicano aumento, correlazione e dividendo diplomatico quando favorisci un’altra fazione.', { actor: 'Russia', card: 'C073R' }),
   lesson('pressure', 13, 'Europa · tre OP sulla crisi', 'Gioca C001 come OP e assegna la Pressione, oppure scegli un’opzione Evento.', 'Diplomazia Forte: 1 OP a passo; Stabile: 2; Crisi: 3. Massimo un passo per ciascun globale. Solo Iran alza Nucleare; Coalizione ed Europa alzano Sanzioni.', { actor: 'Europa', card: 'C001' }),
-  lesson('tension2', 14, 'Fine round · 1 / 4 · Tensione', 'Si controllano nuovamente le soglie globali.', 'La procedura è la stessa della partita completa.'),
-  lesson('score2', 14, 'Fine round · 2 / 4 · Punteggio', 'Osserva i PV e le zone Forte e Crisi delle cinque potenze.', 'I bonus e le penalità dei quattro tracciati si sommano per ogni fazione.'),
-  lesson('units2', 14, 'Fine round · 3 / 4 · Rientro', 'Le unità già ruotate tornano nelle riserve.', 'Per riaverle sul tabellone bisogna ricomprarle: non sono spostamenti gratuiti.'),
-  lesson('draw2', 14, 'Fine round · 4 / 4 · Pesca', 'Ultima pesca della dimostrazione. Guarda come il Consenso modifica il rifornimento.', 'Il tutorial termina dopo due round, la partita completa continua fino a sei.'),
-  lesson('summary', 15, 'Hai attraversato la crisi', 'Questa è la classifica della tua partita guidata, calcolata dalle mosse scelte.', 'Vittoria immediata: Nucleare 15 → Iran; Sanzioni 10 → Coalizione; Crisi Bellica 1 → tutti perdono. Altrimenti, dopo 6 round contano PV, obiettivi segreti e PF delle unità.'),
+  lesson('tension2', 14, 'Fine round · 4 / 6 · Controllo', 'Il controllore di ogni territorio riceve il bonus stampato, se previsto.', 'Unità e Influenza concorrono al controllo.'),
+  lesson('score2', 14, 'Fine round · 5 / 6 · Punteggio', 'Osserva i PV e le zone Forte e Crisi delle cinque potenze.', 'I bonus e le penalità dei quattro tracciati si sommano per ogni fazione.'),
+  lesson('units2', 14, 'Fine round · 6 / 6 · Rifornimento', 'Le unità già ruotate tornano in riserva; il rifornimento dipende dal Consenso.', 'Per riaverle sul tabellone bisogna ricomprarle. Non c’è pescata extra Avanza.'),
+  lesson('duration2', 14, 'La partita continua', 'Il segna-turni avanza in base agli OP delle carte giocate dalle fazioni Avanza.', 'Breve termina a 30, Media a 60, Lunga a 80. Si chiude il round che raggiunge o supera la soglia.'),
+  lesson('summary', 15, 'Hai attraversato la crisi', 'Questa è la classifica della tua partita guidata, calcolata dalle mosse scelte.', 'Vittoria immediata: Nucleare 15 → Iran; Sanzioni 10 → Coalizione; Crisi Bellica 1 → tutti perdono. Altrimenti il punteggio finale considera i soli segnalini Influenza, gli obiettivi segreti e i tracciati al massimo.'),
 ];
 
 /** Explicit scenario adapter: prescribed cards/events, one activation/faction,
@@ -195,7 +197,7 @@ export function applyChoice(previous: TutorialState, id: string): TutorialState 
   } else if (l.id === 'outcome') {
     if (s.pending?.kind !== 'casualty') throw new Error('Esito non disponibile');
     s = command(s, { type: 'casualties', unitIds: s.pending.unitIds.slice(0, s.pending.count) }); s = finishOps(s); advance();
-  } else if (/^(tension|score|units|draw)[12]$/.test(l.id)) {
+  } else if (/^(tension|score|units|draw|refill)[12]$/.test(l.id)) {
     if (l.id.startsWith('tension')) t.roundTarget = roundTarget(s);
     const target = t.roundTarget!;
     if (l.id.startsWith('tension')) {

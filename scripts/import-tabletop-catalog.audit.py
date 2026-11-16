@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Source-image diagnostic contact sheets; not an artwork/deliverable generator."""
 import argparse
+import importlib.util
 import io
 import json
 import re
@@ -13,9 +14,48 @@ from PIL import Image, ImageDraw, ImageFont
 parser = argparse.ArgumentParser()
 parser.add_argument("--events-zip", type=Path)
 parser.add_argument("--faction-zip", action="append", type=Path, default=[])
-parser.add_argument("--out-dir", required=True, type=Path)
+parser.add_argument("--out-dir", type=Path)
+parser.add_argument("--pdf", type=Path, help="Audit the checked-in catalog against this rulebook")
+parser.add_argument("--compare-pdf", type=Path, help="Also report exact semantic differences against an older rulebook")
 args = parser.parse_args()
+if args.compare_pdf and not args.pdf:
+    parser.error("--compare-pdf requires --pdf")
+if (args.events_zip or args.faction_zip) and not args.out_dir:
+    parser.error("source-image audits require --out-dir")
 data = json.loads((Path(__file__).resolve().parents[1] / "src/game-v3/catalog-data.json").read_text())
+if args.pdf:
+    spec = importlib.util.spec_from_file_location("catalog_import", Path(__file__).with_name("import-tabletop-catalog.py"))
+    importer = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(importer)
+    latest = importer.build_catalog(args.pdf)
+    sections = [key for key in latest if key != "provenance"]
+    counts = {key: len(latest[key]) for key in sections}
+    counts["correlations"] = sum(len(links) for tracks in latest["correlations"].values() for links in tracks.values())
+    differences = {}
+    if args.compare_pdf:
+        previous = importer.build_catalog(args.compare_pdf)
+        for key in sections:
+            if latest[key] == previous[key]:
+                continue
+            if isinstance(latest[key], list):
+                old_rows = {row["id"]: row for row in previous[key]}
+                new_rows = {row["id"]: row for row in latest[key]}
+                differences[key] = [{"id": row_id, "before": old_rows.get(row_id), "after": new_rows.get(row_id)}
+                                    for row_id in sorted(old_rows.keys() | new_rows.keys())
+                                    if old_rows.get(row_id) != new_rows.get(row_id)]
+            else:
+                differences[key] = {"before": previous[key], "after": latest[key]}
+    print(json.dumps({"rulebook": latest["provenance"]["rulebook"],
+                      "rulebookSha256": latest["provenance"]["rulebookSha256"],
+                      "pages": latest["provenance"]["pages"],
+                      "checkedCatalogMatches": latest == data,
+                      "semanticSections": {key: {"count": counts[key], "matchesChecked": latest[key] == data[key]}
+                                           for key in sections},
+                      "comparedRulebook": args.compare_pdf.name if args.compare_pdf else None,
+                      "semanticDifferences": differences, "sourceGaps": latest["provenance"]["gaps"]},
+                     ensure_ascii=False, indent=2))
+    if latest != data:
+        raise SystemExit("Checked-in catalog differs from source import")
 events = {e["id"]: e for e in data["events"]}
 codes = {"Iran": "IR", "Coalizione": "CO", "Russia": "RU", "Cina": "CN", "Europa": "EU"}
 font = ImageFont.load_default(size=18)

@@ -1,7 +1,8 @@
 /** Run by bundling this entry with esbuild (platform=node), then node --test the output. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, reduce, currentActor, canDeploy, deployCost, hormuzBlocked, type EngineState, type PlacedUnit } from './engine';
+import { createGame, reduce, currentActor, canDeploy, deployCost, hormuzBlocked, influenceCost, occupiedSlots, territoryPresence, territoryController,
+  controlBonusChoices, MODE_THRESHOLDS, type EngineState, type PlacedUnit, type GameMode } from './engine';
 import { botCondition, botPlan, weakestTrack, chooseBotCorrelation } from './bots';
 import { objectiveComplete, controlsTerritory } from './objectives';
 import { FACTIONS, TRACKS, FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, UNITS, TERRITORIES, INITIAL_TRACKS, CORRELATIONS, type Faction } from './catalog';
@@ -9,6 +10,10 @@ import { FACTIONS, TRACKS, FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, UNITS, 
 const rng = () => 0.31;
 function fixture(): EngineState {
   const s = createGame({ bots: [] }, rng);
+  // The original suite documents persisted pre-revision games. Their missing revision is
+  // intentionally retained rather than silently changing scoring, duration or hand refill.
+  delete s.rulesRevision; delete s.mode; delete s.turnMarker; delete s.influence;
+  delete s.nextInfluence; delete s.lastBotCards; delete s.roundClosure;
   s.phase = 'activation'; s.pending = null; s.result = null; s.queue = []; s.combat = null; s.ops = null;
   s.order = [...FACTIONS]; s.turnIndex = 0; s.round = 1; s.actualRound = 1; s.lap = 1; s.roundBlocked = false; s.advancers = [];
   s.globals = { Nucleare: 4, Sanzioni: 3, 'Crisi Bellica': 7, Opinione: 0 };
@@ -207,6 +212,7 @@ test('all-bot games progress with bounded commands without hands/objectives', ()
     let value = seed;
     const seeded = () => { value = (value * 1664525 + 1013904223) >>> 0; return value / 4294967296; };
     let s = createGame({ bots: [...FACTIONS] }, seeded);
+    delete s.rulesRevision;
     for (let n = 0; n < 90 && s.phase !== 'ended'; n++) {
       assert.equal(s.phase, 'activation', `seed ${seed}, ${s.phase}`);
       s = reduce(s, currentActor(s)!, { type: 'advance-bot' }, seeded);
@@ -450,4 +456,264 @@ test('every simple printed numeric BOT condition respects its threshold on both 
     }
   }
   assert.ok(checked >= 80);
+});
+
+function official(): EngineState {
+  const s = fixture();
+  return Object.assign(s, { rulesRevision: '2026-11-16' as const, mode: 'media' as const, turnMarker: 0,
+    influence: [], nextInfluence: 1, lastBotCards: {}, roundClosure: false });
+}
+const placeId = (name: string) => TERRITORIES.find(t => t.name === name || t.name.includes(name))!.id;
+function influence(s: EngineState, f: Faction, name: string, slot?: number) {
+  const territory = placeId(name), taken = occupiedSlots(s, territory);
+  const marker = { id: `i${s.nextInfluence!++}`, faction: f, territory,
+    slot: slot ?? Array.from({ length: TERRITORIES.find(t => t.id === territory)!.capacity }, (_, i) => i).find(i => !taken.includes(i))! };
+  s.influence!.push(marker); return marker;
+}
+function closing(s = official()) {
+  s = ops(s, 'Europa'); s.lap = 2; s.turnIndex = 4;
+  s.deck = []; s.discard = [];
+  FACTIONS.forEach(f => { s.players[f].hand = []; s.players[f].objectives = []; });
+  return s;
+}
+function safeEvent() {
+  return EVENTS.find(e => !e.globals.some(c => (c.track === 'Nucleare' || c.track === 'Sanzioni') && c.delta > 0) &&
+    !e.globals.some(c => c.track === 'Crisi Bellica' && c.delta < 0))!;
+}
+test('official setup defaults to media and accepts the three marker thresholds', () => {
+  for (const mode of ['breve', 'media', 'lunga'] as const) {
+    const s = createGame({ bots: [], mode }, rng);
+    assert.equal(s.rulesRevision, '2026-11-16'); assert.equal(s.mode, mode); assert.equal(s.turnMarker, 0);
+    assert.deepEqual(s.influence, []); assert.equal(s.nextInfluence, 1);
+  }
+  assert.equal(createGame({ bots: [] }, rng).mode, 'media');
+  assert.throws(() => createGame({ bots: [], mode: 'invalid' as GameMode }, rng));
+});
+test('official Influence costs only 1+alignment at every economy/crisis band and spends exact OP', () => {
+  for (const f of FACTIONS) for (const t of TERRITORIES) for (const economy of [1, 4, 8, 10]) for (const crisis of [2, 5, 8, 10]) {
+    const s = ops(official(), f, 3); s.players[f].tracks.Economia = economy; s.globals['Crisi Bellica'] = crisis;
+    assert.equal(influenceCost(s, f, t.id), 1 + t.alignment[f]);
+    const next = reduce(s, f, { type: 'influence', territoryId: t.id }, rng);
+    assert.equal(next.ops!.remaining, 2 - t.alignment[f]); assert.equal(next.influence![0].slot, 0);
+    assert.equal(territoryPresence(next, f, t.id), 1);
+  }
+  const s = ops(official(), 'Iran', 0);
+  assert.throws(() => reduce(s, 'Iran', { type: 'influence', territoryId: placeId('Iran') }, rng));
+});
+test('official units and Influence share left-to-right slots, preserve gaps and allow every available slot', () => {
+  let s = ops(official());
+  const d = UNITS.find(u => u.faction === 'Iran' && u.name === 'Forze convenzionali')!, t = placeId('Iran');
+  s = reduce(s, 'Iran', { type: 'influence', territoryId: t }, rng);
+  s = reduce(s, 'Iran', { type: 'deploy', unitId: d.id, territoryId: t }, rng);
+  s = reduce(s, 'Iran', { type: 'influence', territoryId: t }, rng);
+  assert.deepEqual(occupiedSlots(s, t), [0, 1, 2]); assert.equal(s.units[0].slot, 1);
+  s.influence = s.influence!.filter(i => i.slot !== 0);
+  s = reduce(s, 'Iran', { type: 'influence', territoryId: t }, rng);
+  assert.equal(s.influence!.at(-1)!.slot, 0); assert.equal(s.units[0].slot, 1);
+  s = reduce(s, 'Iran', { type: 'influence', territoryId: t }, rng);
+  assert.deepEqual(occupiedSlots(s, t), [0, 1, 2, 3]);
+  const capacity = TERRITORIES.find(territory => territory.id === t)!.capacity;
+  while (occupiedSlots(s, t).length < capacity) s = reduce(s, 'Iran', { type: 'influence', territoryId: t }, rng);
+  assert.equal(canDeploy(s, 'Iran', d.id, t), false);
+  assert.throws(() => reduce(s, 'Iran', { type: 'influence', territoryId: t }, rng));
+  assert.equal(s.influence!.length, capacity - 1, 'no per-state Influence maximum');
+});
+test('official destabilization costs two OP, requires own presence and removes only the selected opponent', () => {
+  let s = ops(official()); const a = influence(s, 'Russia', 'Siria'), b = influence(s, 'Coalizione', 'Siria');
+  const snapshot = JSON.stringify(s);
+  assert.throws(() => reduce(s, 'Iran', { type: 'destabilize', influenceId: a.id }, rng));
+  assert.equal(JSON.stringify(s), snapshot);
+  const own = influence(s, 'Iran', 'Siria');
+  assert.throws(() => reduce(s, 'Iran', { type: 'destabilize', influenceId: own.id }, rng));
+  s = reduce(s, 'Iran', { type: 'destabilize', influenceId: a.id }, rng);
+  assert.equal(s.ops!.remaining, 18); assert.ok(!s.influence!.some(i => i.id === a.id)); assert.ok(s.influence!.some(i => i.id === b.id));
+  s.ops!.remaining = 1;
+  assert.throws(() => reduce(s, 'Iran', { type: 'destabilize', influenceId: b.id }, rng));
+  const withUnit = ops(official()); unit(withUnit, 'Iran', 'Forze convenzionali', 'Siria');
+  const enemy = influence(withUnit, 'Russia', 'Siria');
+  assert.doesNotThrow(() => reduce(withUnit, 'Iran', { type: 'destabilize', influenceId: enemy.id }, rng));
+});
+test('official presence objectives accept Influence; named unit predicates still require actual units', () => {
+  const s = official();
+  for (const p of ['Iran', 'Iraq', 'Siria']) influence(s, 'Iran', p);
+  const objective = (f: Faction, number: number) => OBJECTIVES.find(o => o.faction === f && o.number === number)!;
+  assert.equal(objectiveComplete(s, objective('Iran', 11)), true);
+  assert.equal(objectiveComplete(s, objective('Iran', 10)), false);
+  influence(s, 'Iran', 'Hormuz');
+  assert.equal(objectiveComplete(s, objective('Iran', 7)), false);
+  s.players.Iran.tracks.Militare = 8;
+  assert.equal(objectiveComplete(s, objective('Iran', 14)), true);
+  influence(s, 'Europa', 'Turchia'); influence(s, 'Europa', 'Turchia');
+  assert.equal(objectiveComplete(s, objective('Europa', 13)), true);
+  assert.equal(territoryController(s, placeId('Siria')), 'Iran');
+  unit(s, 'Russia', 'Consiglieri militari', 'Siria');
+  assert.equal(territoryController(s, placeId('Siria')), null);
+  influence(s, 'Iran', 'Siria');
+  assert.equal(controlsTerritory(s, 'Iran', placeId('Siria')), true);
+});
+test('official controller defense adds one per defending own unit and one per controlled supporting unit', () => {
+  let s = ops(official(), 'Coalizione');
+  FACTIONS.forEach(f => { s.players[f].tracks.Militare = 5; });
+  const attacker = unit(s, 'Coalizione', 'Forze Speciali');
+  unit(s, 'Iran', 'Forze convenzionali'); unit(s, 'Iran', 'Forze convenzionali');
+  s = reduce(s, 'Coalizione', { type: 'attack', territoryId: attacker.territory }, () => 0);
+  assert.equal(s.combat!.defense, 5, 'two defensive values + two controller bonuses + die');
+  s = ops(official(), 'Coalizione');
+  FACTIONS.forEach(f => { s.players[f].tracks.Militare = 5; });
+  const air = unit(s, 'Coalizione', 'Forze Speciali');
+  unit(s, 'Iran', 'Forze convenzionali'); unit(s, 'Russia', 'Consiglieri militari');
+  influence(s, 'Russia', 'Iran');
+  assert.equal(territoryController(s, air.territory), 'Russia');
+  s = reduce(s, 'Coalizione', { type: 'attack', territoryId: air.territory }, () => 0);
+  s = reduce(s, 'Russia', { type: 'support', side: 'defender' }, () => 0);
+  assert.equal(s.combat!.defense, 4, 'Iran defense 1 + Russia defense 1 + controlled support bonus 1 + die 1');
+});
+test('official combat loser also removes its leftmost Influence but not allied or enemy markers', () => {
+  let s = ops(official()); FACTIONS.forEach(f => { s.players[f].tracks.Militare = 5; });
+  const attacker = unit(s, 'Iran', 'IRGC'), defender = unit(s, 'Coalizione', 'Convenzionale');
+  const left = influence(s, 'Coalizione', 'Iran', 2), right = influence(s, 'Coalizione', 'Iran', 3);
+  let rolls = 0;
+  s = reduce(s, 'Iran', { type: 'attack', territoryId: attacker.territory }, () => rolls++ === 0 ? 0.99 : 0);
+  s = reduce(s, 'Coalizione', { type: 'casualties', unitIds: [defender.id] }, rng);
+  assert.ok(!s.influence!.some(i => i.id === left.id)); assert.ok(s.influence!.some(i => i.id === right.id));
+  assert.equal(s.players.Coalizione.tracks.Consenso, 3);
+});
+test('official marker moves by played cost for highlighted event/OP/BOT cards, never for blocked or skipped activations', () => {
+  const card = FACTION_CARDS.find(c => c.cost === 4)!;
+  for (const type of ['play-event', 'begin-ops'] as const) {
+    const s = official(); s.advancers = ['Iran']; s.players.Iran.hand = [card.id];
+    const command = type === 'play-event' ? { type, cardId: card.id, option: 0 } : { type, cardId: card.id };
+    assert.equal(reduce(s, 'Iran', command, rng).turnMarker, 4);
+    s.roundBlocked = true;
+    assert.equal(reduce(s, 'Iran', command, rng).turnMarker, 0);
+    s.roundBlocked = false; s.advancers = [];
+    assert.equal(reduce(s, 'Iran', command, rng).turnMarker, 0);
+  }
+  const s = official(); s.players.Iran.bot = true; s.advancers = ['Iran'];
+  const botBase = FACTION_CARDS.find(c => !c.special && c.options.every(o => o.boost.faction !== 'Iran'))!;
+  s.deck = [botBase.id];
+  assert.equal(reduce(s, 'Iran', { type: 'advance-bot' }, rng).turnMarker, botBase.cost);
+  const skip = official(); skip.advancers = ['Iran']; skip.players.Iran.hand = [];
+  assert.equal(reduce(skip, 'Iran', { type: 'skip' }, rng).turnMarker, 0);
+});
+test('official duration reaches 30/60/80, finishes the current round and performs all closing stages', () => {
+  for (const mode of ['breve', 'media', 'lunga'] as const) {
+    let s = official(); s.mode = mode; s.turnMarker = MODE_THRESHOLDS[mode] - 1; s.advancers = ['Iran'];
+    const card = FACTION_CARDS.find(c => c.cost === 4)!; s.players.Iran.hand = [card.id];
+    s = reduce(s, 'Iran', { type: 'begin-ops', cardId: card.id }, rng);
+    assert.equal(s.phase, 'ops'); assert.ok(s.turnMarker! > MODE_THRESHOLDS[mode]);
+    s = reduce(s, 'Iran', { type: 'finish-ops' }, rng);
+    assert.equal(s.phase, 'activation', 'threshold does not end mid-round');
+    s = closing(s); FACTIONS.forEach(f => TRACKS.forEach(t => { s.players[f].tracks[t] = 5; }));
+    influence(s, 'Iran', 'Iran');
+    const fresh = unit(s, 'Iran', 'Forze convenzionali', 'Iraq');
+    s = reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+    assert.equal(s.phase, 'control'); assert.equal(s.pending!.actor, 'Iran');
+    s = reduce(s, 'Iran', { type: 'control-bonus', track: 'Consenso' }, rng);
+    assert.equal(s.phase, 'control'); assert.equal((s.pending as { territoryId: string }).territoryId, placeId('Iraq'));
+    s = reduce(s, 'Iran', { type: 'control-bonus', track: 'Economia' }, rng);
+    assert.equal(s.result!.reason, 'points'); assert.equal(s.units.find(u => u.id === fresh.id)!.rotated, true);
+    assert.equal(s.players.Iran.points, 1, 'only Influence scores PF; fresh units score none');
+  }
+});
+test('official end round ignores old six/eight ceilings, reshuffles exhausted events and removes Avanza refill bonus', () => {
+  let s = closing(); s.round = 6; s.actualRound = 8; s.advancers = [...FACTIONS]; s.roundBlocked = true;
+  s.eventDeck = []; s.deck = FACTION_CARDS.filter(c => !c.special).slice(0, 30).map(c => c.id);
+  const next = reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+  assert.notEqual(next.phase, 'ended'); assert.equal(next.round, 7); assert.equal(next.actualRound, 9);
+  assert.equal(next.eventDeck.length, EVENTS.length - 1);
+  FACTIONS.forEach(f => assert.equal(next.players[f].hand.length, 2, `${f} gets normal stable refill, no advancer card`));
+});
+test('official BOT influence remembers the last BOT card, asks for missing printed target and resumes without repeating tension', () => {
+  let s = closing(); s.players.Cina.bot = true; s.globals.Sanzioni = 8;
+  s.lastBotCards = { Cina: 'BOT-CN-E1' };
+  const before = [...s.botDecks.Cina.Economia], eco = s.players.Iran.tracks.Economia;
+  s.eventDeck = [safeEvent().id];
+  s = reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+  assert.equal(s.phase, 'bot-influence'); assert.equal(currentActor(s), 'Cina'); assert.equal(s.roundClosure, true);
+  assert.equal((s.pending as { cardId: string }).cardId, 'BOT-CN-E1');
+  assert.deepEqual(s.botDecks.Cina.Economia, before);
+  assert.equal(s.players.Iran.tracks.Economia, eco - 1);
+  assert.throws(() => reduce(s, 'Iran', { type: 'bot-influence', territoryId: placeId('Qatar') }, rng));
+  s = JSON.parse(JSON.stringify(s));
+  s = reduce(s, 'Cina', { type: 'bot-influence', territoryId: placeId('Qatar') }, rng);
+  assert.equal(s.influence![0].faction, 'Cina'); assert.equal(s.influence![0].slot, 0);
+  assert.equal(s.players.Cina.tracks.Economia, 8, 'BOT influence is placed before control bonus');
+  assert.equal(s.players.Cina.points, 1, 'control economy is scored in this same round');
+  assert.equal(s.players.Iran.tracks.Economia, eco - 1, 'Tension is not repeated after pending resumes');
+  assert.equal(s.actualRound, 2);
+});
+test('official BOT with no revealed card draws weakest first; full states evict leftmost Influence but never units', () => {
+  let s = closing(); s.players.Cina.bot = true; s.lastBotCards = {}; s.eventDeck = [safeEvent().id];
+  s.players.Cina.tracks.Economia = 1; s.botDecks.Cina.Economia = ['BOT-CN-E1', 'BOT-CN-E2'];
+  const left = influence(s, 'Iran', 'Hormuz', 0); unit(s, 'Iran', 'Flotta veloce del Golfo', 'Hormuz').slot = 1;
+  s = reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+  assert.equal((s.pending as { cardId: string }).cardId, 'BOT-CN-E1');
+  assert.deepEqual(s.botDecks.Cina.Economia, ['BOT-CN-E2', 'BOT-CN-E1']);
+  s = reduce(s, 'Cina', { type: 'bot-influence', territoryId: placeId('Hormuz') }, rng);
+  assert.ok(!s.influence!.some(i => i.id === left.id)); assert.equal(s.influence![0].slot, 0);
+  assert.ok(s.units.some(u => u.faction === 'Iran'));
+  s = closing(); s.players.Cina.bot = true; s.lastBotCards = { Cina: 'BOT-CN-E1' };
+  s.botDecks.Cina.Economia = ['BOT-CN-E2', 'BOT-CN-E1'];
+  unit(s, 'Iran', 'Flotta veloce del Golfo', 'Hormuz').slot = 0;
+  unit(s, 'Coalizione', 'Carrier Strike Group', 'Hormuz').slot = 1;
+  s = reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+  const unitsBefore = JSON.stringify(s.units);
+  s = reduce(s, 'Cina', { type: 'bot-influence', territoryId: placeId('Hormuz') }, rng);
+  assert.equal(s.phase, 'bot-influence'); assert.equal((s.pending as { cardId: string }).cardId, 'BOT-CN-E2');
+  assert.equal(JSON.stringify(s.units), unitsBefore); assert.equal(s.influence!.length, 0);
+});
+test('official control bonuses cover every State and owning choices are validated even for a BOT', () => {
+  const s = official();
+  const expected: Record<string, string[]> = {
+    'Arabia Saudita': ['Economia'], Emirati: ['Economia'], Qatar: ['Economia'], Kuwait: ['Economia'],
+    Israele: ['Militare'], Turchia: ['Militare'], Egitto: ['Diplomazia'], Giordania: ['Diplomazia'], Oman: ['Diplomazia'],
+    Siria: ['Consenso'], Libano: ['Consenso'], Yemen: ['Consenso'], Bahrein: ['Consenso'],
+    Iraq: ['Economia', 'Militare'], Iran: ['Consenso', 'Nucleare'],
+  };
+  for (const [name, choices] of Object.entries(expected)) assert.deepEqual(controlBonusChoices(s, placeId(name), 'Iran'), choices);
+  assert.deepEqual(controlBonusChoices(s, placeId('Iran'), 'Cina'), ['Consenso']);
+  assert.deepEqual(controlBonusChoices(s, placeId('Hormuz'), 'Cina'), ['PV']);
+  let c = closing(); c.players.Cina.bot = true; c.lastBotCards = { Cina: 'BOT-CN-E1' }; c.eventDeck = [safeEvent().id];
+  influence(c, 'Cina', 'Iraq');
+  c = reduce(c, 'Europa', { type: 'finish-ops' }, rng);
+  c = reduce(c, 'Cina', { type: 'bot-influence', territoryId: placeId('Qatar') }, rng);
+  assert.equal(c.phase, 'control'); assert.equal(currentActor(c), 'Cina');
+  assert.throws(() => reduce(c, 'Iran', { type: 'control-bonus', track: 'Economia' }, rng));
+  assert.throws(() => reduce(c, 'Cina', { type: 'control-bonus', track: 'Nucleare' }, rng));
+  assert.doesNotThrow(() => reduce(c, 'Cina', { type: 'control-bonus', track: 'Militare' }, rng));
+});
+test('official Iran nuclear control bonus can win immediately before zone score or rotation', () => {
+  let s = closing(); s.globals.Nucleare = 14; s.globals['Crisi Bellica'] = 7;
+  influence(s, 'Iran', 'Iran');
+  const fresh = unit(s, 'Iran', 'Forze convenzionali', 'Iran');
+  s = reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+  assert.equal(s.phase, 'control');
+  s = reduce(s, 'Iran', { type: 'control-bonus', track: 'Nucleare' }, rng);
+  assert.equal(s.result!.reason, 'nuclear'); assert.equal(s.queue.length, 0);
+  assert.equal(s.units.find(u => u.id === fresh.id)!.rotated, false);
+});
+test('official final PF counts each Influence alignment, never units, and round points floor at zero', () => {
+  let s = closing(); s.turnMarker = 60;
+  FACTIONS.forEach(f => { TRACKS.forEach(t => { s.players[f].tracks[t] = 1; }); });
+  const friendly = TERRITORIES.find(t => t.alignment.Iran === 0)!, neutral = TERRITORIES.find(t => t.alignment.Iran === 1)!,
+    hostile = TERRITORIES.find(t => t.alignment.Iran === 2)!;
+  for (const t of [friendly, neutral, hostile]) influence(s, 'Iran', t.name);
+  unit(s, 'Iran', 'Forze convenzionali', 'Iraq');
+  s = reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+  while (s.pending?.kind === 'control') s = reduce(s, currentActor(s)!, { type: 'control-bonus', track: s.pending.choices[0] }, rng);
+  assert.equal(s.result!.reason, 'points'); assert.equal(s.players.Iran.points, 6);
+  FACTIONS.filter(f => f !== 'Iran').forEach(f => assert.equal(s.players[f].points, 0));
+});
+test('legacy states retain refill bonus, unit-only presence/scoring, old duration and reject new OP actions', () => {
+  const s = ops(); const marker = { id: 'new-marker', faction: 'Iran' as const, territory: placeId('Siria'), slot: 0 };
+  s.influence = [marker];
+  assert.equal(territoryPresence(s, 'Iran', marker.territory), 0);
+  assert.equal(territoryController(s, marker.territory), null);
+  assert.throws(() => reduce(s, 'Iran', { type: 'influence', territoryId: marker.territory }, rng));
+  assert.throws(() => reduce(s, 'Iran', { type: 'destabilize', influenceId: marker.id }, rng));
+  let old = closing(fixture()); old.advancers = ['Iran']; old.eventDeck = [safeEvent().id];
+  old.deck = FACTION_CARDS.filter(c => !c.special).slice(0, 30).map(c => c.id);
+  old = reduce(old, 'Europa', { type: 'finish-ops' }, rng);
+  assert.equal(old.players.Iran.hand.length, 3); assert.equal(old.rulesRevision, undefined);
 });

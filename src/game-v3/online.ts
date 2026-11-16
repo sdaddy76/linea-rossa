@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { createGame, currentActor, reduce, type Command, type EngineState } from './engine';
+import { createGame, currentActor, reduce, type Command, type EngineState, type GameMode } from './engine';
 import { FACTIONS, type Faction } from './catalog-types';
 
 export interface SavedTabletop { revision: number; state: EngineState }
@@ -8,8 +8,8 @@ export function readTabletop(row: unknown): SavedTabletop | null {
   return value?.state?.version === 3 && Number.isInteger(value.revision) ? value : null;
 }
 function checked(error: { message: string } | null) { if (error) throw new Error(error.message); }
-export async function initializeTabletop(gameId: string, userId: string) {
-  const game = await supabase.from('games').select('created_by,status').eq('id', gameId).single();
+export async function initializeTabletop(gameId: string, userId: string, requestedMode?: GameMode) {
+  const game = await supabase.from('games').select('*').eq('id', gameId).single();
   checked(game.error);
   if (game.data?.created_by !== userId) throw new Error('Solo il creatore può avviare la partita.');
   if (game.data.status !== 'lobby') throw new Error('La partita è già stata avviata.');
@@ -30,7 +30,8 @@ export async function initializeTabletop(gameId: string, userId: string) {
   const existing = await supabase.from('game_state').select('*').eq('game_id', gameId).maybeSingle();
   checked(existing.error);
   // Retry an interrupted start without dealing a second set of cards.
-  const saved = readTabletop(existing.data) ?? { revision: 0, state: createGame({ bots: actualBots }) };
+  const gameMode = requestedMode ?? (['breve', 'media', 'lunga'].includes(game.data.game_length) ? game.data.game_length : 'media') as GameMode;
+  const saved = readTabletop(existing.data) ?? { revision: 0, state: createGame({ bots: actualBots, mode: gameMode }) };
   const values = { game_id: gameId, nucleare: saved.state.globals.Nucleare, sanzioni: saved.state.globals.Sanzioni,
     active_faction: currentActor(saved.state),
     special_uses: { ...((existing.data?.special_uses as object) ?? {}), tabletop_v3: saved } };
@@ -39,7 +40,9 @@ export async function initializeTabletop(gameId: string, userId: string) {
     : await supabase.from('game_state').insert(values as never);
   checked(write.error);
   checked((await supabase.from('games').update({ status: 'active', started_at: new Date().toISOString(),
-    max_turns: 6, allow_join: false } as never).eq('id', gameId).eq('status', 'lobby')).error);
+    max_turns: gameMode === 'breve' ? 30 : gameMode === 'media' ? 60 : 80, game_length: gameMode,
+    track_limit: gameMode === 'breve' ? 30 : gameMode === 'media' ? 60 : 80,
+    allow_join: false } as never).eq('id', gameId).eq('status', 'lobby')).error);
 }
 
 export async function commitCommand(gameId: string, saved: SavedTabletop, actor: Faction, command: Command) {

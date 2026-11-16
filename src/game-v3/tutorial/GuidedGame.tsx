@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, CircleHelp, Flag, RotateCcw, Shield, SkipForward, Sparkles, Swords, Trophy } from 'lucide-react';
 import { TabletopBoard, FactionBoard, COLORS } from '../Boards';
 import { FACTIONS, TRACKS, EVENTS, UNITS, type Faction, type GlobalTrack, type Track } from '../catalog';
-import { zone } from '../engine';
+import { MODE_THRESHOLDS, zone } from '../engine';
 import { eventFrontArt, unitFrontArt, RULEBOOK_URL } from '../art';
 import { getFactionCardFront } from '../../data/card-graphics';
 import { LESSONS, STORAGE_KEY, back, cardFor, changeLabel, choose, choicesFor, currentLesson, deploymentPreview, freshSession, parseSession, recommendedChoice, replaySession, type Session, type Speed } from './model';
@@ -12,7 +12,7 @@ const TRACK_HELP: Record<Track, string> = {
   Economia: 'Costo unità: Crisi +1 OP · Stabile +0 · Forte −1 OP.',
   Militare: 'Combattimento: Crisi −1 · Stabile +0 · Forte +1.',
   Diplomazia: 'Pressione: Crisi 3 OP · Stabile 2 · Forte 1. Forte dà il Veto una volta per round, pagando −1 Diplomazia.',
-  Consenso: 'Pesca a fine round: Crisi 1 carta · Stabile 2 · Forte 3; Avanza +1.',
+  Consenso: 'Pesca a fine round: Crisi 1 carta · Stabile 2 · Forte 3.',
 };
 const GLOBAL_HELP: Record<GlobalTrack, string> = {
   Nucleare: 'Da 1 a 15. A 15 vince immediatamente l’Iran.',
@@ -36,10 +36,10 @@ function Dice({ value, label }: { value: number; label: string }) {
 const KEY_RULES = [
   ['Correlazioni', 'Un aumento può spostare un tracciato di un’altra fazione: leggi entrambe le conseguenze.'],
   ['Dividendo diplomatico', 'Giocare l’opzione che favorisce un’altra fazione ti dà +1 PV.'],
-  ['OP e schieramento', 'Economia, Crisi Bellica e allineamento cambiano il costo delle unità.'],
+  ['Influenza e controllo', 'Unità e Influenza occupano caselle condivise. L’Influenza è permanente e determina i punti territoriali finali.'],
   ['Unità a due round', 'Non si muovono: prima si ruotano, poi tornano nella riserva.'],
   ['Combattimento', 'Contano solo le unità locali; ogni attacco riduce la Crisi Bellica.'],
-  ['Zone e Veto', 'Forte e Crisi modificano i PV; Diplomazia Forte può proteggere una correlazione.'],
+  ['Durata della partita', 'Il segna-turni avanza degli OP delle carte delle fazioni Avanza: soglia 30, 60 o 80.'],
 ];
 
 export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onPlay: () => void }) {
@@ -132,8 +132,8 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
         <span className="guide-offline"><span /> Simulazione locale · nessuna partita online modificata</span>
       </header>
       <div className="guide-title-row">
-        <div><p className="guide-eyebrow"><Flag size={14} /> Impara giocando</p><h1>Partita <span>guidata</span></h1><p className="guide-subtitle">Due round per capire come una scelta cambia l’intera crisi.</p></div>
-        <div className="guide-round-pill"><span>ROUND</span><strong>{s.round}<small> / 2</small></strong><p>1 attivazione per fazione</p></div>
+        <div><p className="guide-eyebrow"><Flag size={14} /> Impara giocando</p><h1>Partita <span>guidata</span></h1><p className="guide-subtitle">Un copione guidato per capire le fasi e le scelte della crisi.</p></div>
+        <div className="guide-round-pill"><span>SEGNA-TURNI</span><strong>{s.turnMarker ?? 0}<small> / {MODE_THRESHOLDS[s.mode ?? 'media']}</small></strong><p>Demo breve · due round</p></div>
       </div>
       <nav className="guide-progress" aria-label="Avanzamento della partita guidata">
         <div><span>Passo {l.number} di 15</span><strong>{summary ? 'Tutorial completato' : l.number < 8 ? 'Round 1 · costruire gli equilibri' : 'Round 2 · mettere alla prova le alleanze'}</strong><span>{Math.round(t.step / (LESSONS.length - 1) * 100)}%</span></div>
@@ -150,7 +150,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
           </section>
           <section className="guide-board" aria-label="Tabellone della partita guidata">
             <div className="guide-section-label"><span><span className="guide-live-dot" /> Teatro della crisi</span><span>{s.units.length} unità schierate</span></div>
-            <TabletopBoard globals={s.globals} round={s.round} elapsed={s.actualRound} units={boardUnits} pv={points} selected={selectedTerritory} onSelect={setSelectedTerritory} />
+            <TabletopBoard globals={s.globals} round={s.round} elapsed={s.actualRound} units={boardUnits} influence={s.influence} gameState={s} pv={points} selected={selectedTerritory} onSelect={setSelectedTerritory} />
           </section>
           <section className="guide-iraq" aria-label="Unità in Iraq">
             <div><p className="guide-eyebrow">Focus territorio</p><h2>Iraq <span>{s.units.filter(u => u.territory === 'iraq').length} / 3</span></h2><p>Iran e Russia: Amico · Coalizione: Neutrale</p></div>
@@ -197,7 +197,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
             <div className="guide-lesson-kicker"><span>{s.pending?.kind === 'veto' ? 'Decisione di Veto' : `Passo ${l.number.toString().padStart(2, '0')}`}</span><span>{active ?? (summary ? 'Debriefing' : 'La crisi')}</span></div>
             <h2 id="guide-lesson-title" ref={lessonHeading} tabIndex={-1}>{s.pending?.kind === 'veto' ? `${s.pending.actor}: proteggi la correlazione?` : l.title}</h2>
             <p>{s.pending?.kind === 'veto' ? `${changeLabel(s.pending.change)}. La Diplomazia Forte permette di annullare solo questa correlazione pagando −1 Diplomazia.` : l.text}</p>
-            {l.id === 'intro' && <div className="guide-scenario-note"><BookOpen size={19} /><p><strong>Una versione più breve, le regole vere.</strong>Una attivazione per fazione e due round. Carte, eventi e dadi sono fissati per imparare; le conseguenze delle tue scelte no.</p></div>}
+            {l.id === 'intro' && <div className="guide-scenario-note"><BookOpen size={19} /><p><strong>Una simulazione didattica, regole aggiornate.</strong>Carte, eventi e dadi sono fissati per imparare; alcune mosse sono guidate e il copione copre due round, non una partita completa.</p></div>}
             {(card || event) && <div className="guide-card-stage">
               <div className="guide-card-title"><span>{event?.id ?? card?.id}</span><strong>{event?.name ?? card?.name}</strong>{card && <b>{card.cost} OP</b>}</div>
               {art ? <button className="guide-card-art" onClick={() => setZoom({ src: art, name: event?.name ?? card!.name })} aria-label={`Ingrandisci ${event?.name ?? card?.name}`}><img key={art} src={art} alt={`Fronte originale: ${event?.name ?? card?.name}`} /><span>Tocca per ingrandire</span></button> :

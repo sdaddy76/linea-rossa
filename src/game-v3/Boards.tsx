@@ -1,8 +1,9 @@
 import {useEffect, useState, type ReactNode} from 'react';
 import {TERRITORIES, UNITS} from './catalog';
 import {FACTIONS, TRACKS, type Faction, type GlobalTrack, type Track} from './catalog-types';
-import {unitFrontArt} from './art';
+import {BOARD_ART, factionBoardArt, unitFrontArt} from './art';
 import {territorySlot} from './board-layout';
+import {occupiedSlots, territoryController, type PlacedInfluence, type EngineState} from './engine';
 
 export const COLORS: Record<Faction,string> = {Iran:'#4ade80',Coalizione:'#60a5fa',Russia:'#f87171',Cina:'#fbbf24',Europa:'#c4b5fd'};
 export const SHORT: Record<Faction,string> = {Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'};
@@ -19,8 +20,17 @@ function scorePoint(score:number):[number,number] {
   if(n<=75)return [94.1-(n-51)*3.67,96.7];
   return [2.9,91.7-(n-76)*3.48];
 }
-export function TabletopBoard({globals,round,elapsed,units,pv,selected,onSelect}: {
+function turnMarkerPoint(position:number):[number,number] {
+  const n=Math.min(100,Math.max(0,position));
+  if(n===0)return [4.2,3.2];
+  if(n<=25)return [8.5+(n-1)*3.7,3.2];
+  if(n<=50)return [97.3,8.2+(n-26)*3.48];
+  if(n<=75)return [96.5-(n-51)*3.72,96.7];
+  return [3.1,91.7-(n-76)*3.48];
+}
+export function TabletopBoard({globals,round,elapsed,units,influence=[],gameState,pv,selected,onSelect}: {
   globals:Record<GlobalTrack,number>;round:number;elapsed:number;units:BoardUnit[];
+  influence?:PlacedInfluence[]; gameState?:EngineState;
   pv:Record<Faction,number>;selected:string;onSelect:(id:string)=>void;
 }) {
   const [zoom,setZoom]=useState(100);
@@ -28,7 +38,7 @@ export function TabletopBoard({globals,round,elapsed,units,pv,selected,onSelect}
   return <section aria-label="Mappa delle unità schierate" className="min-w-0 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="font-bold text-lg">Plancia generale · unità sui territori</h2>
-        <p className="text-sm text-slate-300" aria-live="polite">{territory?.name} · {units.filter(u=>u.territory===selected).length}/{territory?.capacity} riquadri occupati</p></div>
+        <p className="text-sm text-slate-300" aria-live="polite">{territory?.name} · {territory ? occupiedSlots(gameState ?? ({rulesRevision:'2026-11-16',units:units.map(u=>({...u,placedRound:u.deployedAt,rotated:false})),influence} as EngineState), selected).length : 0}/{territory?.capacity} riquadri occupati{territory && gameState && ` · controllo: ${territoryController(gameState, selected) ?? 'conteso'}`}</p></div>
       <div role="group" aria-label="Zoom della mappa" className="flex gap-2">
         {[100,150,200].map(value=><button key={value} type="button" aria-pressed={zoom===value} onClick={()=>setZoom(value)}
           className={`rounded-lg border px-3 py-2 text-sm focus-visible:outline-white ${zoom===value?'border-emerald-400 bg-emerald-950':'border-slate-600 bg-slate-900'}`}>{value}%</button>)}
@@ -36,37 +46,40 @@ export function TabletopBoard({globals,round,elapsed,units,pv,selected,onSelect}
     </div>
     <div className="overflow-x-auto rounded-xl border border-slate-700" tabIndex={0} role="region" aria-label="Tabellone scorrevole">
       <div data-board-map style={{width:`${zoom}%`,minWidth:`${1040*zoom/100}px`}} className="relative">
-        <img data-image-slot="tabletop.board" src="/assets/tabletop-v3/board.jpg" alt="Tabellone ufficiale: territori, allineamenti, PV e tracciati globali" className="w-full h-auto"/>
+        <img data-image-slot="tabletop.board" src={BOARD_ART} alt="Tabellone ufficiale: territori, allineamenti, PV e tracciati globali" className="w-full h-auto"/>
         <Point x={8.2} y={74.8-(globals.Nucleare-1)*3.58} label={`Nucleare ${globals.Nucleare}`} color="#facc15">{globals.Nucleare}</Point>
         <Point x={85.8} y={51.6-(globals.Sanzioni-1)*3.01} label={`Sanzioni ${globals.Sanzioni}`} color="#fb923c">{globals.Sanzioni}</Point>
         <Point x={85.1} y={61.2+(globals['Crisi Bellica']-1)*2.62} label={`Crisi Bellica ${globals['Crisi Bellica']}`} color="#f87171">{globals['Crisi Bellica']}</Point>
         <Point x={18.9+(globals.Opinione+10)*3.54} y={89.9} label={`Opinione ${globals.Opinione}`} color="#f9a8d4">{globals.Opinione}</Point>
-        <Point x={46.7+(round-1)*1.94} y={82.4} label={`Round ${round}, ${elapsed} round effettivi`} color="#fef08a">R</Point>
-        {FACTIONS.map((f,i)=>{const [x,y]=scorePoint(pv[f]);return <Point key={f} x={x+(i-2)*0.25} y={y+(i-2)*0.55} label={`${f}: ${pv[f]} PV`} color={COLORS[f]}>{SHORT[f]}</Point>;})}
+        {gameState?.rulesRevision === '2026-11-16' && (()=>{const [x,y]=turnMarkerPoint(gameState.turnMarker??0);return <Point x={x} y={y} label={`Segna-turni ${gameState.turnMarker??0}`} color="#fef08a">T</Point>;})()}
+        {gameState?.rulesRevision !== '2026-11-16' && FACTIONS.map((f,i)=>{const [x,y]=scorePoint(pv[f]);return <Point key={f} x={x+(i-2)*0.25} y={y+(i-2)*0.55} label={`${f}: ${pv[f]} PV`} color={COLORS[f]}>{SHORT[f]}</Point>;})}
         {TERRITORIES.flatMap(t=>{
           const local=units.filter(u=>u.territory===t.id);
+          const localInfluence=influence.filter(i=>i.territory===t.id);
           return Array.from({length:t.capacity},(_,i)=>{
-            const u=local[i], pos=territorySlot(t.id,i);
+            const u=local.find(unit=>unit.slot===i) ?? (local.every(unit=>unit.slot===undefined) ? local[i] : undefined);
+            const marker=localInfluence.find(item=>item.slot===i), pos=territorySlot(t.id,i);
             const name=u?(UNITS.find(d=>d.id===u.type)?.name??u.type):'';
             const rotated=!!u&&u.deployedAt<elapsed;
             return <button key={`${t.id}-${i}`} type="button" onClick={()=>onSelect(t.id)}
-              data-territory={t.id} data-slot={i+1} data-unit-id={u?.id} data-faction={u?.faction} data-rotated={u?rotated:undefined}
+              data-territory={t.id} data-slot={i+1} data-unit-id={u?.id} data-influence-id={marker?.id} data-faction={u?.faction ?? marker?.faction} data-rotated={u?rotated:undefined}
               aria-pressed={selected===t.id}
-              aria-label={`${t.name}, riquadro ${i+1}: ${u?`${u.faction}, ${name}${rotated?', ruotata':''}`:'libero'}`}
-              title={`${t.name} · ${u?`${u.faction} · ${name} · ${rotated?'ruotata, rientra a fine round':'nuova'}`:'riquadro libero: seleziona questo territorio'}`}
+              aria-label={`${t.name}, riquadro ${i+1}: ${u?`${u.faction}, ${name}${rotated?', ruotata':''}`:marker?`Influenza ${marker.faction}`:'libero'}`}
+              title={`${t.name} · ${u?`${u.faction} · ${name} · ${rotated?'ruotata, rientra a fine round':'nuova'}`:marker?`Influenza ${marker.faction} · permanente`:'riquadro libero: seleziona questo territorio'}`}
               className={`absolute min-w-0 p-0 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${selected===t.id?'ring-2 ring-yellow-300':'hover:ring-2 hover:ring-white'}`}
-              style={{left:`${pos.x}%`,top:`${pos.y}%`,width:'1.5%',height:'2.25%',background:u?COLORS[u.faction]:'transparent',borderColor:u?COLORS[u.faction]:'transparent'}}>
+              style={{left:`${pos.x}%`,top:`${pos.y}%`,width:'1.5%',height:'2.25%',background:u?COLORS[u.faction]:marker?COLORS[marker.faction]:'transparent',borderColor:u?COLORS[u.faction]:marker?COLORS[marker.faction]:'transparent'}}>
               {u&&<><img src={unitFrontArt(u.type)} alt={`${u.faction}: ${name}`} draggable={false}
                 className="block w-full h-full object-contain" style={{transform:rotated?'rotate(90deg)':'none'}}/>
                 <span aria-hidden="true" className="absolute -bottom-1 -right-1 rounded-sm px-0.5 leading-tight font-black text-slate-950"
                   style={{background:COLORS[u.faction],fontSize:'clamp(6px, 0.6vw, 10px)'}}>{SHORT[u.faction]}</span></>}
+              {!u&&marker&&<span className="block text-slate-950 font-black text-[clamp(7px,0.8vw,12px)]" aria-hidden="true">I</span>}
             </button>;
           });
         })}
       </div>
     </div>
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Colori delle fazioni">{FACTIONS.map(f=><span key={f} style={{color:COLORS[f]}}>{SHORT[f]} · {f} · {units.filter(u=>u.faction===f).length} unità</span>)}</div>
-    <p className="my-2 text-xs text-slate-400">Ogni pedina occupa un riquadro del proprio territorio. Seleziona il territorio sulla mappa e usa Schiera nelle Operazioni. Ingrandisci e scorri per leggere le unità. Le unità ruotate rientrano a fine round.</p>
+    <p className="my-2 text-xs text-slate-400">Unità e Influenza condividono i riquadri; l’Influenza è permanente. Seleziona un territorio sulla mappa per le operazioni. Le unità ruotate rientrano a fine round.</p>
     <div data-board-territories className="flex flex-wrap gap-2">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs rounded-lg border px-3 py-2 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length}/{t.capacity}</button>)}</div>
   </section>;
 }
@@ -81,11 +94,11 @@ export function FactionBoard({faction,tracks,pv}: {faction:Faction;tracks:Record
 }
 function FactionArtwork({faction}: {faction:Faction}) {
   switch(faction) {
-    case 'Iran': return <img data-image-slot="tabletop.board.iran" src="/assets/tabletop-v3/boards/Iran.jpg" alt="Plancia Iran" className="w-full h-auto"/>;
-    case 'Coalizione': return <img data-image-slot="tabletop.board.coalizione" src="/assets/tabletop-v3/boards/Coalizione.jpg" alt="Plancia Coalizione" className="w-full h-auto"/>;
-    case 'Russia': return <img data-image-slot="tabletop.board.russia" src="/assets/tabletop-v3/boards/Russia.jpg" alt="Plancia Russia" className="w-full h-auto"/>;
-    case 'Cina': return <img data-image-slot="tabletop.board.cina" src="/assets/tabletop-v3/boards/Cina.jpg" alt="Plancia Cina" className="w-full h-auto"/>;
-    case 'Europa': return <img data-image-slot="tabletop.board.europa" src="/assets/tabletop-v3/boards/Europa.jpg" alt="Plancia Europa" className="w-full h-auto"/>;
+    case 'Iran': return <img data-image-slot="tabletop.board.iran" src={factionBoardArt(faction)} alt="Plancia Iran" className="w-full h-auto"/>;
+    case 'Coalizione': return <img data-image-slot="tabletop.board.coalizione" src={factionBoardArt(faction)} alt="Plancia Coalizione" className="w-full h-auto"/>;
+    case 'Russia': return <img data-image-slot="tabletop.board.russia" src={factionBoardArt(faction)} alt="Plancia Russia" className="w-full h-auto"/>;
+    case 'Cina': return <img data-image-slot="tabletop.board.cina" src={factionBoardArt(faction)} alt="Plancia Cina" className="w-full h-auto"/>;
+    case 'Europa': return <img data-image-slot="tabletop.board.europa" src={factionBoardArt(faction)} alt="Plancia Europa" className="w-full h-auto"/>;
   }
 }
 export function UnitImage({id,name}: {id:string;name:string}) {
