@@ -1,10 +1,10 @@
 {
-  "release": "tabletop-2026-11-16-influenza",
-  "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (8).pdf",
+  "release": "tabletop-2026-11-16-regolamento-v10",
+  "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (10).pdf",
   "unitReference": "Linea_Rossa_Scheda_Unita_A4 (1).pdf",
   "boardSource": "LineaRossa_Plance.zip",
   "assets": {
-    "/assets/tabletop-v3/regolamento.pdf": "868714201acdf7444787da5082fe15fe4347c6aa901e24c950e0cdf0c580fad1",
+    "/assets/tabletop-v3/regolamento.pdf": "7c7675cd5b92754795c7dad95ef1be526b7f7dd6987259d44d25d4e245657d82",
     "/assets/tabletop-v3/scheda-unita.pdf": "eea41298fc5ef108f002302b53428202a27262e3338e37aaf6b5f291d46e121e",
     "/assets/tabletop-v3/boards/Iran.jpg": "d574fcc556bb6b32da391e9f88fce142721c28ff470515ba9d6dc0a070f3301d",
     "/assets/tabletop-v3/boards/Coalizione.jpg": "027ab123fce78c646e869b6ef51307d5dddc2d5689ea1cee871ff62ac54483cb",

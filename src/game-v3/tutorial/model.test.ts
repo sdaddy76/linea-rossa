@@ -29,7 +29,7 @@ test('all recommended choices match authoritative final fixture, computed by rea
     Russia: [6, 6, 6, 4, 0], Cina: [8, 4, 5, 4, 3], Europa: [6, 4, 8, 4, 2],
   };
   for (const f of FACTIONS) assert.deepEqual([...TRACKS.map(track => t.game.players[f].tracks[track]), t.game.players[f].points], expected[f], f);
-  assert.deepEqual(t.game.globals, { Nucleare: 5, Sanzioni: 6, 'Crisi Bellica': 7, Opinione: 2 });
+  assert.deepEqual(t.game.globals, { Nucleare: 5, Sanzioni: 5, 'Crisi Bellica': 8, Opinione: 2 });
   assert.equal(t.game.units.length, 0);
 });
 test('tutorial uses revised rules, exposes a 60-space marker and documents the two end-round gaps', () => {
@@ -41,7 +41,7 @@ test('tutorial uses revised rules, exposes a 60-space marker and documents the t
   while (currentLesson(t).id !== 'bot1') t = applyChoice(t, recommendedChoice(t)!.id);
   t = applyChoice(t, recommendedChoice(t)!.id);
   assert.ok(currentLesson(t).id === 'control1' || currentLesson(t).id === 'event2');
-  assert.equal(STORAGE_KEY, 'linea-rossa.guided-game.v2');
+  assert.equal(STORAGE_KEY, 'linea-rossa.guided-game.v3');
 });
 test('alternative event propagates boosts, correlation, dividend and later zones', () => {
   const standard = play(), alternative = play({ china: 'event:2' });
@@ -71,7 +71,7 @@ test('without strong Diplomacy no veto is fabricated and pressure uses affordabl
   const t = play({ europe: 'event:1' });
   assert.equal(t.game.players.Europa.tracks.Diplomazia, 7);
   assert.equal(t.game.players.Europa.tracks.Economia, 5);
-  assert.equal(t.game.globals.Sanzioni, 6);
+  assert.equal(t.game.globals.Sanzioni, 5);
   assert.equal(t.game.globals.Nucleare, 6, '2 OP cost leaves only one global pressure');
 });
 test('development alternatives apply authoritative correlations and track caps', () => {
@@ -82,7 +82,7 @@ test('development alternatives apply authoritative correlations and track caps',
 });
 test('mandatory deployments use catalog IDs, real costs, capacity and two-round expiry', () => {
   const t = until('iran-deploy'), preview = deploymentPreview(t)!;
-  assert.equal(preview.unit.id, 'IR-U02'); assert.equal(preview.cost, 4);
+  assert.equal(preview.unit.id, 'IR-U02'); assert.equal(preview.cost, 3);
   const secondRound = until('event2');
   assert.equal(secondRound.game.units.length, 3);
   assert.ok(secondRound.game.units.every(u => u.rotated));
@@ -95,17 +95,17 @@ test('pressure offers only legal actions, cannot repeat a global, no extra click
   assert.ok(!choicesFor(t).some(c => c.id === 'pressure:Nucleare:1'));
   assert.throws(() => applyChoice(t, 'pressure:Sanzioni:1'));
 });
-test('tutorial explicitly blocks only the pressure branch that breaks a later mandatory printed budget', () => {
+test('updated E01 keeps later printed deployment budgets legal', () => {
   let t = until('europe');
   t = applyChoice(t, 'ops');
   t = applyChoice(t, 'pressure:Crisi Bellica:-1'); t = applyChoice(t, 'finish');
   t = applyChoice(t, 'next'); // Iran mandatory deployment
   t = applyChoice(t, 'ops'); // China chooses optional pressure
-  const blocked = choicesFor(t).find(c => c.id === 'pressure:Crisi Bellica:-1')!;
-  assert.ok(blocked.unavailableReason?.includes('Nella partita vera'));
-  assert.throws(() => applyChoice(t, blocked.id));
-  t = applyChoice(t, 'pressure:Opinione:1');
+  const crisisPressure = choicesFor(t).find(c => c.id === 'pressure:Crisi Bellica:-1')!;
+  assert.equal(crisisPressure.unavailableReason, undefined);
+  t = applyChoice(t, crisisPressure.id);
   t = applyChoice(t, 'finish');
+  assert.equal(currentLesson(t).id, 'coalition-deploy');
   assert.equal(deploymentPreview(t)?.cost, 3);
 });
 test('back restores exact prior snapshot, branch truncates future and resume is deterministic', () => {

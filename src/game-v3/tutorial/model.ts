@@ -1,7 +1,7 @@
 import { createGame, reduce, currentActor, deployCost, type EngineState, type Command, type RNG } from '../engine';
 import { FACTIONS, TRACKS, FACTION_CARDS, EVENTS, INITIAL_TRACKS, CORRELATIONS, UNITS, TERRITORIES, type Faction, type Track, type GlobalTrack, type TrackChange } from '../catalog';
 
-export const STORAGE_KEY = 'linea-rossa.guided-game.v2';
+export const STORAGE_KEY = 'linea-rossa.guided-game.v3';
 export type Speed = 'lenta' | 'normale' | 'veloce';
 export interface Session { version: 1; choices: string[]; cursor: number; speed: Speed }
 export interface Choice { id: string; label: string; recommended?: boolean; detail?: string; unavailableReason?: string }

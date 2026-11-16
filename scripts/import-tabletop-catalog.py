@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded, fail-closed import from the supplied 46/47-page tabletop rulebooks.
+"""Bounded, fail-closed import from the supplied 46/47/48-page tabletop rulebooks.
 
 Requires only Python's stdlib and Poppler pdftotext. No OCR or generated card
 formula is used: PDF word coordinates preserve each printed table cell.
@@ -260,10 +260,17 @@ def units(pages):
     result = []
     # Reflowed editions shift the Effect column. Read its actual
     # header rather than allowing the first effect word into the Defense cell.
-    headers = [w for w in words(pages[16]) if w["s"] == "Effetto" and 300 < w["x"] < 380]
+    header_pages = [
+        page for page in pages
+        if all(any(w["s"] == label for w in words(page))
+               for label in ("Fazione", "Unità", "Attacco", "Difesa", "Effetto"))
+    ]
+    require(header_pages, "Unit Effect column header not found")
+    headers = [w for w in words(header_pages[0]) if w["s"] == "Effetto" and 300 < w["x"] < 380]
     require(len(headers) == 1, "Unit Effect column header not uniquely identified")
     effect_x = headers[0]["x"]
-    for number in [17, 18]:
+    first_page = pages.index(header_pages[0]) + 1
+    for number in [first_page, first_page + 1]:
         ws = words(pages[number - 1])
         # The latest p17 also has Iran in preceding Influence/control prose.
         # Only faction cells below the actual table header start unit rows.
@@ -328,7 +335,11 @@ def validate(data):
 
 # Source x-coordinates are audited below, then fixed for reproducible extraction.
 BOT_COLUMNS = [48.96, 85.38, 163.25, 295.03, 446.67]
-OBJECTIVE_COLUMNS = [53.5, 107.67, 124.91, 251.48, 507.63]
+# In the current 48-page edition the condition column starts at x≈242.1
+# (the previous editions used a slightly wider gap). Keep the boundary just
+# before that first word so the objective title is not polluted by "Termina",
+# "Hai" or "Controlli".
+OBJECTIVE_COLUMNS = [53.5, 107.67, 124.91, 240.0, 507.63]
 UNIT_COLUMNS = [55.2, 112.77, 210, 250, 295, 339.55]
 
 # Board circles: friendly 0, neutral 1, hostile 2; visually transcribed from the
@@ -356,13 +367,14 @@ BOARD = [
 def read_pdf(pdf):
     xml = subprocess.check_output(["pdftotext", "-bbox-layout", str(pdf), "-"])
     pages = ET.fromstring(xml).findall(f".//{NS}page")
-    require(len(pages) in (46, 47), f"Expected 46 or 47 pages, got {len(pages)}")
+    require(len(pages) in (46, 47, 48), f"Expected 46, 47 or 48 pages, got {len(pages)}")
     return pages
 
 
 def source_pages(pages):
-    # The 47-page edition adds a BOT-rule continuation at p23. Only the
-    # appendices move by one page: correlations, units and preparation do not.
+    # The 47-page edition adds a BOT-rule continuation at p23. The 48-page
+    # edition adds one more illustrated rule page before the appendices.
+    # Correlations, units and preparation remain at their printed positions.
     offset = len(pages) - 46
     result = {
         "factionCards": list(range(25 + offset, 37 + offset)),
@@ -409,8 +421,8 @@ def build_catalog(pdf, root=None, pages=None):
             "gaps": [
                 "Unlock flags C032/C045/NI34 are inherited by exact ID, not independently graphic-verified: corresponding original fronts are absent from the supplied faction ZIPs. Appendix A does not list unlock flags. No additional flags are invented.",
                 *([
-                    "Rulebook p22 specifies an Influence-at-end-of-round State printed in each BOT card header, but Appendix B p38–42 supplies only ID, title, condition P1, priority 1 and priority 2. Influence territories for all 120 BOT cards are absent from this source and are not inferred from deployment priorities."
-                ] if len(pages) == 47 else []),
+                    "Rulebook p22 specifies an Influence-at-end-of-round State printed in each BOT card header, but Appendix B supplies only ID, title, condition P1, priority 1 and priority 2. Influence territories for all 120 BOT cards are absent from this source and are not inferred from deployment priorities."
+                ] if len(pages) >= 47 else []),
             ],
         },
         "factionCards": cards, "bots": bots(pages, numbers["bots"]), "events": events(pages, turns, numbers["events"]),

@@ -31,10 +31,11 @@ export function Materials({onClose}: {onClose: () => void}) {
         <button className="rounded-lg border border-slate-600 px-4 py-2" onClick={onClose}>Chiudi</button>
       </header>
       <div className="flex flex-wrap gap-3 mb-5 text-sm">
-        <a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className="underline text-emerald-300">Regolamento originale PDF</a>
+        <a href={RULEBOOK_URL} target="_blank" rel="noreferrer" download="Linea_Rossa_Regolamento_v3_10.pdf" className="underline text-emerald-300">Apri il regolamento PDF</a>
+        <a href={RULEBOOK_URL} download="Linea_Rossa_Regolamento_v3_10.pdf" className="underline text-emerald-300">Scarica il manuale PDF</a>
         <a href={UNIT_REFERENCE_URL} target="_blank" rel="noreferrer" className="underline text-emerald-300">Scheda unità PDF</a>
       </div>
-      <p className="mb-4 text-sm text-slate-400">Plance sostituite con i cinque JPG originali caricati dall'autore. Regolamento e scheda unità: ultimi PDF ricevuti, conservati senza modifiche. Lo Scudo Missilistico annulla il bonus di attacco dei Missili balistici.</p>
+      <p className="mb-4 text-sm text-slate-400">Materiali ufficiali allineati al regolamento v3.10. Il manuale PDF è disponibile per la lettura e per il download; le opzioni strutturate del catalogo aggiornato prevalgono sui testi eventualmente precedenti nelle illustrazioni delle carte.</p>
       <nav className="flex flex-wrap gap-2 mb-4" aria-label="Tipo di materiale">
         {(['Tabellone e plance','Eventi','BOT','Unità'] as Category[]).map(c=><button key={c} onClick={()=>{setCategory(c);setBack(false);}} aria-pressed={c===category} className={`rounded-lg px-4 py-2 border ${category===c?'border-emerald-400 bg-emerald-950':'border-slate-700'}`}>{c}</button>)}
       </nav>

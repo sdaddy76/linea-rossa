@@ -1,13 +1,13 @@
 {
   "provenance": {
-    "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (8)-c6048b2b6af028df.pdf",
-    "rulebookSha256": "868714201acdf7444787da5082fe15fe4347c6aa901e24c950e0cdf0c580fad1",
-    "rulebookPageCount": 47,
+    "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (10)-a747ac587048da20.pdf",
+    "rulebookSha256": "7c7675cd5b92754795c7dad95ef1be526b7f7dd6987259d44d25d4e245657d82",
+    "rulebookPageCount": 48,
     "pages": {
-      "factionCards": "26–37",
-      "bots": "38–42",
-      "events": "43–44",
-      "objectives": "45–47",
+      "factionCards": "27–38",
+      "bots": "39–43",
+      "events": "44–45",
+      "objectives": "46–48",
       "correlations": "9–10",
       "units": "17–18",
       "initialTracks": "5"
@@ -113,7 +113,7 @@
     ],
     "gaps": [
       "Unlock flags C032/C045/NI34 are inherited by exact ID, not independently graphic-verified: corresponding original fronts are absent from the supplied faction ZIPs. Appendix A does not list unlock flags. No additional flags are invented.",
-      "Rulebook p22 specifies an Influence-at-end-of-round State printed in each BOT card header, but Appendix B p38–42 supplies only ID, title, condition P1, priority 1 and priority 2. Influence territories for all 120 BOT cards are absent from this source and are not inferred from deployment priorities."
+      "Rulebook p22 specifies an Influence-at-end-of-round State printed in each BOT card header, but Appendix B supplies only ID, title, condition P1, priority 1 and priority 2. Influence territories for all 120 BOT cards are absent from this source and are not inferred from deployment priorities."
     ]
   },
   "factionCards": [
@@ -10634,7 +10634,7 @@
     },
     {
       "id": "NI12",
-      "name": "Apertura DEFCON Parziale",
+      "name": "Distensione Parziale",
       "origin": "Iran",
       "cost": 2,
       "options": [
@@ -19469,11 +19469,7 @@
         },
         {
           "track": "Sanzioni",
-          "delta": 2
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
+          "delta": 1
         },
         {
           "track": "Opinione",
@@ -19509,11 +19505,11 @@
         },
         {
           "track": "Sanzioni",
-          "delta": 3
+          "delta": 2
         },
         {
           "track": "Crisi Bellica",
-          "delta": -2
+          "delta": -1
         },
         {
           "track": "Opinione",
@@ -19618,14 +19614,6 @@
         {
           "track": "Nucleare",
           "delta": 1
-        },
-        {
-          "track": "Sanzioni",
-          "delta": 1
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
         }
       ],
       "changes": [
@@ -19633,6 +19621,11 @@
           "faction": "Iran",
           "track": "Diplomazia",
           "delta": -1
+        },
+        {
+          "faction": "Europa",
+          "track": "Diplomazia",
+          "delta": 1
         }
       ],
       "order": [
@@ -19653,11 +19646,7 @@
       "globals": [
         {
           "track": "Sanzioni",
-          "delta": 2
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
+          "delta": 1
         },
         {
           "track": "Opinione",
@@ -19694,11 +19683,11 @@
         },
         {
           "track": "Sanzioni",
-          "delta": 2
+          "delta": 1
         },
         {
           "track": "Crisi Bellica",
-          "delta": -2
+          "delta": -1
         }
       ],
       "changes": [
@@ -19727,6 +19716,10 @@
         {
           "track": "Nucleare",
           "delta": -2
+        },
+        {
+          "track": "Sanzioni",
+          "delta": -1
         },
         {
           "track": "Crisi Bellica",
@@ -19767,15 +19760,7 @@
       "globals": [
         {
           "track": "Nucleare",
-          "delta": 2
-        },
-        {
-          "track": "Sanzioni",
           "delta": 1
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
         }
       ],
       "changes": [
@@ -19783,6 +19768,11 @@
           "faction": "Russia",
           "track": "Diplomazia",
           "delta": -1
+        },
+        {
+          "faction": "Iran",
+          "track": "Militare",
+          "delta": 1
         }
       ],
       "order": [
@@ -19803,15 +19793,7 @@
       "globals": [
         {
           "track": "Nucleare",
-          "delta": 2
-        },
-        {
-          "track": "Sanzioni",
           "delta": 1
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
         }
       ],
       "changes": [
@@ -19844,11 +19826,11 @@
         },
         {
           "track": "Sanzioni",
-          "delta": 2
+          "delta": 1
         },
         {
           "track": "Crisi Bellica",
-          "delta": -2
+          "delta": -1
         },
         {
           "track": "Opinione",
@@ -19878,11 +19860,11 @@
         },
         {
           "track": "Sanzioni",
-          "delta": 2
+          "delta": 1
         },
         {
           "track": "Crisi Bellica",
-          "delta": -2
+          "delta": -1
         }
       ],
       "changes": [
@@ -19915,11 +19897,11 @@
         },
         {
           "track": "Sanzioni",
-          "delta": 2
+          "delta": 1
         },
         {
           "track": "Crisi Bellica",
-          "delta": -3
+          "delta": -2
         }
       ],
       "changes": [
@@ -19952,7 +19934,7 @@
       "globals": [
         {
           "track": "Crisi Bellica",
-          "delta": -2
+          "delta": -1
         },
         {
           "track": "Opinione",
@@ -19990,6 +19972,10 @@
         {
           "track": "Nucleare",
           "delta": -3
+        },
+        {
+          "track": "Sanzioni",
+          "delta": -2
         },
         {
           "track": "Crisi Bellica",
@@ -20067,7 +20053,7 @@
       "globals": [
         {
           "track": "Crisi Bellica",
-          "delta": -2
+          "delta": -1
         }
       ],
       "changes": [
@@ -20170,10 +20156,6 @@
       "name": "Attacco Base USA Iraq",
       "globals": [
         {
-          "track": "Sanzioni",
-          "delta": 1
-        },
-        {
           "track": "Crisi Bellica",
           "delta": -2
         }
@@ -20209,7 +20191,7 @@
       "globals": [
         {
           "track": "Crisi Bellica",
-          "delta": -2
+          "delta": -1
         }
       ],
       "changes": [
@@ -20277,10 +20259,6 @@
       "id": "E23",
       "name": "Escalation Regionale",
       "globals": [
-        {
-          "track": "Nucleare",
-          "delta": 1
-        },
         {
           "track": "Crisi Bellica",
           "delta": -2
@@ -20350,10 +20328,6 @@
         {
           "track": "Nucleare",
           "delta": -1
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
         }
       ],
       "changes": [
@@ -20384,12 +20358,7 @@
     {
       "id": "E26",
       "name": "Blackout Infrastrutture",
-      "globals": [
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
-        }
-      ],
+      "globals": [],
       "changes": [
         {
           "faction": "Iran",
@@ -20519,12 +20488,7 @@
     {
       "id": "E30",
       "name": "Evacuazione Civili",
-      "globals": [
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
-        }
-      ],
+      "globals": [],
       "changes": [
         {
           "faction": "Iran",
@@ -20557,23 +20521,15 @@
     {
       "id": "E31",
       "name": "Summit Vienna Fallito",
-      "globals": [
-        {
-          "track": "Nucleare",
-          "delta": 1
-        },
-        {
-          "track": "Sanzioni",
-          "delta": 1
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
-        }
-      ],
+      "globals": [],
       "changes": [
         {
           "faction": "Europa",
+          "track": "Diplomazia",
+          "delta": -1
+        },
+        {
+          "faction": "Iran",
           "track": "Diplomazia",
           "delta": -1
         }
@@ -20595,21 +20551,18 @@
       "name": "Rottura Negoziati",
       "globals": [
         {
-          "track": "Nucleare",
-          "delta": 1
-        },
-        {
           "track": "Sanzioni",
-          "delta": 2
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
+          "delta": 1
         }
       ],
       "changes": [
         {
           "faction": "Iran",
+          "track": "Diplomazia",
+          "delta": -1
+        },
+        {
+          "faction": "Coalizione",
           "track": "Diplomazia",
           "delta": -1
         }
@@ -20739,10 +20692,6 @@
       "name": "Espulsione Diplomatici",
       "globals": [
         {
-          "track": "Crisi Bellica",
-          "delta": -1
-        },
-        {
           "track": "Opinione",
           "delta": -1
         }
@@ -20811,7 +20760,7 @@
       "globals": [
         {
           "track": "Crisi Bellica",
-          "delta": 1
+          "delta": 2
         }
       ],
       "changes": [
@@ -20844,6 +20793,10 @@
       "globals": [
         {
           "track": "Nucleare",
+          "delta": -1
+        },
+        {
+          "track": "Sanzioni",
           "delta": -1
         },
         {
@@ -20882,7 +20835,7 @@
       "globals": [
         {
           "track": "Crisi Bellica",
-          "delta": 1
+          "delta": 2
         }
       ],
       "changes": [
@@ -20917,6 +20870,10 @@
         {
           "track": "Nucleare",
           "delta": -2
+        },
+        {
+          "track": "Sanzioni",
+          "delta": -1
         },
         {
           "track": "Crisi Bellica",
@@ -20958,15 +20915,11 @@
       "globals": [
         {
           "track": "Nucleare",
-          "delta": 2
+          "delta": 1
         },
         {
           "track": "Sanzioni",
-          "delta": 2
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
+          "delta": 1
         }
       ],
       "changes": [
@@ -20994,12 +20947,8 @@
       "name": "Ritiro USA da Trattato",
       "globals": [
         {
-          "track": "Nucleare",
-          "delta": 1
-        },
-        {
           "track": "Sanzioni",
-          "delta": 2
+          "delta": 1
         },
         {
           "track": "Crisi Bellica",
@@ -21037,7 +20986,7 @@
       "globals": [
         {
           "track": "Sanzioni",
-          "delta": 2
+          "delta": 1
         }
       ],
       "changes": [
@@ -21099,12 +21048,7 @@
     {
       "id": "E46",
       "name": "Crollo Prezzo Petrolio",
-      "globals": [
-        {
-          "track": "Sanzioni",
-          "delta": 1
-        }
-      ],
+      "globals": [],
       "changes": [
         {
           "faction": "Iran",
@@ -21173,7 +21117,7 @@
       "globals": [
         {
           "track": "Sanzioni",
-          "delta": 3
+          "delta": 2
         }
       ],
       "changes": [
@@ -21207,7 +21151,7 @@
       "globals": [
         {
           "track": "Sanzioni",
-          "delta": 2
+          "delta": 1
         }
       ],
       "changes": [
@@ -21346,6 +21290,10 @@
         {
           "track": "Sanzioni",
           "delta": -1
+        },
+        {
+          "track": "Crisi Bellica",
+          "delta": 1
         }
       ],
       "changes": [
@@ -21414,12 +21362,7 @@
     {
       "id": "E55",
       "name": "Investimenti Cina Bloccati",
-      "globals": [
-        {
-          "track": "Sanzioni",
-          "delta": 1
-        }
-      ],
+      "globals": [],
       "changes": [
         {
           "faction": "Iran",
@@ -21613,10 +21556,6 @@
       "name": "Proteste Mahsa Amini 2.0",
       "globals": [
         {
-          "track": "Sanzioni",
-          "delta": 1
-        },
-        {
           "track": "Opinione",
           "delta": 2
         }
@@ -21644,10 +21583,6 @@
       "id": "E62",
       "name": "Repressione Violenta",
       "globals": [
-        {
-          "track": "Sanzioni",
-          "delta": 1
-        },
         {
           "track": "Opinione",
           "delta": 1
@@ -21844,16 +21779,7 @@
     {
       "id": "E68",
       "name": "Nuovo Leader Supremo",
-      "globals": [
-        {
-          "track": "Nucleare",
-          "delta": 1
-        },
-        {
-          "track": "Crisi Bellica",
-          "delta": -1
-        }
-      ],
+      "globals": [],
       "changes": [
         {
           "faction": "Iran",
@@ -21920,10 +21846,6 @@
       "globals": [
         {
           "track": "Nucleare",
-          "delta": 2
-        },
-        {
-          "track": "Sanzioni",
           "delta": 1
         },
         {
@@ -22140,7 +22062,7 @@
       "faction": "Iran",
       "number": 4,
       "name": "Dominanza nel Golfo",
-      "condition": "Hai unità in almeno 3 territori tra Iraq, Yemen, Bahrein, Kuwait ed Emirati.",
+      "condition": "Hai presenza (unità o Influenza) in almeno 3 Stati tra Iraq, Yemen, Bahrein, Kuwait ed Emirati.",
       "points": 6
     },
     {
@@ -22148,7 +22070,7 @@
       "faction": "Iran",
       "number": 5,
       "name": "Asse della resistenza",
-      "condition": "Controlli almeno 3 territori tra Libano, Siria, Iraq e Yemen.",
+      "condition": "Controlli almeno 3 Stati tra Libano, Siria, Iraq e Yemen.",
       "points": 6
     },
     {
@@ -22196,7 +22118,7 @@
       "faction": "Iran",
       "number": 11,
       "name": "Corridoio sciita",
-      "condition": "Hai almeno un'unità in Iran, in Iraq e in Siria.",
+      "condition": "Hai presenza (unità o Influenza) in Iran, in Iraq e in Siria.",
       "points": 6
     },
     {
@@ -22220,7 +22142,7 @@
       "faction": "Iran",
       "number": 14,
       "name": "Signore dello Stretto",
-      "condition": "Termina con Militare dell'Iran a 8 o più e una tua unità nello Stretto di Hormuz.",
+      "condition": "Termina con Militare dell'Iran a 8 o più e presenza nello Stretto di Hormuz.",
       "points": 4
     },
     {
@@ -22324,7 +22246,7 @@
       "faction": "Coalizione",
       "number": 12,
       "name": "Controllo del Golfo",
-      "condition": "Hai unità in almeno 3 territori tra Kuwait, Bahrein, Qatar, Emirati, Oman e Arabia Saudita.",
+      "condition": "Hai presenza (unità o Influenza) in almeno 3 Stati tra Kuwait, Bahrein, Qatar, Emirati, Oman e Arabia Saudita.",
       "points": 4
     },
     {
@@ -22332,7 +22254,7 @@
       "faction": "Coalizione",
       "number": 13,
       "name": "Strike chirurgico",
-      "condition": "Termina con il Nucleare a 4 o meno e almeno una tua unità in Iran.",
+      "condition": "Termina con il Nucleare a 4 o meno e presenza (unità o Influenza) in Iran.",
       "points": 6
     },
     {
@@ -22436,7 +22358,7 @@
       "faction": "Russia",
       "number": 11,
       "name": "Presenza nel Mediterraneo",
-      "condition": "Hai unità in almeno 2 territori tra Siria, Libano e Turchia.",
+      "condition": "Hai presenza (unità o Influenza) in almeno 2 Stati tra Siria, Libano e Turchia.",
       "points": 4
     },
     {
@@ -22444,7 +22366,7 @@
       "faction": "Russia",
       "number": 12,
       "name": "Base navale Tartus",
-      "condition": "Controlli la Siria a fine partita.",
+      "condition": "Controlli la Siria a fine partita (più elementi di ogni altra fazione).",
       "points": 4
     },
     {
@@ -22460,7 +22382,7 @@
       "faction": "Russia",
       "number": 14,
       "name": "Stabilità Iran alleato",
-      "condition": "Termina con Consenso dell'Iran a 6 o più e almeno una tua unità in Siria.",
+      "condition": "Termina con Consenso dell'Iran a 6 o più e presenza in Siria.",
       "points": 3
     },
     {
@@ -22516,7 +22438,7 @@
       "faction": "Cina",
       "number": 6,
       "name": "BRI nel Golfo",
-      "condition": "Hai unità in almeno 2 territori tra Arabia Saudita, Emirati, Oman, Qatar, Bahrein e Kuwait.",
+      "condition": "Hai presenza (unità o Influenza) in almeno 2 Stati tra Arabia Saudita, Emirati, Oman, Qatar, Bahrein e Kuwait.",
       "points": 4
     },
     {
@@ -22588,7 +22510,7 @@
       "faction": "Cina",
       "number": 15,
       "name": "Porto strategico",
-      "condition": "Hai unità in almeno 2 territori tra Oman, Emirati, Qatar e Bahrein.",
+      "condition": "Hai presenza (unità o Influenza) in almeno 2 Stati tra Oman, Emirati, Qatar e Bahrein.",
       "points": 4
     },
     {
@@ -22684,7 +22606,7 @@
       "faction": "Europa",
       "number": 12,
       "name": "Peacekeeping nel Levante",
-      "condition": "Hai unità in almeno 2 territori tra Libano, Siria e Giordania.",
+      "condition": "Hai presenza (unità o Influenza) in almeno 2 Stati tra Libano, Siria e Giordania.",
       "points": 4
     },
     {
@@ -22692,7 +22614,7 @@
       "faction": "Europa",
       "number": 13,
       "name": "Fianco sud NATO protetto",
-      "condition": "Hai almeno 2 unità in Turchia a fine partita.",
+      "condition": "Hai almeno 2 elementi (unità o Influenza) in Turchia a fine partita.",
       "points": 4
     },
     {
@@ -22832,7 +22754,7 @@
       "attack": 3,
       "defense": 0,
       "naval": false,
-      "effect": "A Natanz, Fordow o Teheran (Iran): −1 Nucleare in caso di vittoria."
+      "effect": "In Iran: −1 Nucleare in caso di vittoria."
     },
     {
       "id": "CO-U06",
@@ -22852,7 +22774,7 @@
       "attack": 1,
       "defense": 1,
       "naval": false,
-      "effect": "Supporto: aggiunge il proprio bonus al combattimento di un alleato."
+      "effect": "Sostegno: aggiunge +1 sia se sostiene l'attaccante sia il difensore."
     },
     {
       "id": "RU-U02",
@@ -22872,7 +22794,7 @@
       "attack": 1,
       "defense": 0,
       "naval": false,
-      "effect": "Supporto: +1 all'attacco o alla difesa di un'unità alleata nel territorio."
+      "effect": "Sostegno: +1 in più alla parte sostenuta nel territorio."
     },
     {
       "id": "RU-U04",

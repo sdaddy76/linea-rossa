@@ -126,7 +126,8 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
       <div className="max-w-[1600px] mx-auto flex flex-wrap gap-4 items-center justify-between">
         <div><p className="text-xs uppercase tracking-[0.2em] text-red-400">Linea Rossa · Regolamento da tavolo v3</p>
           <h1 className="text-xl font-bold mt-1">Round {s.round} <span className="text-slate-400 font-normal text-sm">· {official ? `modalità ${mode} · segna-turni ${s.turnMarker}/${threshold}` : `legacy · effettivo ${s.actualRound}/8`} · giro {s.lap}/2</span></h1></div>
-        <div className="flex flex-wrap gap-2"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className={button}>Regolamento PDF</a>
+        <div className="flex flex-wrap gap-2"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className={button}>Apri regolamento PDF</a>
+          <a href={RULEBOOK_URL} download="Linea_Rossa_Regolamento_v3_10.pdf" className={button}>Scarica manuale</a>
           <button className={button} onClick={() => setMaterials(true)}>Materiali</button><button className={button} onClick={onBack}>Lobby</button></div>
       </div>
     </header>

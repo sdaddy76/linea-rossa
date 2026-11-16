@@ -9,9 +9,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UPLOADS = ROOT.parent / "uploaded_files"
-LATEST_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (8)-c6048b2b6af028df.pdf"
+LATEST_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (10)-a747ac587048da20.pdf"
 PREVIOUS_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (6)-bd3fbb532c3385aa.pdf"
-LATEST_SHA256 = "868714201acdf7444787da5082fe15fe4347c6aa901e24c950e0cdf0c580fad1"
+LATEST_SHA256 = "7c7675cd5b92754795c7dad95ef1be526b7f7dd6987259d44d25d4e245657d82"
 spec = importlib.util.spec_from_file_location("catalog_import", Path(__file__).with_name("import-tabletop-catalog.py"))
 importer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(importer)
@@ -54,19 +54,39 @@ class CatalogTest(unittest.TestCase):
     def test_latest_source_hash_page_map_and_complete_roundtrip(self):
         self.assertEqual(hashlib.sha256(LATEST_PDF.read_bytes()).hexdigest(), LATEST_SHA256)
         self.assertEqual(self.data["provenance"]["rulebook"], LATEST_PDF.name)
-        self.assertEqual(self.data["provenance"]["rulebookPageCount"], 47)
+        self.assertEqual(self.data["provenance"]["rulebookPageCount"], 48)
         self.assertEqual(self.data["provenance"]["pages"], {
-            "factionCards": "26–37", "bots": "38–42", "events": "43–44",
-            "objectives": "45–47", "correlations": "9–10", "units": "17–18", "initialTracks": "5",
+            "factionCards": "27–38", "bots": "39–43", "events": "44–45",
+            "objectives": "46–48", "correlations": "9–10", "units": "17–18", "initialTracks": "5",
         })
         self.assertEqual(importer.build_catalog(LATEST_PDF), self.data)
 
-    def test_latest_appendices_units_and_correlations_match_previous_source(self):
+    def test_latest_source_changes_are_explicit_and_unchanged_sections_match(self):
         previous = importer.build_catalog(PREVIOUS_PDF)
-        for key in self.data:
-            if key != "provenance":
-                with self.subTest(section=key):
-                    self.assertEqual(self.data[key], previous[key])
+        for key in ("territories", "correlations", "initialTracks", "bots"):
+            with self.subTest(section=key):
+                self.assertEqual(self.data[key], previous[key])
+
+        def changed_ids(section):
+            current = {row["id"]: row for row in self.data[section]}
+            old = {row["id"]: row for row in previous[section]}
+            self.assertEqual(set(current), set(old), section)
+            return {row_id for row_id in current if current[row_id] != old[row_id]}
+
+        self.assertEqual(changed_ids("factionCards"), {"NI12"})
+        self.assertEqual(changed_ids("events"), {
+            "E01", "E02", "E05", "E06", "E07", "E08", "E09", "E10", "E11",
+            "E12", "E13", "E14", "E15", "E17", "E20", "E21", "E23", "E25",
+            "E26", "E30", "E31", "E32", "E36", "E38", "E39", "E40", "E41",
+            "E42", "E43", "E44", "E46", "E48", "E49", "E53", "E55", "E61",
+            "E62", "E68", "E70",
+        })
+        self.assertEqual(changed_ids("objectives"), {
+            "OBJ-IR-04", "OBJ-IR-05", "OBJ-IR-11", "OBJ-IR-14",
+            "OBJ-CO-12", "OBJ-CO-13", "OBJ-RU-11", "OBJ-RU-12", "OBJ-RU-14",
+            "OBJ-CN-06", "OBJ-CN-15", "OBJ-EU-12", "OBJ-EU-13",
+        })
+        self.assertEqual(changed_ids("units"), {"CO-U05", "RU-U01", "RU-U03"})
 
     def test_bot_influence_territories_remain_source_gap_not_guessed(self):
         self.assertTrue(any("Influence territories for all 120 BOT cards are absent" in gap
