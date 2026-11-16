@@ -31,7 +31,7 @@ export function Materials({onClose}: {onClose: () => void}) {
         <button className="rounded-lg border border-slate-600 px-4 py-2" onClick={onClose}>Chiudi</button>
       </header>
       <div className="flex flex-wrap gap-3 mb-5 text-sm">
-        <a href={RULEBOOK_URL} target="_blank" rel="noreferrer" download="Linea_Rossa_Regolamento_v3_10.pdf" className="underline text-emerald-300">Apri il regolamento PDF</a>
+        <a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className="underline text-emerald-300">Apri il regolamento PDF</a>
         <a href={RULEBOOK_URL} download="Linea_Rossa_Regolamento_v3_10.pdf" className="underline text-emerald-300">Scarica il manuale PDF</a>
         <a href={UNIT_REFERENCE_URL} target="_blank" rel="noreferrer" className="underline text-emerald-300">Scheda unità PDF</a>
       </div>
