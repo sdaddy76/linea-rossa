@@ -9,7 +9,7 @@ export const COLORS: Record<Faction,string> = {Iran:'#4ade80',Coalizione:'#60a5f
 export const SHORT: Record<Faction,string> = {Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'};
 export interface BoardUnit {id:string;faction:Faction;type:string;territory:string;deployedAt:number}
 function Point({x,y,label,color,children}: {x:number;y:number;label:string;color:string;children:ReactNode}) {
-  return <span title={label} aria-label={label} style={{left:`${x}%`,top:`${y}%`,background:color,transition:'left var(--guide-duration, 400ms) ease, top var(--guide-duration, 400ms) ease'}}
+  return <span data-track-point title={label} aria-label={label} style={{left:`${x}%`,top:`${y}%`,background:color,transition:'left var(--guide-duration, 400ms) ease, top var(--guide-duration, 400ms) ease'}}
     className="absolute -translate-x-1/2 -translate-y-1/2 rounded border border-white text-black font-black text-[clamp(6px,0.7vw,12px)] px-[0.3%] min-w-[1.4%] text-center shadow-md pointer-events-none">{children}</span>;
 }
 function scorePoint(score:number):[number,number] {

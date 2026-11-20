@@ -1,0 +1,30 @@
+.card-motion-layer{position:fixed;inset:0;z-index:35;pointer-events:none;display:flex;align-items:center;justify-content:center;padding:12px}
+.card-motion-notice{width:min(300px,calc(100vw - 32px));max-height:90dvh;color:#f1f5f9;background:#0f172af5;border:1px solid #64748b;border-radius:14px;box-shadow:0 24px 80px #000a;overflow:hidden;animation:card-motion-travel var(--card-motion-duration) ease both}
+.card-motion-caption{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#fca5a5}
+.card-motion-caption button{pointer-events:auto;text-transform:none;letter-spacing:0;border:1px solid #64748b;background:#1e293b;color:#f8fafc;border-radius:6px;padding:5px 10px;min-height:36px}
+.card-motion-caption button:focus-visible{outline:2px solid #fca5a5;outline-offset:2px}
+.card-motion-perspective{perspective:1100px;width:100%;height:min(34dvh,270px);padding:0 12px}
+.card-motion-flip{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+.card-motion-event .card-motion-flip{animation:card-motion-reveal 620ms ease both}
+.card-motion-face,.card-motion-back{position:absolute;inset:0;backface-visibility:hidden;overflow:hidden;border-radius:8px;background:#172337}
+.card-motion-back{transform:rotateY(180deg)}
+.card-motion-face img,.card-motion-back img{width:100%;height:100%;object-fit:contain}
+.card-motion-text-card{height:100%;padding:20px;display:flex;flex-direction:column;justify-content:center;gap:12px;text-align:center;border:1px solid #475569;border-radius:8px}
+.card-motion-text-card small{font-size:11px;color:#cbd5e1}.card-motion-text-card h2{font-size:23px;line-height:1.15;font-weight:700}.card-motion-text-card strong{font-size:27px;color:#fca5a5}.card-motion-text-card p{font-size:12px;color:#cbd5e1}
+.card-motion-description{padding:12px 14px}.card-motion-description>strong{display:block;font-size:15px}.card-motion-description>p{font-size:12px;color:#cbd5e1;margin-top:4px;line-height:1.4}
+.card-motion-description ul{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;list-style:none;padding:0}
+.card-motion-description li{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:11px;padding:5px 7px;border:1px solid #475569;border-radius:6px;background:#1e293b;animation:card-motion-pulse 650ms ease 400ms both}
+.card-motion-description li small{color:#cbd5e1}.card-motion-up b{color:#6ee7b7}.card-motion-down b{color:#fda4af}
+.card-motion-destination{display:block;font-size:11px;color:#94a3b8;text-align:right;margin-top:9px}
+.card-motion-effects{align-self:flex-start;margin-top:75px;animation-name:card-motion-toast}
+.card-motion-special{animation-name:card-motion-retire}
+.tabletop-track-changed{animation:card-motion-pulse 900ms ease both}
+@keyframes card-motion-travel{0%{opacity:0;transform:translateY(38vh) scale(.4) rotate(-9deg)}18%,78%{opacity:1;transform:translate(0,0) scale(1) rotate(0)}100%{opacity:0;transform:translate(34vw,-28vh) scale(.25) rotate(7deg)}}
+@keyframes card-motion-reveal{0%,20%{transform:rotateY(180deg)}100%{transform:rotateY(0)}}
+@keyframes card-motion-retire{0%{opacity:0;transform:translateY(38vh) scale(.4) rotate(-9deg)}18%,78%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-12vh) scale(.65);filter:blur(5px)}}
+@keyframes card-motion-pulse{0%{box-shadow:0 0 0 0 #fde68a00}40%{box-shadow:0 0 0 3px #fde68aaa;background:#374151}100%{box-shadow:0 0 0 0 #fde68a00}}
+@keyframes card-motion-toast{0%{opacity:0;transform:translateY(-12px)}15%,85%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-12px)}}
+.card-motion-layer[data-reduced-motion="true"] *,.tabletop-view[data-reduced-motion="true"] .tabletop-track-changed{animation:none!important;transition:none!important}
+.tabletop-view[data-reduced-motion="true"] [data-track-point]{transition:none!important}
+@media(prefers-reduced-motion:reduce){.card-motion-layer *,.tabletop-view [data-track-point],.tabletop-track-changed{animation:none!important;transition:none!important}}
+@media(max-height:650px){.card-motion-perspective{height:27dvh}.card-motion-description{padding:8px 12px}.card-motion-caption{padding:6px 10px}.card-motion-description li{padding:3px 5px}}

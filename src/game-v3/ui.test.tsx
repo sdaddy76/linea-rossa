@@ -22,6 +22,8 @@ test('new game renders all sixteen selectable territories and every printed slot
   for (const t of TERRITORIES) assert.ok(html.includes(`${t.name}, riquadro 1`), t.id);
   assert.equal((html.match(/riquadro \d+: libero/g) ?? []).length, TERRITORIES.reduce((n, t) => n + t.capacity, 0));
   assert.ok(html.includes('media')); assert.ok(html.includes('segna-turni 0/60')); assert.ok(html.includes(BOARD_ART));
+  assert.ok(html.includes('Riduci animazioni'));
+  assert.ok(html.includes('card-motion-layer'));
 });
 test('each territory has individually anchored square slots within the original map', () => {
   assert.deepEqual(Object.keys(TERRITORY_LAYOUT).sort(), TERRITORIES.map(t=>t.id).sort());

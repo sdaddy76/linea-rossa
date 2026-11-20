@@ -8,9 +8,9 @@ const runtime = process.env.SKYWORK_INTERMEDIATE_ROOT
   ? resolve(process.env.SKYWORK_INTERMEDIATE_ROOT, 'tabletop-tests')
   : mkdtempSync(join(tmpdir(), 'linea-rossa-tests-'));
 mkdirSync(runtime, { recursive: true });
-for (const name of ['engine', 'online', 'ui', 'tutorial/model', 'tutorial/ui']) {
+for (const name of ['engine', 'online', 'ui', 'card-motion', 'tutorial/model', 'tutorial/ui']) {
   const outfile = resolve(runtime, `${name.replace('/', '-')}.test.cjs`);
-  const isUI = name === 'ui' || name === 'tutorial/ui';
+  const isUI = name === 'ui' || name === 'tutorial/ui' || name === 'card-motion';
   await build({
     entryPoints: [`src/game-v3/${name}.test.${isUI ? 'tsx' : 'ts'}`], outfile, platform: 'node', format: 'cjs', bundle: true,
     jsx: 'automatic',

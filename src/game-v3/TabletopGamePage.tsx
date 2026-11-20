@@ -9,6 +9,7 @@ import { commitCommand, readTabletop, type SavedTabletop } from './online';
 import { objectiveStatus } from './objectives';
 import { COLORS, FactionBoard, TabletopBoard, UnitImage } from './Boards';
 import { Materials } from './Materials';
+import { CardMotion, useCardMotion } from './CardMotion';
 import { BOARD_ART, botFrontArt, eventFrontArt, factionBoardArt, RULEBOOK_URL } from './art';
 
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
@@ -23,6 +24,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const { game, gameState, myFaction, profile, players } = useOnlineGameStore();
   const gameId = game?.id;
   const [saved, setSaved] = useState<SavedTabletop | null>(() => readTabletop(gameState));
+  const motion = useCardMotion(saved, gameId);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState('');
@@ -121,19 +123,23 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const points = Object.fromEntries(FACTIONS.map(f => [f, s.players[f].points])) as Record<Faction, number>;
   const stage = { activation: 'Scelta carta', ops: 'Operazioni', veto: 'Decisione sul veto', support: 'Scelta del sostegno', casualty: 'Selezione perdite', discard: 'Scarto di fine round', control: 'Bonus controllo territorio', 'bot-influence': 'Influenza BOT · destinazione manuale', ended: 'Partita conclusa' }[s.phase];
   const mode = s.mode ?? 'media', threshold = MODE_THRESHOLDS[mode];
-  return <main className="min-h-screen bg-slate-950 text-slate-100 pb-12">
+  return <main className="tabletop-view min-h-screen bg-slate-950 text-slate-100 pb-12" data-reduced-motion={motion.reduced}>
     <header className="border-b border-slate-700 bg-slate-900 p-4">
       <div className="max-w-[1600px] mx-auto flex flex-wrap gap-4 items-center justify-between">
         <div><p className="text-xs uppercase tracking-[0.2em] text-red-400">Linea Rossa · Regolamento da tavolo v3</p>
           <h1 className="text-xl font-bold mt-1">Round {s.round} <span className="text-slate-400 font-normal text-sm">· {official ? `modalità ${mode} · segna-turni ${s.turnMarker}/${threshold}` : `legacy · effettivo ${s.actualRound}/8`} · giro {s.lap}/2</span></h1></div>
         <div className="flex flex-wrap gap-2"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className={button}>Apri regolamento PDF</a>
           <a href={RULEBOOK_URL} download="Linea_Rossa_Regolamento_v3_10.pdf" className={button}>Scarica manuale</a>
+          <label className={button + ' flex items-center gap-2 cursor-pointer'}><input type="checkbox"
+            checked={motion.reduced} disabled={motion.systemReduced} onChange={e => motion.setReduced(e.target.checked)}/>
+            Riduci animazioni</label>
           <button className={button} onClick={() => setMaterials(true)}>Materiali</button><button className={button} onClick={onBack}>Lobby</button></div>
       </div>
     </header>
     <div className="max-w-[1600px] mx-auto px-3 md:px-6 space-y-5 mt-5">
       <p className="text-xs text-amber-200 border border-amber-900 bg-amber-950/20 p-3 rounded-lg">Modalità tavolo fidato: mani e obiettivi sono nascosti nell’interfaccia, ma lo stato condiviso non è ancora isolato sul server. Questa versione non offre protezione contro l’ispezione tecnica delle carte avversarie.</p>
-      <div className="flex flex-wrap gap-3">{GLOBALS.map(g => <div key={g} className="rounded-lg bg-slate-900 border border-slate-700 px-4 py-2"><span className="text-slate-400 text-xs block">{g}</span><strong className="text-xl">{s.globals[g]}</strong></div>)}
+      <div className="flex flex-wrap gap-3">{GLOBALS.map(g => <div key={`${g}-${motion.active?.key ?? 'idle'}`}
+        className={'rounded-lg bg-slate-900 border border-slate-700 px-4 py-2' + (motion.active?.changes.some(c => c.target === g) ? ' tabletop-track-changed' : '')}><span className="text-slate-400 text-xs block">{g}</span><strong className="text-xl">{s.globals[g]}</strong></div>)}
         {hormuzBlocked(s) && <p className="self-center text-amber-300">Blocco di Hormuz attivo · Coalizione +1 OP per schierare</p>}
       </div>
       <div role="status" className="p-4 rounded-xl border border-red-800 bg-red-950/30">
@@ -172,7 +178,8 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
           </Panel>
           <Panel title="Plance dei giocatori">
             <div className="flex flex-wrap gap-2">{FACTIONS.map(f => <button key={f} className={button} aria-pressed={boardFaction === f} style={{ borderColor: boardFaction === f ? COLORS[f] : undefined }} onClick={() => setBoardFaction(f)}>{f} · {s.players[f].points} PV {s.players[f].bot ? 'BOT' : ''}</button>)}</div>
-            <div className="flex gap-4 flex-wrap text-sm">{TRACKS.map(t => <span key={t}>{t}: <strong>{s.players[boardFaction].tracks[t]}</strong></span>)}<span>Carte in mano: {s.players[boardFaction].hand.length}</span></div>
+            <div className="flex gap-4 flex-wrap text-sm">{TRACKS.map(t => <span key={`${t}-${motion.active?.key ?? 'idle'}`}
+              className={motion.active?.changes.some(c => c.target === `${boardFaction} · ${t}`) ? 'tabletop-track-changed' : undefined}>{t}: <strong>{s.players[boardFaction].tracks[t]}</strong></span>)}<span>Carte in mano: {s.players[boardFaction].hand.length}</span></div>
             <FactionBoard faction={boardFaction} tracks={s.players[boardFaction].tracks} pv={s.players[boardFaction].points} />
           </Panel>
         </div>
@@ -265,6 +272,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
         <button className={button + ' w-full border-red-500'} disabled={!canAct || s.phase !== 'activation' || !p?.hand.includes(chosen.id)} onClick={() => send({ type: 'begin-ops', cardId: chosen.id })}>Usa per {chosen.cost} OP</button>
       </div>
     </div>}
+    <CardMotion cue={motion.active} reduced={motion.reduced} onDismiss={motion.dismiss}/>
     {materials && <Materials onClose={() => setMaterials(false)} />}
   </main>;
 }
