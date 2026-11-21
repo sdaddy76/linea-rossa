@@ -17,7 +17,7 @@ const TRACK_HELP: Record<Track, string> = {
 const GLOBAL_HELP: Record<GlobalTrack, string> = {
   Nucleare: 'Da 1 a 15. A 15 vince immediatamente l’Iran.',
   Sanzioni: 'Da 1 a 10. A 10 vince immediatamente la Coalizione.',
-  'Crisi Bellica': 'Da 1 a 10. A 1 guerra totale: tutti perdono. Costo unità: 2–4 +2 OP; 5–7 +1; 8–10 +0.',
+  'Crisi Bellica': 'Da 1 a 10. A 1 guerra totale: chi la provoca è escluso dalla vittoria; le altre fazioni calcolano il punteggio finale. Se causata da Eventi o Tensione, nessun responsabile e −5 PV a tutte le fazioni in gara. Costo unità: 2–4 +2 OP; 5–7 +1; 8–10 +0.',
   Opinione: 'Da −10 a +10. Le soglie estreme influenzano la Diplomazia a fine round.',
 };
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
@@ -35,8 +35,8 @@ function Dice({ value, label }: { value: number; label: string }) {
 }
 const KEY_RULES = [
   ['Correlazioni', 'Un aumento può spostare un tracciato di un’altra fazione: leggi entrambe le conseguenze.'],
-  ['Dividendo diplomatico', 'Giocare l’opzione che favorisce un’altra fazione ti dà +1 PV.'],
-  ['Influenza e controllo', 'Unità e Influenza occupano caselle condivise. L’Influenza è permanente e determina i punti territoriali finali.'],
+  ['Dividendo diplomatico', 'Giocare l’opzione che favorisce un’altra fazione ti dà +1 PV, al massimo una volta per round.'],
+  ['Influenza e controllo', 'I riquadri sono riservati all’Influenza permanente, che determina i punti territoriali finali. Le unità sono accanto allo Stato e non occupano riquadri.'],
   ['Unità a due round', 'Non si muovono: prima si ruotano, poi tornano nella riserva.'],
   ['Combattimento', 'Contano solo le unità locali; ogni attacco riduce la Crisi Bellica.'],
   ['Durata della partita', 'Il segna-turni avanza degli OP delle carte delle fazioni Avanza: soglia 30, 60 o 80.'],

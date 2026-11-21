@@ -10,6 +10,8 @@ test('public tutorial renders semantic controls, genuine board, five factions, t
   assert.ok(html.includes('/assets/tabletop-v3/board.jpg'));
   assert.ok(html.includes('aria-label="Controlli del tutorial"'));
   assert.ok(html.includes('guide-preview-options'));
+  assert.ok(html.includes('chi la provoca è escluso dalla vittoria'));
+  assert.ok(!html.includes('tutti perdono'));
   assert.ok(!html.includes('supabase'));
 });
 test('resumed summary is computed, accessible and contains both completion actions', () => {
@@ -27,5 +29,8 @@ test('resumed summary is computed, accessible and contains both completion actio
     assert.ok(html.includes('data-reduced-motion="true"'));
     assert.ok(html.includes('Stato finale dei tracciati'));
     assert.ok(html.includes('3 PV'));
+    assert.ok(html.includes('al massimo una volta per round'));
+    assert.ok(html.includes('non occupano riquadri'));
+    assert.ok(!html.includes('caselle condivise'));
   } finally { Reflect.deleteProperty(globalThis, 'window'); }
 });
