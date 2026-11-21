@@ -153,7 +153,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
             <TabletopBoard globals={s.globals} round={s.round} elapsed={s.actualRound} units={boardUnits} influence={s.influence} gameState={s} pv={points} selected={selectedTerritory} onSelect={setSelectedTerritory} />
           </section>
           <section className="guide-iraq" aria-label="Unità in Iraq">
-            <div><p className="guide-eyebrow">Focus territorio</p><h2>Iraq <span>{s.units.filter(u => u.territory === 'iraq').length} / 3</span></h2><p>Iran e Russia: Amico · Coalizione: Neutrale</p></div>
+            <div><p className="guide-eyebrow">Focus territorio</p><h2>Iraq <span>{s.units.filter(u => u.territory === 'iraq').length} unità</span></h2><p>Iran e Russia: Amico · Coalizione: Neutrale</p></div>
             <div className="guide-units">
               {s.units.filter(u => u.territory === 'iraq').map(u => {
                 const def = UNITS.find(d => d.id === u.type)!;
