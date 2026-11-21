@@ -1,6 +1,6 @@
 /** Test-only in-memory PostgREST fixture. Never imported by the application. */
 export const database = {
-  game: { created_by: 'host', status: 'lobby' },
+  game: { created_by: 'host', status: 'lobby' } as { created_by: string; status: string; game_length?: string; track_limit?: number; max_turns?: number },
   members: [{ faction: 'Iran', player_id: 'host', is_bot: false }],
   state: null as Record<string, unknown> | null,
   calls: [] as { table: string; operation: string; values: unknown; filters: [string, unknown][] }[],

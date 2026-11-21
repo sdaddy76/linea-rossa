@@ -34,14 +34,14 @@ test('all recommended choices match authoritative final fixture, computed by rea
 });
 test('tutorial uses revised rules, exposes a 60-space marker and documents the two end-round gaps', () => {
   let t = initialTutorial();
-  assert.equal(t.game.rulesRevision, '2026-11-16');
+  assert.equal(t.game.rulesRevision, '2026-11-21');
   assert.equal(t.game.mode, 'media');
   assert.equal(t.game.turnMarker, 0);
   assert.match(currentLesson(t).why, /segna-turni/i);
   while (currentLesson(t).id !== 'bot1') t = applyChoice(t, recommendedChoice(t)!.id);
   t = applyChoice(t, recommendedChoice(t)!.id);
   assert.ok(currentLesson(t).id === 'control1' || currentLesson(t).id === 'event2');
-  assert.equal(STORAGE_KEY, 'linea-rossa.guided-game.v3');
+  assert.equal(STORAGE_KEY, 'linea-rossa.guided-game.v4');
 });
 test('alternative event propagates boosts, correlation, dividend and later zones', () => {
   const standard = play(), alternative = play({ china: 'event:2' });

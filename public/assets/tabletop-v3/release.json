@@ -1,10 +1,12 @@
 {
-  "release": "tabletop-2026-11-16-regolamento-v10",
-  "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (10).pdf",
+  "release": "tabletop-2026-11-21-regolamento-v11",
+  "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (11)_7919.pdf",
   "unitReference": "Linea_Rossa_Scheda_Unita_A4 (1).pdf",
   "boardSource": "LineaRossa_Plance.zip",
   "assets": {
-    "/assets/tabletop-v3/regolamento.pdf": "7c7675cd5b92754795c7dad95ef1be526b7f7dd6987259d44d25d4e245657d82",
+    "/assets/tabletop-v3/aiuto-giocatore.pdf": "45fb46c6316c234af3d5467bdf53537e2fd655859c7ed41cf98e599660ea5856",
+    "/assets/tabletop-v3/aiuto-giocatore-bianco.pdf": "921c0510418d20208c8764cfaa9861965ad4419d6627eb095d548c890e271a83",
+    "/assets/tabletop-v3/regolamento.pdf": "cf5ba48d604be4690a26f38af8687d6e9784c1b1519febc3fb047a656a620990",
     "/assets/tabletop-v3/scheda-unita.pdf": "eea41298fc5ef108f002302b53428202a27262e3338e37aaf6b5f291d46e121e",
     "/assets/tabletop-v3/boards/Iran.jpg": "d574fcc556bb6b32da391e9f88fce142721c28ff470515ba9d6dc0a070f3301d",
     "/assets/tabletop-v3/boards/Coalizione.jpg": "027ab123fce78c646e869b6ef51307d5dddc2d5689ea1cee871ff62ac54483cb",

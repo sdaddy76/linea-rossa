@@ -8,7 +8,7 @@ export function readTabletop(row: unknown): SavedTabletop | null {
   return value?.state?.version === 3 && Number.isInteger(value.revision) ? value : null;
 }
 function checked(error: { message: string } | null) { if (error) throw new Error(error.message); }
-export async function initializeTabletop(gameId: string, userId: string, requestedMode?: GameMode) {
+export async function initializeTabletop(gameId: string, userId: string, requestedMode?: GameMode, requestedNeutrals: Faction[] = []) {
   const game = await supabase.from('games').select('*').eq('id', gameId).single();
   checked(game.error);
   if (game.data?.created_by !== userId) throw new Error('Solo il creatore può avviare la partita.');
@@ -27,11 +27,14 @@ export async function initializeTabletop(gameId: string, userId: string, request
   const roster = await supabase.from('game_players').select('*').eq('game_id', gameId);
   checked(roster.error);
   const actualBots = FACTIONS.filter(f => !roster.data?.some(p => p.faction === f && p.player_id && !p.is_bot));
+  if (requestedNeutrals.some(f => !FACTIONS.includes(f) || !actualBots.includes(f))) throw new Error('Solo i posti senza giocatore possono essere neutrali.');
   const existing = await supabase.from('game_state').select('*').eq('game_id', gameId).maybeSingle();
   checked(existing.error);
   // Retry an interrupted start without dealing a second set of cards.
   const gameMode = requestedMode ?? (['breve', 'media', 'lunga'].includes(game.data.game_length) ? game.data.game_length : 'media') as GameMode;
-  const saved = readTabletop(existing.data) ?? { revision: 0, state: createGame({ bots: actualBots, mode: gameMode }) };
+  const saved = readTabletop(existing.data) ?? { revision: 0, state: createGame({
+    bots: actualBots.filter(f => !requestedNeutrals.includes(f)), neutrals: requestedNeutrals, mode: gameMode, rulesRevision: '2026-11-21',
+  }) };
   const values = { game_id: gameId, nucleare: saved.state.globals.Nucleare, sanzioni: saved.state.globals.Sanzioni,
     active_faction: currentActor(saved.state),
     special_uses: { ...((existing.data?.special_uses as object) ?? {}), tabletop_v3: saved } };

@@ -274,7 +274,7 @@ def units(pages):
         ws = words(pages[number - 1])
         # The latest p17 also has Iran in preceding Influence/control prose.
         # Only faction cells below the actual table header start unit rows.
-        table_top = headers[0]["y"] if number == 17 else 0
+        table_top = headers[0]["y"] if number == first_page else 0
         rows = sorted([w for w in ws if w["x"] < 80 and w["s"] in FACTIONS and w["y"] > table_top], key=lambda w: w["y"])
         for i, row in enumerate(rows):
             starts = [*UNIT_COLUMNS[:-1], effect_x]
@@ -367,7 +367,7 @@ BOARD = [
 def read_pdf(pdf):
     xml = subprocess.check_output(["pdftotext", "-bbox-layout", str(pdf), "-"])
     pages = ET.fromstring(xml).findall(f".//{NS}page")
-    require(len(pages) in (46, 47, 48), f"Expected 46, 47 or 48 pages, got {len(pages)}")
+    require(len(pages) in (46, 47, 48, 49), f"Expected 46–49 pages, got {len(pages)}")
     return pages
 
 
@@ -381,7 +381,7 @@ def source_pages(pages):
         "bots": list(range(37 + offset, 42 + offset)),
         "events": [42 + offset, 43 + offset],
         "objectives": [44 + offset, 45 + offset, 46 + offset],
-        "correlations": [9, 10], "units": [17, 18], "initialTracks": [5],
+        "correlations": [9, 10], "units": [18, 19] if len(pages) == 49 else [17, 18], "initialTracks": [5],
     }
     for key, letter in [("factionCards", "A"), ("bots", "B"), ("events", "C"), ("objectives", "D")]:
         number = result[key][0]
@@ -411,7 +411,7 @@ def build_catalog(pdf, root=None, pages=None):
             "eventTurnSource": "LineaRossa_Mazzo_Eventi-f05d663e27bdf92e.zip",
             "eventTurnVerification": "375 order positions and all 75 Avanzano fields checked on diagnostic contact sheets; no discrepancies with legacy values.",
             "unlockFlags": "src/data/mazzi.ts unlocks_special matched by exact ID; appendix A omits these flags",
-            "unlockRule": "Rulebook p13: draw one special only if the printed card has Sblocca carta speciale.",
+            "unlockRule": "Compatibility metadata only: latest rulebook p13 mixes all 15 specials into the shared deck; no unlock or separate reserve applies to new games.",
             "sourceVerifiedUnlockIds": ["C004", "C006", "C015"],
             "unlockGraphicAudit": "All 78 supplied ZIP faction fronts checked by OCR AND visually at the fixed unlock-banner region; only C004/C006/C015 have a banner. These three complete fronts also visually verified.",
             "legacyOnlyUnlockIds": ["C032", "C045", "NI34"],

@@ -7,9 +7,11 @@ import TabletopGamePage from './TabletopGamePage';
 import { uiFixture } from './test-ui-store';
 import { createGame, reduce } from './engine';
 import { TabletopBoard } from './Boards';
+import { PlayerAid } from './PlayerAid';
+import { Materials } from './Materials';
 import { TERRITORY_LAYOUT, territorySlot } from './board-layout';
 import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, TERRITORIES, UNITS } from './catalog';
-import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL } from './art';
+import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL, PLAYER_AID_URL, PLAYER_AID_WHITE_URL } from './art';
 
 const render = () => renderToStaticMarkup(<TabletopGamePage onBack={() => {}} />);
 beforeEach(() => {
@@ -105,10 +107,30 @@ test('all official gameplay fronts/backs and PDFs resolve to real local deploy a
 });
 test('release binds the latest rulebook, unit reference, five faction boards and the main board', () => {
   const release = JSON.parse(readFileSync('public/assets/tabletop-v3/release.json', 'utf8'));
-  assert.equal(release.release, 'tabletop-2026-11-16-regolamento-v10');
-  assert.equal(Object.keys(release.assets).length, 8);
+  assert.equal(release.release, 'tabletop-2026-11-21-regolamento-v11');
+  assert.equal(Object.keys(release.assets).length, 10);
   for (const [url, expected] of Object.entries(release.assets)) {
     const actual = createHash('sha256').update(readFileSync(`public${url}`)).digest('hex');
     assert.equal(actual, expected, url);
   }
+});
+test('player aid is consultable in-game and both original PDFs are deploy assets', () => {
+  const html=renderToStaticMarkup(<PlayerAid onClose={()=>{}}/>);
+  assert.ok(html.includes('Aiuto giocatore fronte e retro'));
+  assert.ok(html.includes(`src="${PLAYER_AID_URL}"`));
+  assert.ok(html.includes('Scarica aiuto giocatore'));
+  assert.ok(html.includes('Fondo bianco'));
+  for(const url of [PLAYER_AID_URL,PLAYER_AID_WHITE_URL]) assert.ok(existsSync(`public${url}`));
+  assert.ok(render().includes('Aiuto giocatore'));
+  assert.ok(renderToStaticMarkup(<Materials onClose={()=>{}}/>).includes('Consulta aiuto giocatore'));
+});
+test('v11 map keeps unit stacks separate from Influence slots and shows every faction score', () => {
+  const s=uiFixture.state;s.rulesRevision='2026-11-21';
+  s.units=[{id:'u1',type:'IR-U01',faction:'Iran',territory:'iran',placedRound:1,rotated:false}];
+  s.influence=[{id:'i1',faction:'Coalizione',territory:'iran',slot:0}];
+  const html=render();
+  assert.ok(html.includes('data-unit-stack="iran" data-faction="Iran"'));
+  assert.ok(html.includes('data-influence-id="i1"'));
+  assert.ok(!html.includes('data-unit-id="u1"'));
+  assert.ok(html.includes('Iran: 0 PV'));assert.ok(html.includes('Segna-turni 0'));
 });

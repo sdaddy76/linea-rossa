@@ -3,7 +3,7 @@
 // Tavolo aperto (chiunque) vs riservato (codice)
 // Lista tavoli con fazioni libere / spettatore
 // =============================================
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Game, Profile, Faction } from '@/types/game';
 import CardLibraryManager from '@/components/CardLibraryManager';
@@ -12,6 +12,7 @@ import EventLibraryManager from '@/components/EventLibraryManager';
 import ObjectiveLibraryManager from '@/components/ObjectiveLibraryManager';
 import WaitingRoom from '@/components/WaitingRoom';
 import { Materials } from '@/game-v3/Materials';
+import { PlayerAid } from '@/game-v3/PlayerAid';
 
 interface LobbyPageProps {
   profile: Profile;
@@ -49,8 +50,10 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
   const [customCode, setCustomCode] = useState('');      // codice scelto dall'host (riservata)
   const [tabletopMode, setTabletopMode] = useState<'breve' | 'media' | 'lunga'>('media');
   const [showMaterials, setShowMaterials] = useState(false);
+  const [showAid, setShowAid] = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
+  const creating = useRef(false);
 
   // ── Stato join manuale ───────────────────────────────────────────────────
   const [joinCode, setJoinCode]     = useState('');
@@ -244,11 +247,12 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
   const createGame = async (mode: 'solo' | 'apri' = 'apri') => {
     if (!setupFaction) { setError('Scegli prima la tua fazione'); return; }
     if (!profile?.id) { setError('Sessione non valida — effettua di nuovo il login'); return; }
+    if (creating.current) return;
+    creating.current = true;
     setLoading(true); setError('');
     // Timeout di sicurezza: protegge SOLO la creazione del tavolo nel DB (non startGame)
     const safetyTimer = setTimeout(() => {
-      setLoading(false);
-      setError('⏱️ Timeout — il server non risponde. Riprova tra qualche secondo.');
+      setError('Il server sta impiegando più tempo del previsto. Non creare un secondo tavolo: attendi l’esito o ricarica e controlla le partite recenti.');
     }, 30000);
     try {
       // Codice: se riservata e l'host ne ha inserito uno → usalo (uppercase)
@@ -256,14 +260,6 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       let code = isPublic
         ? makeCode()
         : (customCode.trim().toUpperCase() || makeCode());
-
-      // Fallback RPC
-      if (isPublic) {
-        try {
-          const { data: rpcCode, error: rpcErr } = await supabase.rpc('generate_game_code');
-          if (!rpcErr && rpcCode) code = rpcCode as string;
-        } catch { /* ignora */ }
-      }
 
       // Insert con retry su codice duplicato
       let game = null;
@@ -302,6 +298,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
 
       // Tavolo creato nel DB: ferma il safetyTimer (startGame può durare altri 10-15s)
       clearTimeout(safetyTimer);
+      setError('');
       setWaitingGame({
         id: game.id, code: game.code, isHost: true, isPublic: game.is_public ?? isPublic,
         tabletopMode,
@@ -313,8 +310,10 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       });
     } catch (err: unknown) {
       clearTimeout(safetyTimer);
-      setError(err instanceof Error ? err.message : 'Errore nella creazione');
+      setError((err instanceof Error ? err.message : 'Errore nella creazione') + ' · Se la risposta è andata persa, il tavolo potrebbe essere già stato creato: controlla le partite recenti prima di riprovare.');
+      void loadGames();
     } finally {
+      creating.current = false;
       setLoading(false);
     }
   };
@@ -473,7 +472,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
           {/* Turno (partite attive/chiuse) */}
           {(isActive || isFinished) && (
             <span className="text-[#556677] text-xs font-mono whitespace-nowrap">
-              {game.game_length && game.game_length !== 'legacy'
+              {game.game_length && ['breve','media','lunga'].includes(game.game_length)
                 ? `Edizione da tavolo · ${game.game_length} · segna-turni ${game.current_turn}/${game.track_limit ?? game.max_turns}`
                 : `Legacy · turno ${game.current_turn}/${game.max_turns}`}
               {game.winner_faction && (
@@ -590,6 +589,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
               className="px-3 py-1.5 border border-[#1e3a5f] text-slate-200 rounded-lg text-xs">
               Materiali ufficiali v3
             </button>
+            <button onClick={() => setShowAid(true)} className="px-3 py-1.5 border border-[#1e3a5f] text-slate-200 rounded-lg text-xs">Aiuto giocatore</button>
             {onTutorial&&<button onClick={onTutorial} className="px-3 py-1.5 border border-amber-600 text-amber-200 rounded-lg text-xs">Partita guidata</button>}
             <button onClick={() => { setShowStats(true); loadPlayerStats(); }}
               className="px-3 py-1.5 border border-[#1e3a5f] hover:border-[#22c55e]
@@ -899,6 +899,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
 
       {/* ── Modali ── */}
       {showMaterials && <Materials onClose={() => setShowMaterials(false)} />}
+      {showAid && <PlayerAid onClose={() => setShowAid(false)} />}
       {showLibrary    && <CardLibraryManager   onClose={() => setShowLibrary(false)} />}
       {showEventLibrary && <EventLibraryManager onClose={() => setShowEventLibrary(false)} />}
       {showObjectiveLibrary && <ObjectiveLibraryManager onClose={() => setShowObjectiveLibrary(false)} />}

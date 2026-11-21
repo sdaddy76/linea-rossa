@@ -5,6 +5,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { PlayerAid } from '@/game-v3/PlayerAid';
+import { RULEBOOK_URL } from '@/game-v3/art';
 
 interface Props {
   onPlay: () => void;
@@ -138,6 +140,7 @@ const FACTION_FLAGS = [
 
 export default function CoverPage({ onPlay, onTutorial }: Props) {
   const stats = useLiveStats();
+  const [showAid,setShowAid] = useState(false);
   return (
     <div
       className="min-h-screen w-full flex flex-col relative overflow-hidden"
@@ -257,6 +260,10 @@ export default function CoverPage({ onPlay, onTutorial }: Props) {
           ▶ &nbsp;INIZIA LA PARTITA
         </button>
         {onTutorial&&<button onClick={onTutorial} className="mt-4 px-6 py-3 rounded-xl border border-amber-600 text-amber-200 font-bold focus-visible:outline-white">Partita guidata · impara in 2 round</button>}
+        <div className="flex flex-wrap justify-center gap-4 mt-4 text-sm text-slate-300">
+          <button onClick={()=>setShowAid(true)} className="underline">Aiuto giocatore</button>
+          <a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className="underline">Regolamento PDF</a>
+        </div>
 
         <p className="mt-4 text-xs font-mono" style={{ color: '#334155' }}>
           Multiplayer online · fino a 5 fazioni
@@ -287,6 +294,7 @@ export default function CoverPage({ onPlay, onTutorial }: Props) {
         <span className="text-xs font-mono" style={{ color: '#1e293b' }}>☢️ LINEA ROSSA</span>
         <span className="text-xs font-mono" style={{ color: '#1e293b' }}>v1.0 · 2026</span>
       </div>
+      {showAid&&<PlayerAid onClose={()=>setShowAid(false)}/>}
     </div>
   );
 }

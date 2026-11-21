@@ -1,7 +1,7 @@
 import { createGame, reduce, currentActor, deployCost, type EngineState, type Command, type RNG } from '../engine';
 import { FACTIONS, TRACKS, FACTION_CARDS, EVENTS, INITIAL_TRACKS, CORRELATIONS, UNITS, TERRITORIES, type Faction, type Track, type GlobalTrack, type TrackChange } from '../catalog';
 
-export const STORAGE_KEY = 'linea-rossa.guided-game.v3';
+export const STORAGE_KEY = 'linea-rossa.guided-game.v4';
 export type Speed = 'lenta' | 'normale' | 'veloce';
 export interface Session { version: 1; choices: string[]; cursor: number; speed: Speed }
 export interface Choice { id: string; label: string; recommended?: boolean; detail?: string; unavailableReason?: string }
@@ -25,17 +25,17 @@ export const LESSONS: Lesson[] = [
   lesson('iran-deploy', 3, 'Schiera l’IRGC in Iraq', 'Usa C025 come OP. In questo tutorial questa mossa è obbligatoria per mostrarti il combattimento.', 'Il costo dipende da unità, Crisi Bellica, zona Economia e allineamento. Le unità schierate non si muovono.', { actor: 'Iran', card: 'C025', mandatory: true }),
   lesson('china', 4, 'Il dividendo diplomatico', 'Aiutare un’altra fazione ti dà +1 PV, anche se la correlazione avvantaggia te.', 'Il dividendo premia chi gioca un’opzione a favore di una fazione diversa dalla propria.', { actor: 'Cina', card: 'C075C' }),
   lesson('coalition-deploy', 5, 'Anche la Coalizione entra in Iraq', 'Schiera Convenzionale usando C010. In questo tutorial questa mossa è obbligatoria per mostrarti il combattimento.', 'Un territorio neutrale aggiunge 1 OP al costo; uno nemico ne aggiunge 2.', { actor: 'Coalizione', card: 'C010', mandatory: true }),
-  lesson('russia-deploy', 6, 'I Consiglieri militari', 'Usa NR01 per schierare i Consiglieri in Iraq: i tre riquadri saranno occupati.', 'Russia, Cina ed Europa non attaccano, ma possono sostenere uno schieramento nel territorio in cui hanno unità.', { actor: 'Russia', card: 'NR01', mandatory: true }),
-  lesson('tension1', 7, 'Fine round · 1 / 4 · Tensione', 'Controlla Sanzioni, Nucleare e Opinione: il motore applica le soglie reali.', 'Sanzioni ≥8 riduce l’Economia iraniana; Nucleare ≥12 abbassa la Crisi Bellica; Opinione estrema modifica la Diplomazia.'),
-  lesson('score1', 7, 'Fine round · 2 / 4 · Punteggio', 'Ogni tracciato Forte vale +1 PV; ogni tracciato in Crisi vale −1 PV.', 'Il punteggio è calcolato dai tracciati che hai costruito: le alternative non vengono annullate. I PV non scendono sotto zero.'),
-  lesson('units1', 7, 'Fine round · 3 / 4 · Durata', 'Le tre unità in Iraq ruotano di 90°.', 'Ogni unità resta due round: alla prima fine round si ruota, alla successiva rientra nella riserva.'),
-  lesson('bot1', 7, 'Fine round · 4 / 6 · Influenza BOT', 'I BOT piazzano Influenza in base alla carta rivelata. Nel materiale ricevuto mancano le intestazioni che indicano lo Stato di destinazione.', 'Le destinazioni delle carte BOT non si possono ricostruire dal regolamento disponibile; questa simulazione guidata ha cinque fazioni umane e non inventa mosse BOT.'),
-  lesson('control1', 7, 'Fine round · 5 / 6 · Controllo', 'Il controllo somma unità e Influenza. Qui Iraq resta in parità e non assegna bonus.', 'I bonus dei territori controllati sono quelli stampati sulla plancia; Iraq richiede la scelta Economia o Militare.'),
-  lesson('refill1', 7, 'Fine round · 6 / 6 · Punteggio e rifornimento', 'Si applicano i punti di zona, ruotano le unità e si pesca in base al Consenso.', 'Consenso in Crisi: 1 carta; Stabile: 2; Forte: 3. Non c’è una pesca extra per la fazione Avanza.'),
+  lesson('russia-deploy', 6, 'I Consiglieri militari', 'Usa NR01 per schierare i Consiglieri in Iraq: tre unità accanto allo Stato, nessun riquadro Influenza occupato.', 'Russia, Cina ed Europa non attaccano, ma possono sostenere uno schieramento nel territorio in cui hanno unità.', { actor: 'Russia', card: 'NR01', mandatory: true }),
+  lesson('tension1', 7, 'Fine round · 1 / 6 · Tensione', 'Controlla Sanzioni, Nucleare e Opinione: il motore applica le soglie reali.', 'Sanzioni ≥8 riduce l’Economia iraniana; Nucleare ≥12 abbassa la Crisi Bellica; Opinione estrema modifica la Diplomazia.'),
+  lesson('bot1', 7, 'Fine round · 2 / 6 · Influenza BOT', 'I BOT piazzano Influenza in base alla carta rivelata. Nel materiale ricevuto mancano le intestazioni che indicano lo Stato di destinazione.', 'Le destinazioni delle carte BOT non si possono ricostruire dal regolamento disponibile; questa simulazione guidata ha cinque fazioni umane e non inventa mosse BOT.'),
+  lesson('control1', 7, 'Fine round · 3 / 6 · Controllo', 'Il controllo somma unità e Influenza. Qui Iraq resta in parità e non assegna bonus.', 'I bonus dei territori controllati sono quelli stampati sulla plancia; Iraq richiede la scelta Economia o Militare.'),
+  lesson('score1', 7, 'Fine round · 4 / 6 · Punteggio', 'Ogni tracciato Forte vale +1 PV; ogni tracciato in Crisi vale −1 PV.', 'Il punteggio è calcolato dai tracciati che hai costruito: le alternative non vengono annullate. I PV non scendono sotto zero.'),
+  lesson('units1', 7, 'Fine round · 5 / 6 · Durata', 'Le tre unità in Iraq ruotano di 90°.', 'Ogni unità resta due round: alla prima fine round si ruota, alla successiva rientra nella riserva.'),
+  lesson('refill1', 7, 'Fine round · 6 / 6 · Rifornimento', 'Si pesca in base al Consenso, poi si scarta fino al limite di mano.', 'Consenso in Crisi: 1 carta; Stabile: 2; Forte: 3. Non c’è una pesca extra per la fazione Avanza.'),
   lesson('event2', 8, 'Round 2 · Un canale segreto', 'Rivela E37. Cina → Coalizione → Iran → Russia → Europa. Avanza: Cina.', 'Gli aumenti di Diplomazia dell’evento non applicano correlazioni.', { event: 'E37' }),
   lesson('development', 9, 'Sviluppo · scegli un tracciato', 'C091C vale 2 OP: scegli quale tracciato della Cina sviluppare.', 'Sviluppo costa 2 OP e alza di 1 il tracciato scelto; devi applicare una delle sue due correlazioni.', { actor: 'Cina', card: 'C091C' }),
   lesson('correlation', 9, 'Sviluppo · scegli la correlazione', 'Applica una delle due correlazioni stampate sulla plancia cinese.', 'La correlazione è obbligatoria. La consigliata di Diplomazia aiuta la mediazione europea.', { actor: 'Cina', card: 'C091C' }),
-  lesson('declare', 10, 'Combattimento · 1 / 5 · Dichiara', 'La Coalizione spende 2 dei 3 OP di C009 per attaccare in Iraq.', 'Solo Iran e Coalizione attaccano. Ogni attacco abbassa di 1 la Crisi Bellica: a 1 tutti perdono.', { actor: 'Coalizione', card: 'C009', mandatory: true }),
+  lesson('declare', 10, 'Combattimento · 1 / 5 · Dichiara', 'La Coalizione spende 2 dei 3 OP di C009 per attaccare in Iraq.', 'Solo Iran e Coalizione attaccano. Ogni attacco abbassa di 1 la Crisi Bellica: se arriva a 1 perde chi ha provocato la guerra; le altre fazioni fanno il punteggio finale.', { actor: 'Coalizione', card: 'C009', mandatory: true }),
   lesson('support', 10, 'Combattimento · 2 / 5 · Sostegno', 'La Russia ha i Consiglieri in Iraq. Quale schieramento sosterrà?', 'Contano solo le unità del territorio attaccato. Il sostegno usa il valore di Attacco o Difesa dell’unità secondo lo schieramento.', { actor: 'Russia' }),
   lesson('special', 10, 'Combattimento · 3 / 5 · Effetti speciali', 'Qui nessun effetto speciale si applica. IRGC è in Iraq, non in Iran.', 'IRGC Cyber Unit riduce la difesa avversaria; S-400 annulla l’Aviazione Tattica; uno Scudo annulla il bonus dei Missili balistici attaccanti.'),
   lesson('dice', 10, 'Combattimento · 4 / 5 · Dadi', 'I dadi didattici sono fissi: Coalizione 6, Iran 2. I totali dipendono dalle tue scelte.', 'Attacco e Difesa sommano unità locali, modificatore Militare e dado. In parità vince il difensore.'),
@@ -47,20 +47,20 @@ export const LESSONS: Lesson[] = [
   lesson('score2', 14, 'Fine round · 5 / 6 · Punteggio', 'Osserva i PV e le zone Forte e Crisi delle cinque potenze.', 'I bonus e le penalità dei quattro tracciati si sommano per ogni fazione.'),
   lesson('units2', 14, 'Fine round · 6 / 6 · Rifornimento', 'Le unità già ruotate tornano in riserva; il rifornimento dipende dal Consenso.', 'Per riaverle sul tabellone bisogna ricomprarle. Non c’è pescata extra Avanza.'),
   lesson('duration2', 14, 'La partita continua', 'Il segna-turni avanza in base agli OP delle carte giocate dalle fazioni Avanza.', 'Breve termina a 30, Media a 60, Lunga a 80. Si chiude il round che raggiunge o supera la soglia.'),
-  lesson('summary', 15, 'Hai attraversato la crisi', 'Questa è la classifica della tua partita guidata, calcolata dalle mosse scelte.', 'Vittoria immediata: Nucleare 15 → Iran; Sanzioni 10 → Coalizione; Crisi Bellica 1 → tutti perdono. Altrimenti il punteggio finale considera i soli segnalini Influenza, gli obiettivi segreti e i tracciati al massimo.'),
+  lesson('summary', 15, 'Hai attraversato la crisi', 'Questa è la classifica della tua partita guidata, calcolata dalle mosse scelte.', 'Vittoria immediata: Nucleare 15 → Iran; Sanzioni 10 → Coalizione. Crisi Bellica 1: perde chi la provoca, gli altri fanno il punteggio finale; se causata da Evento o Tensione, −5 PV a tutte le fazioni in gara. Il punteggio finale considera Influenza, obiettivi segreti e tracciati al massimo.'),
 ];
 
 /** Explicit scenario adapter: prescribed cards/events, one activation/faction,
  * fixed dice. Player actions/costs/combat/scoring go through reduce(); the two
  * event reveals use the authoritative event catalog (see startEvent). */
 export function initialTutorial(): TutorialState {
-  const s = createGame({ bots: [] }, stableRng);
+  const s = createGame({ bots: [], rulesRevision: '2026-11-21' }, stableRng);
   s.phase = 'activation'; s.round = 1; s.actualRound = 1; s.lap = 1; s.turnIndex = 0;
   s.order = [...EVENTS.find(e => e.id === 'E01')!.order]; s.advancers = []; s.event = null;
   s.eventDeck = ['E01', 'E37', 'E01']; s.units = []; s.nextUnit = 1;
   s.globals = { Nucleare: 4, Sanzioni: 3, 'Crisi Bellica': 7, Opinione: 0 };
   s.queue = []; s.pending = null; s.ops = null; s.combat = null; s.result = null; s.log = [];
-  s.deck = FACTION_CARDS.filter(c => !c.special).map(c => c.id);
+  s.deck = FACTION_CARDS.map(c => c.id);
   s.discard = []; s.removed = []; s.roundBlocked = false;
   for (const f of FACTIONS) {
     s.players[f] = { bot: false, tracks: { ...INITIAL_TRACKS[f] }, points: 0, hand: [], objectives: [], vetoUsed: false };
@@ -185,7 +185,7 @@ export function applyChoice(previous: TutorialState, id: string): TutorialState 
     t.selectedSupport = id.split(':')[1];
     s = command(s, { type: 'support', side: t.selectedSupport as 'attacker' | 'defender' | 'none' }, combatRng()); advance();
   } else if (l.id === 'event1' || l.id === 'event2') {
-    if (l.id === 'event2') { s.round = 2; s.actualRound = 2; for (const f of FACTIONS) s.players[f].vetoUsed = false; }
+    if (l.id === 'event2') { s.round = 2; s.actualRound = 2; for (const f of FACTIONS) { s.players[f].vetoUsed = false; s.players[f].dividendUsed = false; } }
     s = startEvent(s, l.event!); advance();
   } else if (l.id.endsWith('-deploy')) {
     const unitId = ({ 'iran-deploy': 'IR-U02', 'coalition-deploy': 'CO-U01', 'russia-deploy': 'RU-U01' } as Record<string, string>)[l.id];

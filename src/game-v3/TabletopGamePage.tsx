@@ -4,13 +4,14 @@ import { useOnlineGameStore } from '@/store/onlineGameStore';
 import { getFactionCardFront, getObjectiveCardFront } from '@/data/card-graphics';
 import { FACTIONS, TRACKS, type Faction, type GlobalTrack, type TrackChange } from './catalog-types';
 import { BOT_CARDS, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
-import { canDeploy, currentActor, deployCost, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, type Command } from './engine';
+import { canDeploy, currentActor, deployCost, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, type Command } from './engine';
 import { commitCommand, readTabletop, type SavedTabletop } from './online';
 import { objectiveStatus } from './objectives';
 import { COLORS, FactionBoard, TabletopBoard, UnitImage } from './Boards';
 import { Materials } from './Materials';
+import { PlayerAid } from './PlayerAid';
 import { CardMotion, useCardMotion } from './CardMotion';
-import { BOARD_ART, botFrontArt, eventFrontArt, factionBoardArt, RULEBOOK_URL } from './art';
+import { botFrontArt, eventFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from './art';
 
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
 const changeText = (c: TrackChange) => `${c.faction} · ${c.track} ${c.delta > 0 ? '+' : ''}${c.delta}`;
@@ -30,6 +31,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState('');
   const [autoPaused, setAutoPaused] = useState(false);
   const [materials, setMaterials] = useState(false);
+  const [aid, setAid] = useState(false);
   const [selected, setSelected] = useState('iran');
   const [boardFaction, setBoardFaction] = useState<Faction>((myFaction as Faction) || 'Iran');
   const [cardId, setCardId] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const actor = s ? currentActor(s) : null;
   const own = myFaction && FACTIONS.includes(myFaction as Faction) ? myFaction as Faction : null;
   const member = players.some(p => p.player_id === profile?.id && p.faction === own && !p.is_bot);
-  const isBot = !!s && !!actor && s.players[actor].bot;
+  const isBot = !!s && !!actor && (s.players[actor].bot || !!s.players[actor].neutral);
   const needsManualResolution = !!s?.pending && ['bot-influence', 'control'].includes(s.pending.kind);
   const canAct = !!actor && member && (actor === own && !isBot || needsManualResolution) && !busy;
   const send = useCallback(async (command: Command, automatic = false) => {
@@ -93,10 +95,10 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
     }
   }, [saved, gameId, actor, own, member, refresh]);
   useEffect(() => {
-    if (!isBot || !member || busy || autoPaused || needsManualResolution) return;
+    if (!isBot || !member || busy || autoPaused || needsManualResolution || motion.active) return;
     const timer = window.setTimeout((): void => { void send({ type: 'advance-bot' }, true); }, 1400);
     return () => window.clearTimeout(timer);
-  }, [saved?.revision, isBot, member, busy, autoPaused, needsManualResolution, send]);
+  }, [saved?.revision, isBot, member, busy, autoPaused, needsManualResolution, send, motion.active]);
   useEffect(() => { setMarked([]); }, [s?.phase, actor]);
   if (!s || !game) return <main className="p-8 bg-slate-950 text-white min-h-screen"><p>Caricamento partita…</p><button className={button} onClick={onBack}>Torna alla lobby</button></main>;
   const p = own ? s.players[own] : null;
@@ -115,7 +117,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const chosenUnit = deployable.find(u => u.id === unitId) ?? deployable[0];
   const intelligence = !!chosenUnit && /intelligence|satelliti/i.test(chosenUnit.name);
   const placementCyber = !!chosenUnit && /^(cyber russia|cyber unit)$/i.test(chosenUnit.name);
-  const targetOptions = intelligence ? [...FACTIONS] : FACTIONS.filter(f => f !== opsActor && localUnits.some(u => u.faction === f));
+  const targetOptions = intelligence ? [...FACTIONS] : FACTIONS.filter(f => f !== opsActor && (usesLatestRules(s) ? territoryPresence(s,f,selected)>0 : localUnits.some(u => u.faction === f)));
   const deploymentTarget = targetOptions.includes(target) ? target : targetOptions[0];
   const budget = s.ops?.remaining ?? 0;
   const pressureCost = opsActor ? (s.players[opsActor].tracks.Diplomazia <= 3 ? 3 : s.players[opsActor].tracks.Diplomazia >= 8 ? 1 : 2) : 0;
@@ -126,10 +128,11 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   return <main className="tabletop-view min-h-screen bg-slate-950 text-slate-100 pb-12" data-reduced-motion={motion.reduced}>
     <header className="border-b border-slate-700 bg-slate-900 p-4">
       <div className="max-w-[1600px] mx-auto flex flex-wrap gap-4 items-center justify-between">
-        <div><p className="text-xs uppercase tracking-[0.2em] text-red-400">Linea Rossa · Regolamento da tavolo v3</p>
+        <div><p className="text-xs uppercase tracking-[0.2em] text-red-400">Linea Rossa · Regolamento da tavolo {usesLatestRules(s) ? 'v3.11' : 'v3 · salvataggio precedente'}</p>
           <h1 className="text-xl font-bold mt-1">Round {s.round} <span className="text-slate-400 font-normal text-sm">· {official ? `modalità ${mode} · segna-turni ${s.turnMarker}/${threshold}` : `legacy · effettivo ${s.actualRound}/8`} · giro {s.lap}/2</span></h1></div>
         <div className="flex flex-wrap gap-2"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className={button}>Apri regolamento PDF</a>
-          <a href={RULEBOOK_URL} download="Linea_Rossa_Regolamento_v3_10.pdf" className={button}>Scarica manuale</a>
+          <a href={RULEBOOK_URL} download={RULEBOOK_FILENAME} className={button}>Scarica manuale</a>
+          <button className={button} onClick={() => setAid(true)}>Aiuto giocatore</button>
           <label className={button + ' flex items-center gap-2 cursor-pointer'}><input type="checkbox"
             checked={motion.reduced} disabled={motion.systemReduced} onChange={e => motion.setReduced(e.target.checked)}/>
             Riduci animazioni</label>
@@ -143,7 +146,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
         {hormuzBlocked(s) && <p className="self-center text-amber-300">Blocco di Hormuz attivo · Coalizione +1 OP per schierare</p>}
       </div>
       <div role="status" className="p-4 rounded-xl border border-red-800 bg-red-950/30">
-        <strong>{stage}</strong>{actor && <span> · <span style={{ color: COLORS[actor] }}>{actor}</span>{isBot ? ' · BOT' : actor === own ? ' · tocca a te' : ' · in attesa del giocatore'}</span>}
+        <strong>{stage}</strong>{actor && <span> · <span style={{ color: COLORS[actor] }}>{actor}</span>{s.players[actor].neutral ? ' · neutrale' : isBot ? ' · BOT' : actor === own ? ' · tocca a te' : ' · in attesa del giocatore'}</span>}
         <p className="text-sm text-slate-300 mt-1">Ordine del round: {s.order.join(' → ')}.{official ? ` Avanza il segna-turni: ${s.advancers.join(', ') || 'nessuna fazione'}; valgono gli OP della carta giocata.` : ` Pesca extra legacy: ${s.advancers.join(', ') || 'nessuna'}.`}{s.roundBlocked ? ' Questo evento blocca l’avanzamento del segna-turni.' : ''}</p>
         {canAct && <a href="#azioni-partita" className="inline-block underline text-red-200 mt-2 text-sm">Vai alle tue scelte ↓</a>}
         {busy && <p className="text-sm mt-1">Salvataggio della mossa…</p>}
@@ -177,7 +180,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
             <p className="text-xs text-slate-400">Presenza: {FACTIONS.map(f => `${f} ${territoryPresence(s, f, selected)}`).join(' · ')}</p>
           </Panel>
           <Panel title="Plance dei giocatori">
-            <div className="flex flex-wrap gap-2">{FACTIONS.map(f => <button key={f} className={button} aria-pressed={boardFaction === f} style={{ borderColor: boardFaction === f ? COLORS[f] : undefined }} onClick={() => setBoardFaction(f)}>{f} · {s.players[f].points} PV {s.players[f].bot ? 'BOT' : ''}</button>)}</div>
+            <div className="flex flex-wrap gap-2">{FACTIONS.map(f => <button key={f} className={button} aria-pressed={boardFaction === f} style={{ borderColor: boardFaction === f ? COLORS[f] : undefined }} onClick={() => setBoardFaction(f)}>{f} · {s.players[f].points} PV {s.players[f].neutral ? 'Neutrale' : s.players[f].bot ? 'BOT' : ''}</button>)}</div>
             <div className="flex gap-4 flex-wrap text-sm">{TRACKS.map(t => <span key={`${t}-${motion.active?.key ?? 'idle'}`}
               className={motion.active?.changes.some(c => c.target === `${boardFaction} · ${t}`) ? 'tabletop-track-changed' : undefined}>{t}: <strong>{s.players[boardFaction].tracks[t]}</strong></span>)}<span>Carte in mano: {s.players[boardFaction].hand.length}</span></div>
             <FactionBoard faction={boardFaction} tracks={s.players[boardFaction].tracks} pv={s.players[boardFaction].points} />
@@ -196,9 +199,9 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
       <div id="azioni-partita" className="scroll-mt-4" />
       {canAct && s.pending?.kind === 'veto' && <Panel title="Veto diplomatico"><p>Correlazione avversa: {changeText(s.pending.change)}. Il veto costa −1 Diplomazia e si può usare una volta per round.</p>
         <div className="flex gap-3"><button className={button} onClick={() => send({ type: 'veto', use: true })}>Usa il veto</button><button className={button} onClick={() => send({ type: 'veto', use: false })}>Accetta la correlazione</button></div></Panel>}
-      {canAct && s.pending?.kind === 'control' && <Panel title={`Bonus di controllo · ${TERRITORIES.find(t => t.id === s.pending!.territoryId)?.name}`}>
+      {canAct && s.pending?.kind === 'control' && <Panel title={`Bonus di controllo · ${TERRITORIES.find(t => t.id === (s.pending?.kind === 'control' ? s.pending.territoryId : ''))?.name}`}>
         <p>{actor} controlla il territorio con unità e Influenza presenti. Scegli il bonus stampato:</p>
-        <div className="flex gap-3 flex-wrap">{s.pending.choices.map(choice => <button key={choice} className={button} onClick={() => send({ type: 'control-bonus', track: choice })}>{choice === 'Nucleare' ? 'Nucleare' : choice === 'PV' ? '+1 PV' : `${choice} +1`}</button>)}</div>
+        <div className="flex gap-3 flex-wrap">{s.pending.choices.map(choice => <button key={choice} className={button} onClick={() => send({ type: 'control-bonus', track: choice })}>{`${choice} +1`}</button>)}</div>
       </Panel>}
       {canAct && s.pending?.kind === 'bot-influence' && <Panel title={`Influenza BOT · ${s.pending.actor}`}>
         <p>La carta BOT {s.pending.cardId} prevede Influenza, ma la destinazione dello Stato non compare nel regolamento/materiali ricevuti. Per completare la sequenza, seleziona manualmente il territorio dalla carta originale. In uno Stato pieno l’Influenza segue le regole di sostituzione.</p>
@@ -222,9 +225,9 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
             })}</div></div>)}
             <h3 className="font-semibold mt-5 mb-2">Attacco · 2 OP</h3><p className="text-xs text-slate-400 mb-2">Nel territorio selezionato devono esserci unità di Iran e Coalizione. Crisi Bellica −1 immediato.</p>
             <button className={button} disabled={budget < 2 || !['Iran', 'Coalizione'].includes(opsActor) || !localUnits.some(u => u.faction === 'Iran') || !localUnits.some(u => u.faction === 'Coalizione')} onClick={() => send({ type: 'attack', territoryId: selected })}>Attacca in {territory.name}</button>
-            {official && <><h3 className="font-semibold mt-5 mb-2">Influenza · {influenceCost(s, opsActor, selected)} OP</h3><p className="text-xs text-slate-400 mb-2">Influenza permanente: 1 OP in territorio amico, 2 neutrale, 3 nemico.</p>
+            {official && <><h3 className="font-semibold mt-5 mb-2">Influenza · {influenceCost(s, opsActor, selected)} OP</h3><p className="text-xs text-slate-400 mb-2">Base: 1 OP amico, 2 neutrale, 3 nemico.{usesLatestRules(s) && ' Si applicano i modificatori Militare per Russia/Cina/Europa e Opinione per Iran/Coalizione; minimo 1 OP. Destabilizzare costa 2 OP, in qualsiasi Stato.'}</p>
               <button className={button} disabled={!canInfluence(s, selected) || budget < influenceCost(s, opsActor, selected)} onClick={() => send({type:'influence',territoryId:selected})}>Piazza Influenza · {influenceCost(s, opsActor, selected)} OP</button>
-              {localInfluence.filter(marker => marker.faction !== opsActor && territoryPresence(s, opsActor, selected) > 0).map(marker=><button key={marker.id} className={button+' ml-2'} disabled={budget<2} onClick={()=>send({type:'destabilize',influenceId:marker.id})}>Destabilizza {marker.faction} · 2 OP</button>)}
+              {localInfluence.filter(marker => marker.faction !== opsActor && (usesLatestRules(s) || territoryPresence(s, opsActor, selected) > 0)).map(marker=><button key={marker.id} className={button+' ml-2'} disabled={budget<2} onClick={()=>send({type:'destabilize',influenceId:marker.id})}>Destabilizza {marker.faction} · 2 OP</button>)}
             </>}
           </div>
           <div><h3 className="font-semibold mb-2">Schieramento</h3><p className="text-xs text-slate-400 mb-3">Seleziona il territorio sulla mappa. Costi comprensivi di Economia, Crisi Bellica, allineamento e Hormuz.</p>
@@ -274,5 +277,6 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
     </div>}
     <CardMotion cue={motion.active} reduced={motion.reduced} onDismiss={motion.dismiss}/>
     {materials && <Materials onClose={() => setMaterials(false)} />}
+    {aid && <PlayerAid onClose={() => setAid(false)} />}
   </main>;
 }

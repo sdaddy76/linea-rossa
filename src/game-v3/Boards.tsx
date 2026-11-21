@@ -3,11 +3,11 @@ import {TERRITORIES, UNITS} from './catalog';
 import {FACTIONS, TRACKS, type Faction, type GlobalTrack, type Track} from './catalog-types';
 import {BOARD_ART, factionBoardArt, unitFrontArt} from './art';
 import {territorySlot} from './board-layout';
-import {occupiedSlots, territoryController, type PlacedInfluence, type EngineState} from './engine';
+import {occupiedSlots, territoryController, usesOfficialRules, usesLatestRules, type PlacedInfluence, type EngineState} from './engine';
 
 export const COLORS: Record<Faction,string> = {Iran:'#4ade80',Coalizione:'#60a5fa',Russia:'#f87171',Cina:'#fbbf24',Europa:'#c4b5fd'};
 export const SHORT: Record<Faction,string> = {Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'};
-export interface BoardUnit {id:string;faction:Faction;type:string;territory:string;deployedAt:number}
+export interface BoardUnit {id:string;faction:Faction;type:string;territory:string;deployedAt:number;slot?:number;rotated?:boolean}
 function Point({x,y,label,color,children}: {x:number;y:number;label:string;color:string;children:ReactNode}) {
   return <span data-track-point title={label} aria-label={label} style={{left:`${x}%`,top:`${y}%`,background:color,transition:'left var(--guide-duration, 400ms) ease, top var(--guide-duration, 400ms) ease'}}
     className="absolute -translate-x-1/2 -translate-y-1/2 rounded border border-white text-black font-black text-[clamp(6px,0.7vw,12px)] px-[0.3%] min-w-[1.4%] text-center shadow-md pointer-events-none">{children}</span>;
@@ -28,17 +28,18 @@ function turnMarkerPoint(position:number):[number,number] {
   if(n<=75)return [96.5-(n-51)*3.72,96.7];
   return [3.1,91.7-(n-76)*3.48];
 }
-export function TabletopBoard({globals,round,elapsed,units,influence=[],gameState,pv,selected,onSelect}: {
+export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,selected,onSelect}: {
   globals:Record<GlobalTrack,number>;round:number;elapsed:number;units:BoardUnit[];
   influence?:PlacedInfluence[]; gameState?:EngineState;
   pv:Record<Faction,number>;selected:string;onSelect:(id:string)=>void;
 }) {
   const [zoom,setZoom]=useState(100);
+  const latest = !!gameState && usesLatestRules(gameState);
   const territory=TERRITORIES.find(t=>t.id===selected);
   return <section aria-label="Mappa delle unità schierate" className="min-w-0 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="font-bold text-lg">Plancia generale · unità sui territori</h2>
-        <p className="text-sm text-slate-300" aria-live="polite">{territory?.name} · {territory ? occupiedSlots(gameState ?? ({rulesRevision:'2026-11-16',units:units.map(u=>({...u,placedRound:u.deployedAt,rotated:false})),influence} as EngineState), selected).length : 0}/{territory?.capacity} riquadri occupati{territory && gameState && ` · controllo: ${territoryController(gameState, selected) ?? 'conteso'}`}</p></div>
+        <p className="text-sm text-slate-300" aria-live="polite">{territory?.name} · {territory ? occupiedSlots(gameState ?? {rulesRevision:'2026-11-16',units:units.map(u=>({...u,placedRound:u.deployedAt,rotated:false})),influence}, selected).length : 0}/{territory?.capacity} riquadri occupati{territory && gameState && ` · controllo: ${territoryController(gameState, selected) ?? 'conteso'}`}</p></div>
       <div role="group" aria-label="Zoom della mappa" className="flex gap-2">
         {[100,150,200].map(value=><button key={value} type="button" aria-pressed={zoom===value} onClick={()=>setZoom(value)}
           className={`rounded-lg border px-3 py-2 text-sm focus-visible:outline-white ${zoom===value?'border-emerald-400 bg-emerald-950':'border-slate-600 bg-slate-900'}`}>{value}%</button>)}
@@ -51,10 +52,10 @@ export function TabletopBoard({globals,round,elapsed,units,influence=[],gameStat
         <Point x={85.8} y={51.6-(globals.Sanzioni-1)*3.01} label={`Sanzioni ${globals.Sanzioni}`} color="#fb923c">{globals.Sanzioni}</Point>
         <Point x={85.1} y={61.2+(globals['Crisi Bellica']-1)*2.62} label={`Crisi Bellica ${globals['Crisi Bellica']}`} color="#f87171">{globals['Crisi Bellica']}</Point>
         <Point x={18.9+(globals.Opinione+10)*3.54} y={89.9} label={`Opinione ${globals.Opinione}`} color="#f9a8d4">{globals.Opinione}</Point>
-        {gameState?.rulesRevision === '2026-11-16' && (()=>{const [x,y]=turnMarkerPoint(gameState.turnMarker??0);return <Point x={x} y={y} label={`Segna-turni ${gameState.turnMarker??0}`} color="#fef08a">T</Point>;})()}
-        {gameState?.rulesRevision !== '2026-11-16' && FACTIONS.map((f,i)=>{const [x,y]=scorePoint(pv[f]);return <Point key={f} x={x+(i-2)*0.25} y={y+(i-2)*0.55} label={`${f}: ${pv[f]} PV`} color={COLORS[f]}>{SHORT[f]}</Point>;})}
+        {gameState && usesOfficialRules(gameState) && (()=>{const [x,y]=turnMarkerPoint(gameState.turnMarker??0);return <Point x={x} y={y} label={`Segna-turni ${gameState.turnMarker??0}`} color="#fef08a">T</Point>;})()}
+        {FACTIONS.map((f,i)=>{const [x,y]=scorePoint(pv[f]);return <Point key={f} x={x+(i-2)*0.25} y={y+(i-2)*0.55} label={`${f}: ${pv[f]} PV`} color={COLORS[f]}>{SHORT[f]}</Point>;})}
         {TERRITORIES.flatMap(t=>{
-          const local=units.filter(u=>u.territory===t.id);
+          const local=latest ? [] : units.filter(u=>u.territory===t.id);
           const localInfluence=influence.filter(i=>i.territory===t.id);
           return Array.from({length:t.capacity},(_,i)=>{
             const u=local.find(unit=>unit.slot===i) ?? (local.every(unit=>unit.slot===undefined) ? local[i] : undefined);
@@ -76,11 +77,26 @@ export function TabletopBoard({globals,round,elapsed,units,influence=[],gameStat
             </button>;
           });
         })}
+        {latest && TERRITORIES.flatMap(t => FACTIONS.flatMap((f, index) => {
+          const stack = units.filter(u => u.territory === t.id && u.faction === f);
+          if (!stack.length) return [];
+          const position = territorySlot(t.id, 0);
+          const rotated = stack.every(u => u.rotated);
+          const label = `${t.name}: ${f}, ${stack.length} unità accanto allo Stato`;
+          return [<button key={`${t.id}-${f}-units`} data-unit-stack={t.id} data-faction={f}
+            aria-label={label} title={label + ' · ' + stack.map(u => (UNITS.find(d => d.id === u.type)?.name ?? u.type) + (u.rotated ? ' (ruotata)' : '')).join(', ')}
+            onClick={()=>onSelect(t.id)} className="absolute -translate-x-1/2 -translate-y-1/2 rounded border-2 focus-visible:outline-white"
+            style={{left:`${position.x + index * 1.85}%`,top:`${position.y - 3.2}%`,width:'1.7%',height:'2.55%',borderColor:COLORS[f],background:COLORS[f]}}>
+            <img src={unitFrontArt(stack[0].type)} alt="" className="w-full h-full object-contain" style={{transform:rotated?'rotate(90deg)':'none'}}/>
+            <span className="absolute -bottom-1 -right-1 text-slate-950 font-black leading-tight rounded-sm"
+              style={{background:COLORS[f],fontSize:'clamp(7px,0.65vw,12px)'}}>{SHORT[f]}×{stack.length}</span>
+          </button>];
+        }))}
       </div>
     </div>
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Colori delle fazioni">{FACTIONS.map(f=><span key={f} style={{color:COLORS[f]}}>{SHORT[f]} · {f} · {units.filter(u=>u.faction===f).length} unità</span>)}</div>
-    <p className="my-2 text-xs text-slate-400">Unità e Influenza condividono i riquadri; l’Influenza è permanente. Seleziona un territorio sulla mappa per le operazioni. Le unità ruotate rientrano a fine round.</p>
-    <div data-board-territories className="flex flex-wrap gap-2">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs rounded-lg border px-3 py-2 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length}/{t.capacity}</button>)}</div>
+    <p className="my-2 text-xs text-slate-400">{latest ? 'I riquadri sono riservati all’Influenza. Le unità sono raggruppate per fazione accanto allo Stato: il numero indica quante sono; seleziona per vedere ogni unità.' : 'Unità e Influenza condividono i riquadri in questo salvataggio precedente.'} L’Influenza è permanente. Le unità ruotate rientrano a fine round.</p>
+    <div data-board-territories className="flex flex-wrap gap-2">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs rounded-lg border px-3 py-2 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length} unità · {influence.filter(i=>i.territory===t.id).length}/{t.capacity} Influenza</button>)}</div>
   </section>;
 }
 export function FactionBoard({faction,tracks,pv}: {faction:Faction;tracks:Record<Track,number>;pv:number}) {

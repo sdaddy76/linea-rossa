@@ -1,6 +1,7 @@
 // =============================================
 // LINEA ROSSA — Game Store con Supabase Real-Time
 // =============================================
+import { sessionListener } from '@/integrations/supabase/session-listener';
 
 // ── Helper: wrappa una Promise con timeout ────────────────────────────────────
 async function withTimeout<T>(promise: Promise<T>, ms = 8000, label = ''): Promise<T> {
@@ -377,31 +378,24 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       }
     }
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // PASSWORD_RECOVERY: Supabase v2 emette questo evento quando arriva un link di reset.
-      // Non aggiornare la sessione nello store — App.tsx gestisce la navigazione.
-      if (_event === 'PASSWORD_RECOVERY') return;
-
+    _authUnsubscribe?.();
+    const listener = sessionListener<Profile>(session => {
       // Pulisci l'URL se ancora sporco (access_token nell'hash)
       if (typeof window !== 'undefined' && window.location.hash.includes('access_token')) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
 
       set({ session });
-      if (session?.user) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles').select('*').eq('id', session.user.id).single();
-          if (profile) set({ profile: profile as Profile });
-        } catch {
-          // ignora errori di profilo transitori
-        }
-      } else {
+      if (!session?.user) {
         set({ profile: null, game: null, gameState: null, players: [] });
       }
-    });
+    }, async id => {
+      const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
+      return data as Profile | null;
+    }, profile => set({ profile }));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(listener.callback);
     // Salva la funzione di unsubscribe per pause/resume
-    _authUnsubscribe = () => subscription.unsubscribe();
+    _authUnsubscribe = () => { listener.cancel(); subscription.unsubscribe(); };
   },
 
   pauseAuthListener: () => {
@@ -414,20 +408,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   resumeAuthListener: () => {
     // Riattiva registrando un nuovo listener (equivalente a initAuth senza getSession)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (_event === 'PASSWORD_RECOVERY') return;
+    _authUnsubscribe?.();
+    const listener = sessionListener<Profile>(session => {
       set({ session });
-      if (session?.user) {
-        try {
-          const { data: profile } = await supabase
-            .from('profiles').select('*').eq('id', session.user.id).single();
-          if (profile) set({ profile: profile as Profile });
-        } catch { /* ignora */ }
-      } else {
+      if (!session?.user) {
         set({ profile: null, game: null, gameState: null, players: [] });
       }
-    });
-    _authUnsubscribe = () => subscription.unsubscribe();
+    }, async id => {
+      const { data } = await supabase.from('profiles').select('*').eq('id', id).single();
+      return data as Profile | null;
+    }, profile => set({ profile }));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(listener.callback);
+    _authUnsubscribe = () => { listener.cancel(); subscription.unsubscribe(); };
     console.log('[auth] listener riattivato');
   },
 

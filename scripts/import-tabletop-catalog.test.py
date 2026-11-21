@@ -9,9 +9,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 UPLOADS = ROOT.parent / "uploaded_files"
-LATEST_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (10)-a747ac587048da20.pdf"
+LATEST_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (11)_7919-dacf60d92f86c3e8.pdf"
 PREVIOUS_PDF = UPLOADS / "Linea_Rossa_Regolamento_illustrato_v3 (6)-bd3fbb532c3385aa.pdf"
-LATEST_SHA256 = "7c7675cd5b92754795c7dad95ef1be526b7f7dd6987259d44d25d4e245657d82"
+LATEST_SHA256 = "cf5ba48d604be4690a26f38af8687d6e9784c1b1519febc3fb047a656a620990"
 spec = importlib.util.spec_from_file_location("catalog_import", Path(__file__).with_name("import-tabletop-catalog.py"))
 importer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(importer)
@@ -54,10 +54,10 @@ class CatalogTest(unittest.TestCase):
     def test_latest_source_hash_page_map_and_complete_roundtrip(self):
         self.assertEqual(hashlib.sha256(LATEST_PDF.read_bytes()).hexdigest(), LATEST_SHA256)
         self.assertEqual(self.data["provenance"]["rulebook"], LATEST_PDF.name)
-        self.assertEqual(self.data["provenance"]["rulebookPageCount"], 48)
+        self.assertEqual(self.data["provenance"]["rulebookPageCount"], 49)
         self.assertEqual(self.data["provenance"]["pages"], {
-            "factionCards": "27–38", "bots": "39–43", "events": "44–45",
-            "objectives": "46–48", "correlations": "9–10", "units": "17–18", "initialTracks": "5",
+            "factionCards": "28–39", "bots": "40–44", "events": "45–46",
+            "objectives": "47–49", "correlations": "9–10", "units": "18–19", "initialTracks": "5",
         })
         self.assertEqual(importer.build_catalog(LATEST_PDF), self.data)
 

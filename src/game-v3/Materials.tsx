@@ -2,7 +2,8 @@ import {useEffect,useState} from 'react';
 import {BOT_CARDS, EVENTS, FACTIONS, UNITS} from './catalog';
 import type {Faction} from './catalog-types';
 import release from '../../public/assets/tabletop-v3/release.json';
-import {BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL,
+import {PlayerAid} from './PlayerAid';
+import {BOARD_ART, EVENT_BACK, RULEBOOK_URL, RULEBOOK_FILENAME, UNIT_REFERENCE_URL,
   botBackArt, botFrontArt, eventFrontArt, factionBoardArt, unitBackArt, unitFrontArt} from './art';
 
 type Category = 'Tabellone e plance' | 'Eventi' | 'BOT' | 'Unità';
@@ -10,6 +11,7 @@ export function Materials({onClose}: {onClose: () => void}) {
   const [category,setCategory] = useState<Category>('Tabellone e plance');
   const [faction,setFaction] = useState<Faction>('Iran');
   const [back,setBack] = useState(false);
+  const [aid,setAid] = useState(false);
   const [zoom,setZoom] = useState<{src:string;title:string}|null>(null);
   useEffect(()=>{
     const close=(event:KeyboardEvent)=>{if(event.key==='Escape'){if(zoom)setZoom(null);else onClose();}};
@@ -23,7 +25,7 @@ export function Materials({onClose}: {onClose: () => void}) {
       : category === 'BOT'
         ? BOT_CARDS.filter(c=>c.faction===faction).map(c=>({id:c.id,title:`${c.id} · ${c.name}`,src:back?botBackArt(c.faction,c.track):botFrontArt(c.id)}))
         : [...UNITS.filter(u=>u.faction===faction).map(u=>({id:u.id,title:`${u.name} · ${u.cost} OP · A${u.attack} / D${u.defense}`,src:back?unitBackArt(u.faction):unitFrontArt(u.id)})),
-          {id:'dummy',title:'Dummy — materiale grafico, non previsto dalle regole v3',src:back?unitBackArt(faction):unitFrontArt(`${({Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'})[faction]}-U${faction==='Iran'?'08':'07'}`)}];
+          {id:'dummy',title:'Dummy — variante opzionale unità coperte, non attiva nella partita standard',src:back?unitBackArt(faction):unitFrontArt(`${({Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'})[faction]}-U${faction==='Iran'?'08':'07'}`)}];
   return <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950 text-slate-100" role="dialog" aria-modal="true" aria-label="Materiali ufficiali">
     <div className="mx-auto max-w-7xl p-4 md:p-8">
       <header className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -32,10 +34,11 @@ export function Materials({onClose}: {onClose: () => void}) {
       </header>
       <div className="flex flex-wrap gap-3 mb-5 text-sm">
         <a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className="underline text-emerald-300">Apri il regolamento PDF</a>
-        <a href={RULEBOOK_URL} download="Linea_Rossa_Regolamento_v3_10.pdf" className="underline text-emerald-300">Scarica il manuale PDF</a>
+        <a href={RULEBOOK_URL} download={RULEBOOK_FILENAME} className="underline text-emerald-300">Scarica il manuale PDF</a>
         <a href={UNIT_REFERENCE_URL} target="_blank" rel="noreferrer" className="underline text-emerald-300">Scheda unità PDF</a>
+        <button onClick={()=>setAid(true)} className="underline text-emerald-300">Consulta aiuto giocatore</button>
       </div>
-      <p className="mb-4 text-sm text-slate-400">Materiali ufficiali allineati al regolamento v3.10. Il manuale PDF è disponibile per la lettura e per il download; le opzioni strutturate del catalogo aggiornato prevalgono sui testi eventualmente precedenti nelle illustrazioni delle carte.</p>
+      <p className="mb-4 text-sm text-slate-400">Materiali ufficiali allineati al regolamento v3.11. Il manuale PDF e l’aiuto giocatore sono consultabili e scaricabili; le opzioni strutturate del catalogo aggiornato prevalgono sui testi eventualmente precedenti nelle illustrazioni delle carte. Le partite già avviate conservano le regole del loro salvataggio.</p>
       <nav className="flex flex-wrap gap-2 mb-4" aria-label="Tipo di materiale">
         {(['Tabellone e plance','Eventi','BOT','Unità'] as Category[]).map(c=><button key={c} onClick={()=>{setCategory(c);setBack(false);}} aria-pressed={c===category} className={`rounded-lg px-4 py-2 border ${category===c?'border-emerald-400 bg-emerald-950':'border-slate-700'}`}>{c}</button>)}
       </nav>
@@ -56,5 +59,6 @@ export function Materials({onClose}: {onClose: () => void}) {
       <p className="my-3">{zoom.title}</p>
       <img src={zoom.src} alt={zoom.title} className="mx-auto max-w-full h-auto"/>
     </div>}
+    {aid&&<PlayerAid onClose={()=>setAid(false)}/>}
   </div>;
 }

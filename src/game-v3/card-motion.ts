@@ -36,7 +36,7 @@ export function confirmedCues(previous: EngineState, next: EngineState, revision
       if (definition) cue = {
         kind: 'card', cardId: definition.id, actor: card[1], title: definition.name,
         detail: line.slice(line.indexOf(definition.name) + definition.name.length).trim().replace(/^come /, ''),
-        destination: definition.special ? 'Retirata dal gioco · speciale' : 'Scarti',
+        destination: definition.special && !line.includes('nessuna opzione propria') ? 'Retirata dal gioco · speciale' : 'Scarti',
       };
     } else if (event) {
       const definition = EVENTS.find(e => e.id === event[1]);
@@ -75,14 +75,14 @@ export function confirmedCues(previous: EngineState, next: EngineState, revision
 
 export function openingEvent(state: EngineState): CardCue[] {
   const event = EVENTS.find(e => e.id === state.event);
-  return event ? [{
+  return event && state.phase !== 'ended' ? [{
     key: `opening:${event.id}`, kind: 'event', cardId: event.id, title: event.name,
     detail: `Round ${state.round} · ${event.order.join(' → ')}`, destination: 'Evento del round', changes: [],
   }] : [];
 }
 
 export const cueDuration = (cue: CardCue, reduced: boolean) =>
-  reduced || cue.kind === 'effects' ? 1800 : 2600;
+  Math.min(6500, (reduced || cue.kind === 'effects' ? 1800 : 2600) + Math.max(0, cue.changes.length - 4) * 180);
 
 /** Dedupe notifications without touching saved game state. */
 export function enqueueCues(queue: CardCue[], incoming: CardCue[]): CardCue[] {

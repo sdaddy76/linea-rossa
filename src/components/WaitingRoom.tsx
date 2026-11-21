@@ -19,6 +19,7 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
   const [error, setError] = useState('');
   const [materials, setMaterials] = useState(false);
   const [gameMode, setGameMode] = useState<GameMode>(tabletopMode ?? 'media');
+  const [neutrals, setNeutrals] = useState<Faction[]>([]);
   const [copied, setCopied] = useState(false);
   const mounted = useRef(true);
   const launched = useRef(false);
@@ -73,13 +74,13 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
     if (!factionRef.current || launched.current) return;
     launched.current = true; setBusy(true); setError('');
     try {
-      await initializeTabletop(gameId, profile.id, gameMode);
+      await initializeTabletop(gameId, profile.id, gameMode, neutrals.filter(f => !players.some(p => p.faction === f && p.player_id && !p.is_bot)));
       startCallback.current(factionRef.current);
     } catch (err) {
       launched.current = false;
       if (mounted.current) setError(err instanceof Error ? err.message : 'Avvio non riuscito. Riprova.');
     } finally { if (mounted.current) setBusy(false); }
-  }, [gameId, profile.id, gameMode]);
+  }, [gameId, profile.id, gameMode, neutrals, players]);
   useEffect(() => {
     if (initialFaction && isHost && !initialChosen.current) {
       initialChosen.current = true;
@@ -126,9 +127,19 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
           value={gameMode} onChange={event => setGameMode(event.target.value as GameMode)}>
           <option value="breve">Breve · 30 caselle</option><option value="media">Media · 60 caselle</option><option value="lunga">Lunga · 80 caselle</option>
         </select>
+        <fieldset className="mt-4 space-y-2"><legend className="font-bold">Fazioni senza giocatore</legend>
+          <p className="text-sm text-slate-400">Per ogni posto libero scegli BOT attivo o fazione neutrale passiva (cap. 14). La scelta si applica all’avvio.</p>
+          {FACTIONS.filter(f => !players.some(p => p.faction === f && p.player_id && !p.is_bot)).map(f =>
+            <label key={f} className="flex items-center justify-between gap-3 text-sm">{f}
+              <select disabled={busy} className="rounded bg-slate-800 p-2" value={neutrals.includes(f) ? 'neutral' : 'bot'}
+                onChange={e => setNeutrals(old => e.target.value === 'neutral' ? [...old.filter(x => x !== f), f] : old.filter(x => x !== f))}>
+                <option value="bot">BOT</option><option value="neutral">Neutrale</option>
+              </select>
+            </label>)}
+        </fieldset>
       </section>}
       <section className="text-sm text-slate-300 space-y-2 p-5 border border-slate-700 rounded-xl">
-        <p>Nuovo regolamento: due attivazioni per fazione, segnalini Influenza permanenti, controllo dato dalla presenza e bonus territoriali a fine round.</p>
+        <p>Regolamento v3.11: due attivazioni per fazione, segnalini Influenza nei riquadri, unità accanto allo Stato (massimo 5 per tipo), controllo dato da unità + Influenza.</p>
         <p>Durata: soglia segna-turni 30 / 60 / 80 secondo la modalità; gli eventi di blocco fermano l’avanzamento. Nessuna unità iniziale gratuita.</p>
         <p>Il BOT si ferma quando manca la destinazione d’Influenza, che non è stampata nell’appendice B del materiale ricevuto.</p>
         <button className="underline text-red-300" onClick={() => setMaterials(true)}>Sfoglia carte, tabellone, plance e regolamento</button>

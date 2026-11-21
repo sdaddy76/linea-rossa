@@ -57,7 +57,7 @@ export function CardMotion({ cue, reduced, onDismiss }: {
     : definition ? getFactionCardFront(definition.id, definition.origin) : null;
   // An always-mounted live region announces updates, without focus theft.
   return <div className="card-motion-layer" aria-live="polite" aria-atomic="true" data-reduced-motion={reduced}>
-    {cue && <section key={cue.key} className={`card-motion-notice card-motion-${cue.kind}${definition?.special ? ' card-motion-special' : ''}`} aria-label="Carta confermata"
+    {cue && <section key={cue.key} className={`card-motion-notice card-motion-${cue.kind}${definition?.special && cue.destination.startsWith('Retirata') ? ' card-motion-special' : ''}`} aria-label="Carta confermata"
       style={{ '--card-motion-duration': `${cueDuration(cue, reduced)}ms` } as CSSProperties}>
       <div className="card-motion-caption">
         <span>{cue.kind === 'event' ? 'Evento rivelato' : cue.actor ? `${cue.actor} · carta giocata` : 'Tracciati aggiornati'}</span>
@@ -75,7 +75,7 @@ export function CardMotion({ cue, reduced, onDismiss }: {
           </div>
         </div>
       </div>}
-      <div className="card-motion-description">
+      <div className="card-motion-description" tabIndex={cue.changes.length > 5 ? 0 : undefined}>
         <strong>{cue.title}</strong><p>{cue.detail}</p>
         {cue.changes.length > 0 && <ul aria-label="Variazioni confermate">{cue.changes.map((change, index) =>
           <li key={`${cue.key}-${index}`} style={{animationDelay: `${400 + index * 120}ms`}}

@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, BookOpen, Check, ChevronDown, CircleHelp, Flag, 
 import { TabletopBoard, FactionBoard, COLORS } from '../Boards';
 import { FACTIONS, TRACKS, EVENTS, UNITS, type Faction, type GlobalTrack, type Track } from '../catalog';
 import { MODE_THRESHOLDS, zone } from '../engine';
-import { eventFrontArt, unitFrontArt, RULEBOOK_URL } from '../art';
+import { eventFrontArt, unitFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from '../art';
 import { getFactionCardFront } from '../../data/card-graphics';
 import { LESSONS, STORAGE_KEY, back, cardFor, changeLabel, choose, choicesFor, currentLesson, deploymentPreview, freshSession, parseSession, recommendedChoice, replaySession, type Session, type Speed } from './model';
 import './guided-game.css';
@@ -229,7 +229,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
             {correlation && <div className="guide-correlation" key={`correlation-${session.cursor}`} aria-label={`Correlazione: ${changeLabel(correlation)}`}><span>{priorCard!.options[Number(lastChoice.split(':')[1])].boost.faction}</span><svg viewBox="0 0 100 20" aria-hidden="true"><path d="M0 10H95M85 2L95 10L85 18" /></svg><span>{changeLabel(correlation)}</span></div>}
             {error && <p className="guide-error" role="alert">{error}</p>}
           </section>
-          <div className="guide-rule-link"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer"><BookOpen size={16} /> Apri regolamento <ArrowRight size={14} /></a><a href={RULEBOOK_URL} download="Linea_Rossa_Regolamento_v3_10.pdf"><BookOpen size={16} /> Scarica manuale</a><p>Crisi 1–3 · Stabile 4–7 · Forte 8–10</p></div>
+          <div className="guide-rule-link"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer"><BookOpen size={16} /> Apri regolamento <ArrowRight size={14} /></a><a href={RULEBOOK_URL} download={RULEBOOK_FILENAME}><BookOpen size={16} /> Scarica manuale</a><p>Crisi 1–3 · Stabile 4–7 · Forte 8–10</p></div>
           <details className="guide-history"><summary>Registro della simulazione</summary><ol>{s.log.slice(-12).map((line, i) => <li key={`${i}-${line}`}>{line}</li>)}</ol></details>
         </aside>
       </div>
