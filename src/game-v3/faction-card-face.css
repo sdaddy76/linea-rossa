@@ -1,0 +1,20 @@
+.faction-card-original{display:block;width:100%;border-radius:10px;overflow:hidden;background:#080d16}
+.faction-card-original img{display:block;width:100%;height:auto;object-fit:contain}
+.faction-card-face{display:flex;flex-direction:column;width:100%;min-width:0;border:2px solid var(--faction-accent);border-radius:10px;overflow:hidden;background:#0b1421;color:#f1f5f9;text-align:left;box-shadow:inset 0 0 0 3px #0b1421}
+.faction-card-top{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:8px 10px;background:#172337;font-size:11px;letter-spacing:.03em}
+.faction-card-top strong{flex-shrink:0;border:1px solid var(--faction-accent);color:var(--faction-accent);border-radius:5px;padding:3px 5px;font-size:14px}
+.faction-card-title{display:flex;align-items:center;min-height:58px;padding:8px 10px;font-size:16px;line-height:1.2;color:#fff}
+.faction-card-art{width:100%;height:108px;object-fit:cover;object-position:center;border-block:1px solid var(--faction-accent)}
+.faction-card-options{display:flex;flex-direction:column;gap:0;padding:0 10px}
+.faction-card-option{display:flex;flex-direction:column;gap:3px;padding:8px 0;border-bottom:1px solid #334155;font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.faction-card-option b{font-size:12px}.faction-card-option>span{color:#cbd5e1}.faction-card-option .faction-card-globals{color:#fde68a}
+.faction-card-footer{padding:8px 10px;font-size:10px;letter-spacing:.04em;color:var(--faction-accent)}
+.faction-card-footer small{display:block;color:#94a3b8;font-size:9px;margin-top:3px;letter-spacing:0}
+.faction-card-compact{height:100%}.faction-card-compact .faction-card-art{flex:1;min-height:0;height:90px}.faction-card-compact .faction-card-title{min-height:48px;font-size:16px}
+.tabletop-hand-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:16px;align-items:start}
+.tabletop-hand-card{display:block;min-width:0;width:100%;max-width:320px;margin-inline:auto;border:2px solid transparent;border-radius:13px;padding:4px;text-align:left;background:#1e293b;transition:border-color .15s ease}
+.tabletop-hand-card:hover{border-color:#cbd5e1}.tabletop-hand-card:focus-visible{outline:3px solid #fca5a5;outline-offset:3px}
+.tabletop-hand-card[aria-pressed="true"]{border-color:#fbbf24;background:#422006}
+.tabletop-hand-hint{display:block;padding:9px 7px;font-size:12px;color:#cbd5e1}
+.tabletop-card-enlarged{width:min(100%,380px);margin-inline:auto}
+@media(max-width:480px){.tabletop-hand-grid{grid-template-columns:1fr}.tabletop-hand-card{max-width:300px}}

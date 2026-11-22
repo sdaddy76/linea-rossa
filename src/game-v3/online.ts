@@ -33,7 +33,7 @@ export async function initializeTabletop(gameId: string, userId: string, request
   // Retry an interrupted start without dealing a second set of cards.
   const gameMode = requestedMode ?? (['breve', 'media', 'lunga'].includes(game.data.game_length) ? game.data.game_length : 'media') as GameMode;
   const saved = readTabletop(existing.data) ?? { revision: 0, state: createGame({
-    bots: actualBots.filter(f => !requestedNeutrals.includes(f)), neutrals: requestedNeutrals, mode: gameMode, rulesRevision: '2026-11-21',
+    bots: actualBots.filter(f => !requestedNeutrals.includes(f)), neutrals: requestedNeutrals, mode: gameMode, rulesRevision: '2026-11-21', botInfluenceEdition: '2026-11-22',
   }) };
   const values = { game_id: gameId, nucleare: saved.state.globals.Nucleare, sanzioni: saved.state.globals.Sanzioni,
     active_faction: currentActor(saved.state),

@@ -5,6 +5,7 @@ import { FACTIONS, TRACKS, EVENTS, UNITS, type Faction, type GlobalTrack, type T
 import { MODE_THRESHOLDS, zone } from '../engine';
 import { eventFrontArt, unitFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from '../art';
 import { getFactionCardFront } from '../../data/card-graphics';
+import { FactionCardFace } from '../FactionCardFace';
 import { LESSONS, STORAGE_KEY, back, cardFor, changeLabel, choose, choicesFor, currentLesson, deploymentPreview, freshSession, parseSession, recommendedChoice, replaySession, type Session, type Speed } from './model';
 import './guided-game.css';
 
@@ -21,7 +22,7 @@ const GLOBAL_HELP: Record<GlobalTrack, string> = {
   Opinione: 'Da −10 a +10. Le soglie estreme influenzano la Diplomazia a fine round.',
 };
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
-const SPEED_MS: Record<Speed, number> = { lenta: 700, normale: 420, veloce: 180 };
+const SPEED_MS: Record<Speed, number> = { lenta: 1800, normale: 1100, veloce: 600 };
 const ZONE_LABEL = { crisis: 'Crisi', stable: 'Stabile', strong: 'Forte' };
 const FACTION_COLOR: Record<Faction, string> = { Iran: '#1f8a4c', Coalizione: '#2457b8', Russia: '#b3261e', Cina: '#d48a00', Europa: '#5a3fb5' };
 function load() {
@@ -201,7 +202,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
             {(card || event) && <div className="guide-card-stage">
               <div className="guide-card-title"><span>{event?.id ?? card?.id}</span><strong>{event?.name ?? card?.name}</strong>{card && <b>{card.cost} OP</b>}</div>
               {art ? <button className="guide-card-art" onClick={() => setZoom({ src: art, name: event?.name ?? card!.name })} aria-label={`Ingrandisci ${event?.name ?? card?.name}`}><img key={art} src={art} alt={`Fronte originale: ${event?.name ?? card?.name}`} /><span>Tocca per ingrandire</span></button> :
-                <div className="guide-card-catalog"><BookOpen size={19} /><span>Scheda carta · catalogo ufficiale</span><p>Fronte originale non disponibile tra i materiali del sito. Qui sotto trovi gli effetti verificati.</p></div>}
+                card && <FactionCardFace card={card}/>}
               {card && l.id === 'intro' && <div className="guide-preview-options">{card.options.map((o, i) => <p key={i}><b>{'ABC'[i]}</b><span>{changeLabel(o.boost)}<small>▸ {changeLabel(o.correlation)}</small></span></p>)}</div>}
               {originalCard && <p className="guide-original-caption">Le opzioni applicate sono quelle del catalogo aggiornato riportate nei pulsanti.</p>}
               {card && (l.mandatory || ['development', 'correlation'].includes(l.id)) && <details className="guide-muted-options"><summary title="Non selezionabili in questo passo">Opzioni Evento · non selezionabili qui</summary>{card.options.map((o, i) => <p key={i}>{'ABC'[i]}) {changeLabel(o.boost)} ▸ {changeLabel(o.correlation)}{o.globals.map(g => ` · ${g.track} ${g.delta > 0 ? '+' : ''}${g.delta}`).join('')}</p>)}</details>}

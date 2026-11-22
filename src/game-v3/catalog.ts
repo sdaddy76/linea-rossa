@@ -5,6 +5,7 @@
  * three legacy unlock flags whose original fronts were not supplied.
  */
 import data from './catalog-data.json';
+import botInfluence from './bot-influence.json';
 import { FACTIONS, TRACKS } from './catalog-types';
 import type {
   BotCard, EventCard, Faction, FactionCard, Objective, TerritoryDef, Track,
@@ -16,6 +17,9 @@ export * from './catalog-types';
 export const FACTION_CARDS = data.factionCards as FactionCard[];
 export const EVENTS = data.events as EventCard[];
 export const BOT_CARDS = data.bots as BotCard[];
+/** Exact printed "Influenza a fine round" destinations from the 22 Nov upload.
+ * Separate from unit deployment priorities and from the rulebook-only import. */
+export const BOT_INFLUENCE: Readonly<Record<string,string>> = botInfluence;
 export const OBJECTIVES = data.objectives as Objective[];
 export const UNITS = data.units as UnitDef[];
 export const TERRITORIES = data.territories as TerritoryDef[];
@@ -44,6 +48,7 @@ export function assertCatalogComplete(): void {
     }
     if (rows.some(row => !row.id || !row.name?.trim())) fail(`${label}: ID o titolo mancante`);
   }
+  if(Object.keys(BOT_INFLUENCE).length!==120 || BOT_CARDS.some(c=>!TERRITORIES.some(t=>t.id===BOT_INFLUENCE[c.id]))) fail('120 destinazioni Influenza BOT richieste');
   if (FACTION_CARDS.filter(card => card.special).length !== 15) fail('15 carte speciali richieste');
   for (const card of FACTION_CARDS) {
     if ((!faction(card.origin) && card.origin !== 'Neutrale') || !Number.isInteger(card.cost)

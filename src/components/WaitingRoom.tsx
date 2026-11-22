@@ -141,7 +141,7 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
       <section className="text-sm text-slate-300 space-y-2 p-5 border border-slate-700 rounded-xl">
         <p>Regolamento v3.11: due attivazioni per fazione, segnalini Influenza nei riquadri, unità accanto allo Stato (massimo 5 per tipo), controllo dato da unità + Influenza.</p>
         <p>Durata: soglia segna-turni 30 / 60 / 80 secondo la modalità; gli eventi di blocco fermano l’avanzamento. Nessuna unità iniziale gratuita.</p>
-        <p>Il BOT si ferma quando manca la destinazione d’Influenza, che non è stampata nell’appendice B del materiale ricevuto.</p>
+        <p>Nel nuovo mazzo BOT tutte le carte riportano lo Stato dell’Influenza a fine round e il piazzamento è automatico. Le partite già avviate mantengono la scelta manuale prevista dal loro salvataggio.</p>
         <button className="underline text-red-300" onClick={() => setMaterials(true)}>Sfoglia carte, tabellone, plance e regolamento</button>
       </section>
       {error && <p role="alert" className="p-4 bg-red-950 text-red-200 border border-red-700 rounded-lg">{error}</p>}

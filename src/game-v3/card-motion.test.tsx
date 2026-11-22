@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { createGame, reduce, type EngineState } from './engine';
 import { FACTION_CARDS, BOT_CARDS, EVENTS } from './catalog';
 import { CardMotion } from './CardMotion';
-import { confirmedCues, cueDuration, enqueueCues, openingEvent } from './card-motion';
+import { confirmedCues, cueDuration, enqueueCues, openingEvent, motionSpeed } from './card-motion';
 
 function fixture() {
   const state = createGame({ bots: [] }, () => 0.3);
@@ -121,8 +121,8 @@ test('visual queue dedupes arrivals, keeps order and never mutates game state', 
   const queue = enqueueCues([cue], [cue, second]);
   assert.deepEqual(queue.map(c => c.key), [cue.key, 'second']);
   assert.deepEqual(state, original);
-  assert.equal(cueDuration(cue, false), 2600);
-  assert.equal(cueDuration(cue, true), 1800);
+  assert.equal(cueDuration(cue, false), 10000);
+  assert.equal(cueDuration(cue, true), 10000);
 });
 test('presentation renders original event front/back, skip and reduced-motion state without a blocking dialog', () => {
   const cue = openingEvent(fixture())[0];
@@ -134,14 +134,33 @@ test('presentation renders original event front/back, skip and reduced-motion st
   assert.ok(html.includes('data-reduced-motion="true"'));
   assert.ok(!html.includes('role="dialog"'));
 });
-test('text-only card has real catalog title/budget; presentation CSS allows clicks through and reduced motion', () => {
+test('played card uses a graphical digital front; presentation CSS allows clicks through and reduced motion', () => {
   const state = fixture(), card = FACTION_CARDS.find(c => c.origin !== 'Iran')!;
   const [cue] = confirmedCues(state, withLogs(state, [`Iran: gioca [${card.id}] ${card.name} per ${card.cost} OP.`]), 10);
   const html = renderToStaticMarkup(<CardMotion cue={cue} reduced={false} onDismiss={() => {}}/>);
-  assert.ok(html.includes('card-motion-text-card'));
+  assert.ok(html.includes('data-card-source="digital"'));
+  assert.ok(html.includes('/card-art/cina_art.png'));
   assert.ok(html.includes(`${card.cost} OP`));
   const css = readFileSync('src/game-v3/card-motion.css', 'utf8');
   assert.ok(css.includes('pointer-events:none'));
   assert.ok(css.includes('prefers-reduced-motion:reduce'));
   assert.ok(css.includes('animation:none!important'));
+});
+test('slower timings scale with effects without reducing reading time for accessibility', () => {
+  const cue=openingEvent(fixture())[0];
+  assert.equal(motionSpeed(null),'slow');assert.equal(motionSpeed('invalid'),'slow');
+  assert.equal(motionSpeed('fast'),'fast');
+  assert.equal(cueDuration(cue,false,'normal'),6500);
+  assert.equal(cueDuration(cue,true,'fast'),4000);
+  const changes=Array.from({length:30},()=>({target:'Iran · Economia',before:4,after:5}));
+  assert.equal(cueDuration({...cue,changes},false,'slow'),16000);
+});
+test('pause has an owning control and pauses CSS instead of mutating confirmed gameplay', () => {
+  const cue=openingEvent(fixture())[0];
+  const html=renderToStaticMarkup(<CardMotion cue={cue} reduced={false} paused={true} onPause={()=>{}} onDismiss={()=>{}}/>);
+  assert.ok(html.includes('data-paused="true"'));
+  assert.ok(html.includes('Riprendi animazione'));
+  assert.ok(html.includes('aria-pressed="true"'));
+  const css=readFileSync('src/game-v3/card-motion.css','utf8');
+  assert.ok(css.includes('animation-play-state:paused'));
 });

@@ -6,7 +6,7 @@ export const factionBoardArt = (faction: Faction) => `/assets/tabletop-v3/boards
 export const unitFrontArt = (id: string) => `/assets/tabletop-v3/units/${id}.jpg`;
 export const unitBackArt = (faction: Faction) => `/assets/tabletop-v3/units/retro_Unita_${faction}.jpg`;
 export const eventFrontArt = (id: string) => `/assets/tabletop-v3/events/${id}.jpg`;
-export const botFrontArt = (id: string) => `/assets/tabletop-v3/bots/${id}.jpg`;
+export const botFrontArt = (id: string) => `/assets/tabletop-v3/bots/${id}.jpg?v=2026-11-22`;
 export const botBackArt = (faction: Faction, track: Track) => `/assets/tabletop-v3/bots/retro_BOT_${faction}_${track}.jpg`;
 
 export const RULEBOOK_URL = '/assets/tabletop-v3/regolamento.pdf?v=2026-11-21';

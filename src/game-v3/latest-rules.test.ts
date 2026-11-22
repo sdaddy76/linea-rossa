@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, reduce, canDeploy, canInfluence, influenceCost, occupiedSlots, territoryController, type EngineState } from './engine';
-import { FACTIONS, FACTION_CARDS, INITIAL_TRACKS, type Faction } from './catalog';
+import { FACTIONS, FACTION_CARDS, INITIAL_TRACKS, BOT_CARDS, BOT_INFLUENCE, TERRITORIES, type Faction } from './catalog';
 const rng = () => 0.3;
 function setup(bots: Faction[] = [], neutrals: Faction[] = []) {
   const s = createGame({ bots, neutrals, rulesRevision: '2026-11-21' }, rng);
@@ -117,4 +117,43 @@ test('control adds exactly one defense bonus, not one per defending unit', () =>
   let s=ops();unit(s);unit(s,'CO-U01','Coalizione');unit(s,'CO-U01','Coalizione');
   s=reduce(s,'Iran',{type:'attack',territoryId:'iran'},rng);
   assert.equal(s.combat!.defense,5); // D1 + D1 + control1 + die2
+});
+test('all 120 new BOT fronts supply explicit valid Influence destinations independent from deployment', () => {
+  assert.equal(Object.keys(BOT_INFLUENCE).length,120);
+  for(const card of BOT_CARDS) assert.ok(TERRITORIES.some(t=>t.id===BOT_INFLUENCE[card.id]),card.id);
+  assert.equal(BOT_INFLUENCE['BOT-IR-E5'],'bahrein'); // unit priority says Iraq, not Influence
+  assert.equal(BOT_INFLUENCE['BOT-CO-E4'],'kuwait'); // unit priority says Emirates
+  assert.equal(BOT_INFLUENCE['BOT-CO-M3'],'kuwait'); // attack Iran / deployment Saudi Arabia
+});
+test('new BOT edition resolves every printed Influence destination and full-state eviction automatically', () => {
+  for(const card of BOT_CARDS) {
+    const s=setup([card.faction]);s.botInfluenceEdition='2026-11-22';
+    s.lastBotCards={[card.faction]:card.id};s.roundClosure=true;
+    s.queue=[{kind:'closure-bot',actor:card.faction}];
+    const target=TERRITORIES.find(t=>t.id===BOT_INFLUENCE[card.id])!;
+    s.influence=Array.from({length:target.capacity},(_,slot)=>({id:`old-${slot}`,faction:'Iran',territory:target.id,slot}));
+    s.units=[{id:'unit-untouched',type:'IR-U01',faction:'Iran',territory:target.id,placedRound:1,rotated:false}];
+    // Finish the second lap with a human actor so the closure queue is drained.
+    const actor=FACTIONS.find(f=>f!==card.faction)!;
+    s.order=[...FACTIONS.filter(f=>f!==actor), actor]; s.lap=2;
+    ops(s,actor);
+    let next=reduce(s,actor,{type:'finish-ops'},rng);
+    // Control bonuses are still explicit choices in the tabletop rules; resolve
+    // any fixture-generated control prompt so this assertion reaches the end
+    // of the closure queue.
+    while (next.pending?.kind === 'control') {
+      next=reduce(next,next.pending.actor,{type:'control-bonus',track:next.pending.choices[0]},rng);
+    }
+    assert.equal(next.pending,null,card.id);
+    assert.ok(!next.influence!.some(i=>i.id==='old-0'),card.id);
+    assert.ok(next.influence!.some(i=>i.faction===card.faction&&i.territory===target.id&&i.slot===0),card.id);
+    assert.equal(next.units[0].id,'unit-untouched',card.id);
+  }
+});
+test('previous BOT edition retains explicit manual choice rather than migrating saved games', () => {
+  const s=setup(['Russia']);s.roundClosure=true;s.lastBotCards={Russia:'BOT-RU-E1'};
+  s.queue=[{kind:'closure-bot',actor:'Russia'}];s.order=['Coalizione','Cina','Europa','Russia','Iran'];s.lap=2;ops(s,'Iran');
+  const next=reduce(s,'Iran',{type:'finish-ops'},rng);
+  assert.equal(next.pending?.kind,'bot-influence');
+  assert.equal(next.botInfluenceEdition,undefined);
 });

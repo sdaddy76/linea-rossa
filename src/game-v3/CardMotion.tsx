@@ -1,19 +1,26 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { getFactionCardFront } from '@/data/card-graphics';
 import { eventFrontArt, botFrontArt, EVENT_BACK } from './art';
 import { FACTION_CARDS } from './catalog';
-import { confirmedCues, cueDuration, enqueueCues, openingEvent, type CardCue } from './card-motion';
+import { FactionCardFace } from './FactionCardFace';
+import { confirmedCues, cueDuration, enqueueCues, openingEvent, motionSpeed, type MotionSpeed, type CardCue } from './card-motion';
 import type { SavedTabletop } from './online';
 import './card-motion.css';
 
 const PREFERENCE_KEY = 'linea-rossa.card-motion.reduced';
+const SPEED_KEY = 'linea-rossa.card-motion.speed';
 export function useCardMotion(saved: SavedTabletop | null, gameId?: string) {
   const [queue, setQueue] = useState<CardCue[]>(() => saved ? openingEvent(saved.state) : []);
   const previous = useRef({ saved, gameId });
   const [reduced, setReduced] = useState(false);
   const [systemReduced, setSystemReduced] = useState(false);
+  const [speed, setSpeed] = useState<MotionSpeed>('slow');
+  const [pausedKey, setPausedKey] = useState<string | null>(null);
+  const clock = useRef({ key: '', remaining: 0 });
   useEffect(() => {
-    try { setReduced(window.localStorage.getItem(PREFERENCE_KEY) === 'true'); } catch { /* optional */ }
+    try {
+      setReduced(window.localStorage.getItem(PREFERENCE_KEY) === 'true');
+      setSpeed(motionSpeed(window.localStorage.getItem(SPEED_KEY)));
+    } catch { /* optional */ }
     const query = window.matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => setSystemReduced(query.matches);
     update(); query.addEventListener('change', update);
@@ -31,14 +38,27 @@ export function useCardMotion(saved: SavedTabletop | null, gameId?: string) {
   }, [saved, gameId]);
   const active = queue[0];
   const reduceMotion = reduced || systemReduced;
+  const paused = !!active && pausedKey === active.key;
   useEffect(() => {
     if (!active) return;
+    const key = `${active.key}:${speed}`;
+    if (clock.current.key !== key) clock.current = { key, remaining: cueDuration(active, reduceMotion, speed) };
+    if (paused) return;
+    const started = Date.now();
     const timeout = window.setTimeout(() => setQueue(queue =>
-      queue[0]?.key === active.key ? queue.slice(1) : queue), cueDuration(active, reduceMotion));
-    return () => window.clearTimeout(timeout);
-  }, [active, reduceMotion]);
+      queue[0]?.key === active.key ? queue.slice(1) : queue), clock.current.remaining);
+    return () => {
+      window.clearTimeout(timeout);
+      clock.current.remaining = Math.max(0, clock.current.remaining - (Date.now() - started));
+    };
+  }, [active, reduceMotion, speed, paused]);
   return {
-    active, reduced: reduceMotion, systemReduced,
+    active, reduced: reduceMotion, systemReduced, speed, paused,
+    setSpeed(value: string) {
+      const next = motionSpeed(value); setSpeed(next);
+      try { window.localStorage.setItem(SPEED_KEY, next); } catch { /* optional */ }
+    },
+    togglePaused() { setPausedKey(paused ? null : active?.key ?? null); },
     setReduced(value: boolean) {
       setReduced(value);
       try { window.localStorage.setItem(PREFERENCE_KEY, String(value)); } catch { /* optional */ }
@@ -47,27 +67,28 @@ export function useCardMotion(saved: SavedTabletop | null, gameId?: string) {
   };
 }
 
-export function CardMotion({ cue, reduced, onDismiss }: {
-  cue?: CardCue; reduced: boolean; onDismiss: () => void;
+export function CardMotion({ cue, reduced, speed = 'slow', paused = false, onPause, onDismiss }: {
+  cue?: CardCue; reduced: boolean; speed?: MotionSpeed; paused?: boolean; onPause?: () => void; onDismiss: () => void;
 }) {
   const [failedImage, setFailedImage] = useState<string | null>(null);
   const definition = FACTION_CARDS.find(c => c.id === cue?.cardId);
   const src = cue?.kind === 'event' ? eventFrontArt(cue.cardId!)
     : cue?.kind === 'bot' ? botFrontArt(cue.cardId!)
-    : definition ? getFactionCardFront(definition.id, definition.origin) : null;
+    : null;
   // An always-mounted live region announces updates, without focus theft.
-  return <div className="card-motion-layer" aria-live="polite" aria-atomic="true" data-reduced-motion={reduced}>
+  return <div className="card-motion-layer" aria-live="polite" aria-atomic="true" data-reduced-motion={reduced} data-paused={paused}>
     {cue && <section key={cue.key} className={`card-motion-notice card-motion-${cue.kind}${definition?.special && cue.destination.startsWith('Retirata') ? ' card-motion-special' : ''}`} aria-label="Carta confermata"
-      style={{ '--card-motion-duration': `${cueDuration(cue, reduced)}ms` } as CSSProperties}>
+      style={{ '--card-motion-duration': `${cueDuration(cue, reduced, speed)}ms` } as CSSProperties}>
       <div className="card-motion-caption">
         <span>{cue.kind === 'event' ? 'Evento rivelato' : cue.actor ? `${cue.actor} · carta giocata` : 'Tracciati aggiornati'}</span>
-        <button type="button" onClick={onDismiss} aria-label="Salta questa animazione">Salta ×</button>
+        <span className="card-motion-controls">{onPause && <button type="button" onClick={onPause} aria-pressed={paused} aria-label={paused ? 'Riprendi animazione' : 'Ferma animazione per leggere'}>{paused ? 'Riprendi' : 'Pausa'}</button>}
+          <button type="button" onClick={onDismiss} aria-label="Salta questa animazione">Salta ×</button></span>
       </div>
       {cue.kind !== 'effects' && <div className="card-motion-perspective">
         <div className="card-motion-flip">
           {cue.kind === 'event' && <div className="card-motion-back" aria-hidden="true"><img src={EVENT_BACK} alt=""/></div>}
           <div className="card-motion-face">
-            {src && failedImage !== src
+            {definition ? <FactionCardFace card={definition} compact/> : src && failedImage !== src
               ? <img src={src} alt={cue.title} onError={() => setFailedImage(src)}/>
               : <div className="card-motion-text-card"><small>{cue.cardId} · {definition?.origin ?? cue.actor}</small>
                 <h2>{cue.title}</h2>{definition && <strong>{definition.cost} OP</strong>}

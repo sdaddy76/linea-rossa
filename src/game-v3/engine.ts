@@ -1,5 +1,5 @@
 import { FACTIONS, TRACKS, type Faction, type Track, type GlobalTrack, type TrackChange, type GlobalChange } from './catalog-types';
-import { FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, UNITS, TERRITORIES, CORRELATIONS, INITIAL_TRACKS } from './catalog';
+import { FACTION_CARDS, EVENTS, BOT_CARDS, BOT_INFLUENCE, OBJECTIVES, UNITS, TERRITORIES, CORRELATIONS, INITIAL_TRACKS } from './catalog';
 import { objectiveComplete } from './objectives';
 import { botCondition, botPlan, weakestTrack, chooseBotCorrelation, type BotAction } from './bots';
 
@@ -31,6 +31,8 @@ export interface EngineState {
   /** Absent on persisted games from the previous rulebook: never migrate them implicitly. */
   rulesRevision?: '2026-11-16' | '2026-11-21'; mode?: GameMode; turnMarker?: number;
   coalitionIranRounds?: number;
+  /** New BOT artwork supplies printed destinations; old saves keep their manual closure. */
+  botInfluenceEdition?: '2026-11-22';
   influence?: PlacedInfluence[]; nextInfluence?: number;
   lastBotCards?: Partial<Record<Faction, string>>; roundClosure?: boolean;
   round: number; actualRound: number; lap: 1 | 2; turnIndex: number; activation: number;
@@ -206,13 +208,14 @@ function startRound(s: EngineState, rng: RNG) {
   s.log.push(`Round ${s.round} (${s.actualRound}): [${e.id}] ${e.name}`);
   e.changes.forEach(c => changeTrack(s, c)); globals(s, e.globals);
 }
-export function createGame(options: { bots: Faction[]; neutrals?: Faction[]; mode?: GameMode; rulesRevision?: EngineState['rulesRevision'] }, rng: RNG = Math.random): EngineState {
+export function createGame(options: { bots: Faction[]; neutrals?: Faction[]; mode?: GameMode; rulesRevision?: EngineState['rulesRevision']; botInfluenceEdition?: EngineState['botInfluenceEdition'] }, rng: RNG = Math.random): EngineState {
   assert(options.bots.every(f => FACTIONS.includes(f)), 'Fazione BOT sconosciuta');
   assert((options.neutrals ?? []).every(f => FACTIONS.includes(f) && !options.bots.includes(f)), 'Fazioni neutrali non valide');
   assert(!options.mode || ['breve', 'media', 'lunga'].includes(options.mode), 'Modalità sconosciuta');
   const s: EngineState = {
     version: 3, phase: 'activation', round: 1, actualRound: 1, lap: 1, turnIndex: 0, activation: 1,
     rulesRevision: options.rulesRevision ?? '2026-11-16', mode: options.mode ?? 'media', turnMarker: 0,
+    ...(options.botInfluenceEdition ? {botInfluenceEdition: options.botInfluenceEdition} : {}),
     influence: [], nextInfluence: 1, lastBotCards: {}, roundClosure: false,
     players: record(f => ({ bot: options.bots.includes(f), neutral: options.neutrals?.includes(f) ?? false, tracks: { ...INITIAL_TRACKS[f] }, points: 0, hand: [], objectives: [], vetoUsed: false })),
     globals: { Nucleare: 4, Sanzioni: 3, 'Crisi Bellica': 7, Opinione: 0 }, order: [...FACTIONS], advancers: [], roundBlocked: false, event: null,
@@ -344,6 +347,18 @@ function revealBotCard(s: EngineState, actor: Faction, track: Track) {
 }
 function promptBotInfluence(s: EngineState, actor: Faction, cardId?: string) {
   const id = cardId ?? s.lastBotCards?.[actor] ?? revealBotCard(s, actor, weakestTrack(s, actor)).id;
+  if(usesLatestRules(s) && s.botInfluenceEdition==='2026-11-22') {
+    const territory = territoryDef(BOT_INFLUENCE[id]);
+    if(!canInfluence(s,territory.id)) {
+      const leftmost=(s.influence??[]).filter(i=>i.territory===territory.id).sort((a,b)=>a.slot-b.slot)[0];
+      assert(leftmost,'Stato BOT pieno senza Influenza');
+      s.influence=s.influence!.filter(i=>i.id!==leftmost.id);
+      s.log.push(`${actor} BOT: scalza l’Influenza di ${leftmost.faction} dal riquadro ${leftmost.slot+1} in ${territory.name}.`);
+    }
+    s.log.push(`${actor} BOT: [${id}] Influenza a fine round → ${territory.name}.`);
+    placeInfluence(s,actor,territory.id);
+    return;
+  }
   s.phase = 'bot-influence'; s.pending = { kind: 'bot-influence', actor, cardId: id };
   s.log.push(`${actor} BOT: [${id}] Influenza a fine round — il materiale disponibile non riporta lo Stato; indicarlo esplicitamente dalla carta originale.`);
 }

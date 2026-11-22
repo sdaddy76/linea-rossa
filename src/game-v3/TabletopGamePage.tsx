@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useOnlineGameStore } from '@/store/onlineGameStore';
-import { getFactionCardFront, getObjectiveCardFront } from '@/data/card-graphics';
+import { getObjectiveCardFront } from '@/data/card-graphics';
 import { FACTIONS, TRACKS, type Faction, type GlobalTrack, type TrackChange } from './catalog-types';
-import { BOT_CARDS, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
+import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
 import { canDeploy, currentActor, deployCost, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, type Command } from './engine';
 import { commitCommand, readTabletop, type SavedTabletop } from './online';
 import { objectiveStatus } from './objectives';
@@ -11,6 +11,7 @@ import { COLORS, FactionBoard, TabletopBoard, UnitImage } from './Boards';
 import { Materials } from './Materials';
 import { PlayerAid } from './PlayerAid';
 import { CardMotion, useCardMotion } from './CardMotion';
+import { FactionCardFace } from './FactionCardFace';
 import { botFrontArt, eventFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from './art';
 
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
@@ -133,6 +134,12 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
         <div className="flex flex-wrap gap-2"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className={button}>Apri regolamento PDF</a>
           <a href={RULEBOOK_URL} download={RULEBOOK_FILENAME} className={button}>Scarica manuale</a>
           <button className={button} onClick={() => setAid(true)}>Aiuto giocatore</button>
+          <label className={button + ' flex items-center gap-2'}>Velocità animazioni
+            <select aria-label="Velocità animazioni carte" className="bg-slate-950 rounded p-1" value={motion.speed}
+              onChange={e => motion.setSpeed(e.target.value)}>
+              <option value="slow">Lenta · 10 s</option><option value="normal">Normale · 6,5 s</option><option value="fast">Veloce · 4 s</option>
+            </select>
+          </label>
           <label className={button + ' flex items-center gap-2 cursor-pointer'}><input type="checkbox"
             checked={motion.reduced} disabled={motion.systemReduced} onChange={e => motion.setReduced(e.target.checked)}/>
             Riduci animazioni</label>
@@ -204,7 +211,8 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
         <div className="flex gap-3 flex-wrap">{s.pending.choices.map(choice => <button key={choice} className={button} onClick={() => send({ type: 'control-bonus', track: choice })}>{`${choice} +1`}</button>)}</div>
       </Panel>}
       {canAct && s.pending?.kind === 'bot-influence' && <Panel title={`Influenza BOT · ${s.pending.actor}`}>
-        <p>La carta BOT {s.pending.cardId} prevede Influenza, ma la destinazione dello Stato non compare nel regolamento/materiali ricevuti. Per completare la sequenza, seleziona manualmente il territorio dalla carta originale. In uno Stato pieno l’Influenza segue le regole di sostituzione.</p>
+        <p>Questo salvataggio precedente conserva la scelta manuale. Il nuovo fronte di {s.pending.cardId} indica Influenza → {TERRITORIES.find(t=>t.id===BOT_INFLUENCE[s.pending?.kind==='bot-influence'?s.pending.cardId:''])?.name}. Seleziona lo Stato stampato sulla carta; in uno Stato pieno l’Influenza segue le regole di sostituzione.</p>
+        <div className="max-w-64"><img src={botFrontArt(s.pending.cardId)} alt={`Carta ${s.pending.cardId} · destinazione Influenza`}/></div>
         <label className="block text-sm">Stato<select className={selectStyle} value={botTerritory} onChange={e => {setBotTerritory(e.target.value);setSelected(e.target.value);}}>{TERRITORIES.map(t=><option key={t.id} value={t.id}>{t.name} · {occupiedSlots(s,t.id).length}/{t.capacity}</option>)}</select></label>
         <button className={button} onClick={() => send({type:'bot-influence',territoryId:botTerritory})}>Piazza l’Influenza BOT</button>
       </Panel>}
@@ -247,12 +255,13 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
         {s.pending?.kind === 'discard' && actor === own && <div className="text-amber-200"><p>Seleziona {s.pending.count} carte da scartare. Limite mano: {s.pending.limit}.</p>
           <button className={button + ' mt-2'} disabled={!canAct || marked.length !== s.pending.count} onClick={() => send({ type: 'discard', cardIds: marked })}>Conferma scarto ({marked.length}/{s.pending.count})</button></div>}
         {!p.hand.length && <p className="text-slate-400">Mano vuota.{canAct && s.phase === 'activation' && <button className={button + ' ml-3'} onClick={() => send({ type: 'skip' })}>Passa attivazione</button>}</p>}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">{p.hand.map(id => {
-          const c = FACTION_CARDS.find(x => x.id === id)!; const front = getFactionCardFront(c.id, c.origin);
-          return <button key={id} className={'p-3 text-left border rounded-xl hover:border-slate-300 ' + (marked.includes(id) ? 'border-amber-300 bg-amber-950' : 'border-slate-700 bg-slate-800')}
+        <p className="text-xs text-slate-400">Tocca una carta per ingrandirla e scegliere evento o OP. I fronti originali disponibili sono conservati; gli altri sono fronti digitali con le tre opzioni del catalogo aggiornato.</p>
+        <div className="tabletop-hand-grid">{p.hand.map(id => {
+          const c = FACTION_CARDS.find(x => x.id === id)!;
+          return <button key={id} className="tabletop-hand-card" aria-label={`${marked.includes(id) ? 'Selezionata · ' : ''}${c.id} · ${c.name} · ${c.cost} OP`} aria-pressed={marked.includes(id)}
             onClick={() => s.phase === 'discard' && actor === own ? toggle(id) : setCardId(id)}>
-            {front && <img src={front} alt={c.name} className="w-full h-auto mb-2 rounded" loading="lazy" />}
-            <span className="text-xs text-slate-400">{c.id} · {c.origin}{c.special ? ' · speciale' : ''}</span><strong className="block">{c.name}</strong><span className="text-sm text-red-300">{c.cost} OP · 3 opzioni evento</span>
+            <FactionCardFace card={c}/>
+            <span className="tabletop-hand-hint">{s.phase === 'discard' && actor === own ? marked.includes(id) ? '✓ Selezionata per lo scarto' : 'Seleziona per lo scarto' : 'Ingrandisci · scegli evento oppure OP'}</span>
           </button>;
         })}</div>
       </Panel>}
@@ -267,15 +276,15 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
       <div className="max-w-4xl mx-auto bg-slate-900 border border-slate-600 p-5 rounded-xl space-y-4">
         <button autoFocus className={button} onClick={() => setCardId(null)}>Chiudi carta</button>
         <h2 className="text-xl font-bold">{chosen.id} · {chosen.name}</h2>
-        {getFactionCardFront(chosen.id, chosen.origin) && <img src={getFactionCardFront(chosen.id, chosen.origin)!} alt={chosen.name} className="max-w-sm w-full h-auto mx-auto" />}
-        <p className="text-sm text-slate-300">Scegli una delle tre opzioni evento oppure usa i {chosen.cost} OP. Favorire una fazione diversa dalla tua dà +1 PV. {chosen.special ? 'La speciale viene rimossa dopo l’uso.' : 'La carta usata va negli scarti.'} {chosen.unlocksSpecial ? 'Questa carta sblocca una speciale.' : ''}</p>
+        <div className="tabletop-card-enlarged"><FactionCardFace card={chosen}/></div>
+        <p className="text-sm text-slate-300">Scegli una delle tre opzioni evento oppure usa i {chosen.cost} OP. Favorire una fazione diversa dalla tua dà +1 PV{usesLatestRules(s) ? ', al massimo una volta per round' : ''}. {chosen.special ? 'La speciale viene rimossa dopo l’uso.' : 'La carta usata va negli scarti.'} {!usesLatestRules(s) && chosen.unlocksSpecial ? 'Questa carta sblocca una speciale.' : ''}</p>
         <div className="grid md:grid-cols-3 gap-3">{chosen.options.map((option, i) => <div key={i} className="border border-slate-600 rounded-lg p-4 space-y-3">
           <h3 className="font-bold">Opzione {i + 1} · {option.boost.faction}</h3><p>{changeText(option.boost)}</p><p className="text-sm">Correlazione: {changeText(option.correlation)}</p><p className="text-sm">{globalText(option.globals)}</p>
           <button className={button} disabled={!canAct || s.phase !== 'activation' || !p?.hand.includes(chosen.id)} onClick={() => send({ type: 'play-event', cardId: chosen.id, option: i })}>Gioca evento</button></div>)}</div>
         <button className={button + ' w-full border-red-500'} disabled={!canAct || s.phase !== 'activation' || !p?.hand.includes(chosen.id)} onClick={() => send({ type: 'begin-ops', cardId: chosen.id })}>Usa per {chosen.cost} OP</button>
       </div>
     </div>}
-    <CardMotion cue={motion.active} reduced={motion.reduced} onDismiss={motion.dismiss}/>
+    <CardMotion cue={motion.active} reduced={motion.reduced} speed={motion.speed} paused={motion.paused} onPause={motion.togglePaused} onDismiss={motion.dismiss}/>
     {materials && <Materials onClose={() => setMaterials(false)} />}
     {aid && <PlayerAid onClose={() => setAid(false)} />}
   </main>;

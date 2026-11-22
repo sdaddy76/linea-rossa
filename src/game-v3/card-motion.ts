@@ -81,8 +81,13 @@ export function openingEvent(state: EngineState): CardCue[] {
   }] : [];
 }
 
-export const cueDuration = (cue: CardCue, reduced: boolean) =>
-  Math.min(6500, (reduced || cue.kind === 'effects' ? 1800 : 2600) + Math.max(0, cue.changes.length - 4) * 180);
+export type MotionSpeed = 'slow' | 'normal' | 'fast';
+export const motionSpeed = (value: string | null): MotionSpeed =>
+  value === 'normal' || value === 'fast' ? value : 'slow';
+// Readability and movement are independent: reduced motion still leaves reading time.
+export const cueDuration = (cue: CardCue, _reduced: boolean, speed: MotionSpeed = 'slow') =>
+  (speed === 'slow' ? 10000 : speed === 'normal' ? 6500 : 4000)
+  + Math.min(6000, Math.max(0, cue.changes.length - 4) * 450);
 
 /** Dedupe notifications without touching saved game state. */
 export function enqueueCues(queue: CardCue[], incoming: CardCue[]): CardCue[] {

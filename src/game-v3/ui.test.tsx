@@ -9,6 +9,7 @@ import { createGame, reduce } from './engine';
 import { TabletopBoard } from './Boards';
 import { PlayerAid } from './PlayerAid';
 import { Materials } from './Materials';
+import { FactionCardFace } from './FactionCardFace';
 import { TERRITORY_LAYOUT, territorySlot } from './board-layout';
 import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, TERRITORIES, UNITS } from './catalog';
 import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL, PLAYER_AID_URL, PLAYER_AID_WHITE_URL } from './art';
@@ -103,7 +104,7 @@ test('all official gameplay fronts/backs and PDFs resolve to real local deploy a
     ...FACTIONS.flatMap(f => [factionBoardArt(f).split('?')[0], unitBackArt(f)]),
     ...UNITS.map(u => unitFrontArt(u.id)), ...EVENTS.map(e => eventFrontArt(e.id)),
     ...BOT_CARDS.flatMap(c => [botFrontArt(c.id), botBackArt(c.faction, c.track)])];
-  for (const path of new Set(paths)) assert.ok(existsSync(`public${path}`), path);
+  for (const path of new Set(paths)) assert.ok(existsSync(`public${path.split('?')[0]}`), path);
 });
 test('release binds the latest rulebook, unit reference, five faction boards and the main board', () => {
   const release = JSON.parse(readFileSync('public/assets/tabletop-v3/release.json', 'utf8'));
@@ -133,4 +134,42 @@ test('v11 map keeps unit stacks separate from Influence slots and shows every fa
   assert.ok(html.includes('data-influence-id="i1"'));
   assert.ok(!html.includes('data-unit-id="u1"'));
   assert.ok(html.includes('Iran: 0 PV'));assert.ok(html.includes('Segna-turni 0'));
+});
+test('every card has a graphical face, with original fronts preferred and no legacy-effect adapter', () => {
+  for(const card of FACTION_CARDS) {
+    const html=renderToStaticMarkup(<FactionCardFace card={card}/>);
+    assert.ok(html.includes(`data-card-id="${card.id}"`));
+    assert.ok(html.includes('<img'));
+    if(card.origin==='Iran'&&/^NI(0[3-9]|1\d|2\d)$/.test(card.id)) {
+      assert.ok(html.includes('data-card-source="original"'));
+      assert.ok(html.includes(`/card-art/real/iran/${card.id}_fronte.jpg`));
+    } else {
+      assert.ok(html.includes('data-card-source="digital"'));
+      assert.ok(html.includes('Fronte digitale'));
+      assert.equal((html.match(/class="faction-card-option"/g)??[]).length,3);
+      for(const option of card.options) assert.ok(html.includes(option.boost.faction));
+    }
+  }
+});
+test('hand uses the same graphical face for mixed factions and retains discard selection', () => {
+  const s=uiFixture.state;
+  s.players.Iran.hand=['NI03','C073C'];
+  s.phase='discard';s.pending={kind:'discard',actor:'Iran',count:1,limit:5};
+  const html=render();
+  assert.ok(html.includes('tabletop-hand-grid'));
+  assert.ok(html.includes('data-card-id="NI03" data-card-source="original"'));
+  assert.ok(html.includes('data-card-id="C073C" data-card-source="digital"'));
+  assert.ok(html.includes('Seleziona per lo scarto'));
+  assert.ok(html.includes('Velocità animazioni carte'));
+  assert.ok(html.includes('Lenta · 10 s'));
+});
+test('new BOT asset manifest covers all 120 fronts and 20 backs with exact deployed source hashes', () => {
+  const manifest=JSON.parse(readFileSync('public/assets/tabletop-v3/bot-art-manifest.json','utf8'));
+  assert.equal(manifest.edition,'2026-11-22');
+  assert.equal(manifest.fronts,120);assert.equal(manifest.backs,20);
+  assert.equal(Object.keys(manifest.assets).length,140);
+  for(const [name,hash] of Object.entries(manifest.assets)) {
+    assert.equal(createHash('sha256').update(readFileSync(`public/assets/tabletop-v3/bots/${name}`)).digest('hex'),hash,name);
+  }
+  for(const card of BOT_CARDS) assert.ok(manifest.assets[`${card.id}.jpg`],card.id);
 });
