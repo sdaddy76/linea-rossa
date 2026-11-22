@@ -134,12 +134,12 @@ test('presentation renders original event front/back, skip and reduced-motion st
   assert.ok(html.includes('data-reduced-motion="true"'));
   assert.ok(!html.includes('role="dialog"'));
 });
-test('played card uses a graphical digital front; presentation CSS allows clicks through and reduced motion', () => {
-  const state = fixture(), card = FACTION_CARDS.find(c => c.origin !== 'Iran')!;
+test('played card uses the shared graphical face; presentation CSS allows clicks through and reduced motion', () => {
+  const state = fixture(), card = FACTION_CARDS.find(c => c.origin === 'Russia')!;
   const [cue] = confirmedCues(state, withLogs(state, [`Iran: gioca [${card.id}] ${card.name} per ${card.cost} OP.`]), 10);
   const html = renderToStaticMarkup(<CardMotion cue={cue} reduced={false} onDismiss={() => {}}/>);
   assert.ok(html.includes('data-card-source="digital"'));
-  assert.ok(html.includes('/card-art/cina_art.png'));
+  assert.ok(html.includes('/card-art/russia_art.png'));
   assert.ok(html.includes(`${card.cost} OP`));
   const css = readFileSync('src/game-v3/card-motion.css', 'utf8');
   assert.ok(css.includes('pointer-events:none'));

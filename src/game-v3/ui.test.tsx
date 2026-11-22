@@ -140,9 +140,12 @@ test('every card has a graphical face, with original fronts preferred and no leg
     const html=renderToStaticMarkup(<FactionCardFace card={card}/>);
     assert.ok(html.includes(`data-card-id="${card.id}"`));
     assert.ok(html.includes('<img'));
-    if(card.origin==='Iran'&&/^NI(0[3-9]|1\d|2\d)$/.test(card.id)) {
+    if((card.origin==='Iran'&&/^NI(0[3-9]|1\d|2\d)$/.test(card.id))
+      || (card.origin==='Coalizione'&&(/^C\d{3}$/.test(card.id)||/^NC(0[1-9]|1\d|2[0-7])$/.test(card.id)))
+      || (card.origin==='Cina'&&(/^C\d{3}C2?$/.test(card.id)||/^NN\d{2}$/.test(card.id)))) {
       assert.ok(html.includes('data-card-source="original"'));
-      assert.ok(html.includes(`/card-art/real/iran/${card.id}_fronte.jpg`));
+      const dir=card.origin.toLowerCase();
+      assert.ok(html.includes(`/card-art/real/${dir}/${card.id}_fronte.jpg`));
     } else {
       assert.ok(html.includes('data-card-source="digital"'));
       assert.ok(html.includes('Fronte digitale'));
@@ -158,7 +161,7 @@ test('hand uses the same graphical face for mixed factions and retains discard s
   const html=render();
   assert.ok(html.includes('tabletop-hand-grid'));
   assert.ok(html.includes('data-card-id="NI03" data-card-source="original"'));
-  assert.ok(html.includes('data-card-id="C073C" data-card-source="digital"'));
+  assert.ok(html.includes('data-card-id="C073C" data-card-source="original"'));
   assert.ok(html.includes('Seleziona per lo scarto'));
   assert.ok(html.includes('Velocità animazioni carte'));
   assert.ok(html.includes('Lenta · 10 s'));

@@ -34,6 +34,6 @@ export function FactionCardFace({ card, compact = false }: { card: FactionCard; 
         <span>↳ {delta(option.correlation)}</span>
         {option.globals.length > 0 && <span className="faction-card-globals">{option.globals.map(c => `${c.track} ${c.delta > 0 ? '+' : '−'}${Math.abs(c.delta)}`).join(' · ')}</span>}
       </span>)}</span>}
-    <span className="faction-card-footer">{card.special ? 'SPECIALE · rimossa dopo l’uso' : 'MAZZO FAZIONI'}<small>Fronte digitale · catalogo aggiornato</small></span>
+    <span className="faction-card-footer">{card.special ? 'SPECIALE · rimossa dopo l’uso' : 'MAZZO FAZIONI'}<small>Fronte digitale · scansione originale non disponibile</small></span>
   </span>;
 }
