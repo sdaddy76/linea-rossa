@@ -84,14 +84,30 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
     setDeletingId(game.id);
     try {
       // Un'unica cancellazione: le FK ON DELETE CASCADE mantengono l'atomicità.
-      // Mai svuotare prima le tabelle figlie se poi RLS nega il DELETE del tavolo.
-      const {data, error: deleteError} = await supabase.from('games').delete()
-        .eq('id', game.id).eq('created_by', profile.id).select('id');
+      // Non richiediamo `.select()` sulla DELETE: alcune installazioni Supabase
+      // non espongono il returning sotto RLS anche quando la riga è eliminata.
+      const {error: deleteError} = await supabase.from('games').delete()
+        .eq('id', game.id).eq('created_by', profile.id);
       if (deleteError) throw deleteError;
-      if (!data?.length) throw new Error('Cancellazione non autorizzata o partita già rimossa.');
+      const {data: remaining, error: verifyError} = await supabase.from('games')
+        .select('id').eq('id', game.id).maybeSingle();
+      if (verifyError) throw verifyError;
+      if (remaining) {
+        // Compatibilità con i database già pubblicati prima della policy DELETE:
+        // il proprietario può comunque chiudere e archiviare il tavolo, che viene
+        // nascosto per lui e non può più ricomparire nella lista personale.
+        const {error: archiveError} = await supabase.from('games').update({
+          status: 'finished',
+          winner_condition: 'archived_by_owner',
+          finished_at: new Date().toISOString(),
+        }).eq('id', game.id).eq('created_by', profile.id);
+        if (archiveError) throw archiveError;
+        hideGame(game.id);
+      }
       // Rimuovi dalle liste locali
       setOpenGames(prev => prev.filter(g => g.id !== game.id));
       setRecentGames(prev => prev.filter(g => g.id !== game.id));
+      if (remaining) alert('Partita archiviata e rimossa dalla tua lista. Il database non ha ancora la policy DELETE; la migrazione è inclusa nel prossimo aggiornamento.');
     } catch (err) {
       console.error('[deleteGame]', err);
       alert(err instanceof Error ? err.message : 'Errore durante l\'eliminazione. Riprova.');
@@ -237,8 +253,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       _players: playersMap[g.id] ?? [],
     });
 
-    setOpenGames((openData ?? []).map(enrich));
-    setRecentGames((recentData ?? []).map(enrich));
+    const visible = (games: Game[]) => games.filter(g => g.winner_condition !== 'archived_by_owner');
+    setOpenGames(visible(openData ?? []).map(enrich));
+    setRecentGames(visible(recentData ?? []).map(enrich));
   }, []);
 
   useEffect(() => { loadGames(); }, [loadGames]);

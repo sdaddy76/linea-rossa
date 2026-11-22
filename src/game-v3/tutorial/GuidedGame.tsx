@@ -6,7 +6,7 @@ import { MODE_THRESHOLDS, zone } from '../engine';
 import { eventFrontArt, unitFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from '../art';
 import { getFactionCardFront } from '../../data/card-graphics';
 import { FactionCardFace } from '../FactionCardFace';
-import { LESSONS, STORAGE_KEY, back, cardFor, changeLabel, choose, choicesFor, currentLesson, deploymentPreview, freshSession, parseSession, recommendedChoice, replaySession, type Session, type Speed } from './model';
+import { LESSONS, STORAGE_KEY, back, cardFor, changeLabel, choose, choicesFor, currentLesson, deploymentPreview, freshSession, guidedEventChanges, guidedEventGlobals, parseSession, recommendedChoice, replaySession, type Session, type Speed } from './model';
 import './guided-game.css';
 
 const TRACK_HELP: Record<Track, string> = {
@@ -198,7 +198,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
             <div className="guide-lesson-kicker"><span>{s.pending?.kind === 'veto' ? 'Decisione di Veto' : `Passo ${l.number.toString().padStart(2, '0')}`}</span><span>{active ?? (summary ? 'Debriefing' : 'La crisi')}</span></div>
             <h2 id="guide-lesson-title" ref={lessonHeading} tabIndex={-1}>{s.pending?.kind === 'veto' ? `${s.pending.actor}: proteggi la correlazione?` : l.title}</h2>
             <p>{s.pending?.kind === 'veto' ? `${changeLabel(s.pending.change)}. La Diplomazia Forte permette di annullare solo questa correlazione pagando −1 Diplomazia.` : l.text}</p>
-            {l.id === 'intro' && <div className="guide-scenario-note"><BookOpen size={19} /><p><strong>Una simulazione didattica, regole aggiornate.</strong>Carte, eventi e dadi sono fissati per imparare; alcune mosse sono guidate e il copione copre due round, non una partita completa.</p></div>}
+            {l.id === 'intro' && <div className="guide-scenario-note"><BookOpen size={19} /><p><strong>Una simulazione didattica, regole aggiornate.</strong> Per brevità, in questa partita guidata ogni fazione si attiva <strong>una volta per round</strong> (nella partita vera due volte). Guarda il segna-turni: avanza solo quando gioca la fazione evidenziata sull’evento. Carte, eventi e dadi sono fissati per imparare; il copione copre due round, non una partita completa.</p></div>}
             {(card || event) && <div className="guide-card-stage">
               <div className="guide-card-title"><span>{event?.id ?? card?.id}</span><strong>{event?.name ?? card?.name}</strong>{card && <b>{card.cost} OP</b>}</div>
               {art ? <button className="guide-card-art" onClick={() => setZoom({ src: art, name: event?.name ?? card!.name })} aria-label={`Ingrandisci ${event?.name ?? card?.name}`}><img key={art} src={art} alt={`Fronte originale: ${event?.name ?? card?.name}`} /><span>Tocca per ingrandire</span></button> :
@@ -206,7 +206,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
               {card && l.id === 'intro' && <div className="guide-preview-options">{card.options.map((o, i) => <p key={i}><b>{'ABC'[i]}</b><span>{changeLabel(o.boost)}<small>▸ {changeLabel(o.correlation)}</small></span></p>)}</div>}
               {originalCard && <p className="guide-original-caption">Le opzioni applicate sono quelle del catalogo aggiornato riportate nei pulsanti.</p>}
               {card && (l.mandatory || ['development', 'correlation'].includes(l.id)) && <details className="guide-muted-options"><summary title="Non selezionabili in questo passo">Opzioni Evento · non selezionabili qui</summary>{card.options.map((o, i) => <p key={i}>{'ABC'[i]}) {changeLabel(o.boost)} ▸ {changeLabel(o.correlation)}{o.globals.map(g => ` · ${g.track} ${g.delta > 0 ? '+' : ''}${g.delta}`).join('')}</p>)}</details>}
-              {event && <div className="guide-event-effects">{event.globals.map(g => <span key={g.track}>{g.track} <b>{g.delta > 0 ? '+' : ''}{g.delta}</b></span>)}{event.changes.map(c => <span key={c.track}>{changeLabel(c)}</span>)}</div>}
+              {event && <div className="guide-event-effects">{guidedEventGlobals(event.id).map(g => <span key={g.track}>{g.track} <b>{g.delta > 0 ? '+' : ''}{g.delta}</b></span>)}{guidedEventChanges(event.id).map(c => <span key={`${c.faction}-${c.track}`}>{changeLabel(c)}</span>)}</div>}
             </div>}
             {deploy && <div className="guide-cost"><p>Calcolo dal motore · Iraq {deploy.alignment}</p><strong>{deploy.cost} <small>OP totali</small></strong><span>Base {deploy.unit.cost} + Crisi {deploy.crisisCost} + Economia {deploy.economyCost} + Allineamento {deploy.alignmentCost} = {deploy.cost}</span><span>Carta: {deploy.available} OP · residuo {deploy.available - deploy.cost}</span></div>}
             {s.phase === 'ops' && s.ops && !['special', 'dice', 'outcome'].includes(l.id) && <div className="guide-op-budget"><strong>{s.ops.remaining} OP rimasti</strong><span>{s.ops.pressured.length ? `Già modificati: ${s.ops.pressured.join(', ')}` : 'Nessun globale ancora modificato'}</span></div>}
