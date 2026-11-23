@@ -13,12 +13,13 @@ import ObjectiveLibraryManager from '@/components/ObjectiveLibraryManager';
 import WaitingRoom from '@/components/WaitingRoom';
 import { Materials } from '@/game-v3/Materials';
 import { PlayerAid } from '@/game-v3/PlayerAid';
+import { isLineaRossaAdmin } from '@/lib/admin';
 
 interface LobbyPageProps {
   profile: Profile;
   onJoinGame: (gameId: string, chosenFaction?: string) => void;
   onLogout: () => void;
-  onAdmin?: (section?: 'database' | 'areas') => void;
+  onAdmin?: (section?: 'database' | 'areas' | 'player-stats') => void;
   onTutorial?: () => void;
 }
 
@@ -157,7 +158,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      setIsAdmin(data?.user?.email === 'sdaddino@yahoo.it');
+      setIsAdmin(isLineaRossaAdmin(data?.user?.email));
     });
   }, []);
 
@@ -645,6 +646,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                           { label: '🤖 BOT legacy',       action: () => { setShowBotLibrary(true);       setShowAdminMenu(false); }, color: '#c8a55a' },
                           { label: '🎴 Eventi legacy',    action: () => { setShowEventLibrary(true);     setShowAdminMenu(false); }, color: '#f97316' },
                           { label: '🚨 Obiettivi legacy', action: () => { setShowObjectiveLibrary(true); setShowAdminMenu(false); }, color: '#8b5cf6' },
+                          { label: '📈 Statistiche utenti', action: () => { onAdmin?.('player-stats'); setShowAdminMenu(false); }, color: '#34d399' },
                           { label: '🗺️ Aree plancia',       action: () => { onAdmin?.('areas');            setShowAdminMenu(false); }, color: '#f59e0b' },
                           { label: '⚙️ Database',           action: () => { onAdmin?.('database');         setShowAdminMenu(false); }, color: '#64748b' },
                         ].map(({ label, action, color }) => (

@@ -17,6 +17,9 @@ import TabletopGamePage from "./game-v3/TabletopGamePage";
 import GuidedGame from "./game-v3/tutorial/GuidedGame";
 import { readTabletop } from "./game-v3/online";
 import NotFound from "./pages/not-found/Index";
+import UserAnalytics from '@/pages/admin/UserAnalytics';
+import { endAccessTracking, beginAccessTracking } from '@/lib/accessTracking';
+import { isLineaRossaAdmin } from '@/lib/admin';
 
 const queryClient = new QueryClient();
 
@@ -37,7 +40,7 @@ function AppRouter() {
     return params.get('type') === 'recovery' && !!params.get('access_token');
   };
 
-  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas' | 'tutorial'>(
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas' | 'admin-stats' | 'tutorial'>(
     detectRecovery() ? 'auth' : window.location.hash === '#/partita-guidata' ? 'tutorial' : 'cover'
   );
   // Flag: siamo in flusso reset password (type=recovery) → non redirezionare a lobby automaticamente
@@ -81,6 +84,12 @@ function AppRouter() {
     // → AbortError durante updateUser() (reset password).
   }, []);
 
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+    return beginAccessTracking(userId);
+  }, [session?.user?.id]);
+
   // Quando cambia la sessione/profilo, reindirizza
   // ECCEZIONE: se siamo in flusso reset password (recovery), non redirezionare a lobby
   useEffect(() => {
@@ -121,6 +130,7 @@ function AppRouter() {
   };
 
   const handleLogout = async () => {
+    await endAccessTracking(session?.user?.id);
     await logout();
     setView('cover');
   };
@@ -141,13 +151,25 @@ function AppRouter() {
   />;
   if (view === 'admin') return <AdminMigration onBack={() => setView('lobby')} />;
   if (view === 'admin-areas') return <AdminMigration initialSection="areas" onBack={() => setView('lobby')} />;
+  if (view === 'admin-stats') {
+    if (!session?.user?.email || !isLineaRossaAdmin(session.user.email)) {
+      return <CoverPage
+        onPlay={() => setView(session && profile ? 'lobby' : 'auth')}
+        onTutorial={openTutorial}
+      />;
+    }
+    return <UserAnalytics onBack={() => setView('lobby')} />;
+  }
 
   if (view === 'lobby' && profile) return (
     <LobbyPage
       profile={profile}
       onJoinGame={handleJoinGame}
       onLogout={handleLogout}
-      onAdmin={(section = 'database') => setView(section === 'areas' ? 'admin-areas' : 'admin')}
+      onAdmin={(section = 'database') => setView(
+        section === 'areas' ? 'admin-areas' :
+        section === 'player-stats' ? 'admin-stats' : 'admin',
+      )}
       onTutorial={openTutorial}
     />
   );

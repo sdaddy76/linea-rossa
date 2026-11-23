@@ -912,8 +912,18 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         await applyEndOfTurnMechanics(game.id, gameState, botTerrRecs, players, botUnits, newState, botCompletedIds);
       // ────────────────────────────────────────────────────────────────
 
-      await withTimeout(Promise.all([
-        supabase.from('game_state').update({ ...botEnrichedState, active_faction: nextFact, track_position: botNewTrackPos }).eq('game_id', game.id),
+      const botStateResult = await withTimeout(
+        Promise.resolve(supabase.from('game_state').update({
+          ...botEnrichedState,
+          active_faction: nextFact,
+          track_position: botNewTrackPos,
+        }).eq('game_id', game.id)),
+        8000,
+        'bot-turn-state',
+      );
+      if (botStateResult.error) throw new Error(`Errore salvataggio stato bot: ${botStateResult.error.message}`);
+
+      const [botDeckResult, botMoveResult] = await withTimeout(Promise.all([
         supabase.from('cards_deck').update({ status: 'played', played_at_turn: game.current_turn, held_by_faction: null })
           .eq('game_id', game.id).eq('held_by_faction', botFaction).eq('card_id', decision.card.card_id).eq('status', 'in_hand'),
         supabase.from('moves_log').insert({
@@ -938,10 +948,19 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
           description: decision.card.description,
           bot_reason: decision.reason,
         }),
-        winCheck.isOver
-          ? supabase.from('games').update({ status: 'finished', winner_faction: winCheck.winner, winner_condition: winCheck.condition, finished_at: new Date().toISOString() }).eq('id', game.id)
-          : supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id),
       ]), 12000, 'bot-turn-write');
+      if (botDeckResult.error) throw new Error(`Errore aggiornamento carta bot: ${botDeckResult.error.message}`);
+      if (botMoveResult.error) console.warn('[runBotTurn] moves_log non salvato:', botMoveResult.error.message);
+
+      const botGameResult = winCheck.isOver
+        ? await supabase.from('games').update({
+          status: 'finished',
+          winner_faction: winCheck.winner,
+          winner_condition: winCheck.condition,
+          finished_at: new Date().toISOString(),
+        }).eq('id', game.id)
+        : await supabase.from('games').update({ current_turn: nextTurn }).eq('id', game.id);
+      if (botGameResult.error) throw new Error(`Errore aggiornamento partita bot: ${botGameResult.error.message}`);
 
       set(s => {
         const updBotObj = (s.myObjectives ?? []).map(o => {

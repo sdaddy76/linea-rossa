@@ -418,6 +418,12 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
               </div>
             )}
 
+            {(mode === 'login' || mode === 'register') && (
+              <p className="text-[10px] leading-relaxed font-mono text-[#667788]">
+                Per le statistiche di gioco registriamo l’orario e la durata approssimativa delle sessioni. Questi dati sono visibili solo all’amministratore.
+              </p>
+            )}
+
             {/* Messaggi errore / successo */}
             {error && (
               <div className="bg-[#ff000015] border border-[#ff4444] rounded-lg p-3 text-[#ff6666] text-xs font-mono">
