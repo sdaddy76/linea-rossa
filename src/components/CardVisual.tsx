@@ -236,7 +236,7 @@ function CardFront({ card, scale }: { card: GameCard | DeckCard; scale: number }
         <img
           src={suppliedFront}
           alt={`${card.card_name} — fronte`}
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
           draggable={false}
         />
       </div>
@@ -513,13 +513,9 @@ function CardBack({ card, scale }: { card: GameCard | DeckCard; scale: number })
   const isBot = String(card.card_id ?? '').toUpperCase().startsWith('BOT-');
   const isEvento = String(card.card_type ?? '').toLowerCase() === 'evento' ||
     String(card.card_id ?? '').toUpperCase().startsWith('E');
-  const backUrl = getFactionCardBack(faction) ?? (
-    isBot
-      ? CARD_BACK
-      : isEvento
-        ? CARD_BACK_EVENTO
-        : CARD_BACK_BY_FACTION[faction] ?? CARD_BACK
-  );
+  // The common base-deck back must not replace Event or BOT backs.
+  const backUrl = isBot ? CARD_BACK : isEvento ? CARD_BACK_EVENTO
+    : getFactionCardBack(faction) ?? CARD_BACK_BY_FACTION[faction] ?? CARD_BACK;
   const backLabel = isBot
     ? `BOT · ${faction.toUpperCase()}`
     : isEvento

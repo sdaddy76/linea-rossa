@@ -1,27 +1,10 @@
-// Asset grafici definitivi forniti per le carte di Linea Rossa.
-//
-// I percorsi restano sotto /public per poter essere serviti direttamente da
-// Vite e dal deploy statico. Le funzioni restituiscono null quando il fronte
-// originale non è presente tra i mazzi caricati: in quel caso la UI mostra un
-// fronte digitale dichiarato come tale, senza presentarlo come scansione.
+import catalog from '../game-v3/catalog-data.json';
 
-const IRAN_CARD_IDS = new Set(
-  Array.from({ length: 27 }, (_, index) => `NI${String(index + 3).padStart(2, '0')}`),
-);
-
-const COALIZIONE_CARD_IDS = new Set([
-  ...Array.from({ length: 24 }, (_, index) => `C${String(index + 1).padStart(3, '0')}`),
-  ...Array.from({ length: 27 }, (_, index) => `NC${String(index + 1).padStart(2, '0')}`),
-]);
-
-const CINA_CARD_IDS = new Set([
-  'C073C', 'C075C', 'C076C', 'C078C', 'C082C', 'C083C', 'C083C2', 'C084C',
-  'C086C', 'C087C', 'C088C', 'C090C', 'C091C', 'C092C', 'C093C', 'C094C',
-  'C095C', 'C096C',
-  ...Array.from({ length: 40 }, (_, index) => `NN${String(index + 1).padStart(2, '0')}`),
-]);
-
-export const IRAN_CARD_BACK = '/card-art/real/iran/retro.jpg';
+// One exact-ID resolver for the complete supplied base deck: 347 originals,
+// including specials and neutrals. Never alias similar Russia/China IDs.
+const CARD_ORIGINS = new Map(catalog.factionCards.map(card => [card.id, card.origin]));
+const BASE_FACTIONS = new Set(CARD_ORIGINS.values());
+export const FACTION_CARD_BACK = '/assets/tabletop-v3/faction-cards/retro_Mazzo_Base.jpg?v=2026-11-23-base';
 export const IRAN_OBJECTIVE_BACK = '/assets/tabletop-v3/objectives/retro_Obiettivi_Iran.jpg?v=2026-11-23';
 
 const OBJECTIVE_FACTION_CODES: Record<string, string> = {
@@ -33,20 +16,12 @@ const OBJECTIVE_FACTIONS: Record<string, string> = {
 };
 
 export function getFactionCardFront(cardId: string, faction: string): string | null {
-  if (faction === 'Iran' && IRAN_CARD_IDS.has(cardId)) {
-    return `/card-art/real/iran/${cardId}_fronte.jpg`;
-  }
-  if (faction === 'Coalizione' && COALIZIONE_CARD_IDS.has(cardId)) {
-    return `/card-art/real/coalizione/${cardId}_fronte.jpg`;
-  }
-  if (faction === 'Cina' && CINA_CARD_IDS.has(cardId)) {
-    return `/card-art/real/cina/${cardId}_fronte.jpg`;
-  }
-  return null;
+  if (!CARD_ORIGINS.has(cardId) || CARD_ORIGINS.get(cardId) !== faction) return null;
+  return `/assets/tabletop-v3/faction-cards/${cardId}.jpg?v=2026-11-23-base`;
 }
 
 export function getFactionCardBack(faction: string): string | null {
-  return faction === 'Iran' ? IRAN_CARD_BACK : null;
+  return BASE_FACTIONS.has(faction) ? FACTION_CARD_BACK : null;
 }
 
 export function getObjectiveCardFront(objectiveId: string): string | null {

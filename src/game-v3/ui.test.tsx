@@ -10,9 +10,12 @@ import { TabletopBoard } from './Boards';
 import { PlayerAid } from './PlayerAid';
 import { Materials } from './Materials';
 import { FactionCardFace } from './FactionCardFace';
+import CardVisual, { CARD_BACK, CARD_BACK_EVENTO } from '@/components/CardVisual';
+import CardDetailModal from '@/components/CardDetailModal';
+import type { GameCard } from '@/types/game';
 import { TERRITORY_LAYOUT, territorySlot } from './board-layout';
 import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, TERRITORIES, UNITS } from './catalog';
-import { getObjectiveCardBack, getObjectiveCardFront } from '@/data/card-graphics';
+import { getFactionCardBack, getFactionCardFront, FACTION_CARD_BACK, getObjectiveCardBack, getObjectiveCardFront } from '@/data/card-graphics';
 import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL, PLAYER_AID_URL, PLAYER_AID_WHITE_URL } from './art';
 
 const render = () => renderToStaticMarkup(<TabletopGamePage onBack={() => {}} />);
@@ -136,36 +139,80 @@ test('v11 map keeps unit stacks separate from Influence slots and shows every fa
   assert.ok(!html.includes('data-unit-id="u1"'));
   assert.ok(html.includes('Iran: 0 PV'));assert.ok(html.includes('Segna-turni 0'));
 });
-test('every card has a graphical face, with original fronts preferred and no legacy-effect adapter', () => {
+test('all 347 base cards use their exact original fronts, without digital or generic artwork', () => {
+  assert.equal(FACTION_CARDS.length,347);
   for(const card of FACTION_CARDS) {
     const html=renderToStaticMarkup(<FactionCardFace card={card}/>);
     assert.ok(html.includes(`data-card-id="${card.id}"`));
-    assert.ok(html.includes('<img'));
-    if((card.origin==='Iran'&&/^NI(0[3-9]|1\d|2\d)$/.test(card.id))
-      || (card.origin==='Coalizione'&&(/^C\d{3}$/.test(card.id)||/^NC(0[1-9]|1\d|2[0-7])$/.test(card.id)))
-      || (card.origin==='Cina'&&(/^C\d{3}C2?$/.test(card.id)||/^NN\d{2}$/.test(card.id)))) {
-      assert.ok(html.includes('data-card-source="original"'));
-      const dir=card.origin.toLowerCase();
-      assert.ok(html.includes(`/card-art/real/${dir}/${card.id}_fronte.jpg`));
-    } else {
-      assert.ok(html.includes('data-card-source="digital"'));
-      assert.ok(html.includes('Fronte digitale'));
-      assert.equal((html.match(/class="faction-card-option"/g)??[]).length,3);
-      for(const option of card.options) assert.ok(html.includes(option.boost.faction));
-    }
+    assert.ok(html.includes('data-card-source="original"'),card.id);
+    assert.ok(html.includes(`/assets/tabletop-v3/faction-cards/${card.id}.jpg?v=2026-11-23-base`));
+    assert.ok(!html.includes('data-card-source="digital"'));
+    assert.ok(!html.includes('/card-art/'));
+  }
+});
+test('base artwork matches exact IDs and origins, with one supplied common back', () => {
+  for(const card of FACTION_CARDS) {
+    assert.equal(getFactionCardFront(card.id,card.origin),`/assets/tabletop-v3/faction-cards/${card.id}.jpg?v=2026-11-23-base`);
+    assert.equal(getFactionCardFront(card.id,'unknown'),null);
+    assert.equal(getFactionCardBack(card.origin),FACTION_CARD_BACK);
+  }
+  assert.equal(getFactionCardFront('C073C','Russia'),null);
+  assert.notEqual(getFactionCardFront('C073C','Cina'),getFactionCardFront('C073R','Russia'));
+  assert.notEqual(getFactionCardFront('C083C','Cina'),getFactionCardFront('C083C2','Cina'));
+  for(const id of ['unknown','../../other','NI00']) assert.equal(getFactionCardFront(id,'Iran'),null);
+  assert.equal(getFactionCardBack('unknown'),null);
+});
+test('legacy card thumbnail and detail use the original, without replacing BOT or Event backs', () => {
+  const card:GameCard={card_id:'C073C',card_name:'Veto ONU Cina',faction:'Cina',card_type:'Diplomatico',op_points:3,deck_type:'base',effects:{}};
+  const original=getFactionCardFront(card.card_id,card.faction)!;
+  assert.ok(renderToStaticMarkup(<CardVisual card={card}/>).includes(original));
+  const detail=renderToStaticMarkup(<CardDetailModal card={card} onClose={()=>{}} onPlay={()=>{}}/>);
+  assert.ok(detail.includes(original));assert.ok(detail.includes('role="dialog"'));
+  assert.ok(detail.includes('Gioca questa carta'));assert.ok(detail.includes('aria-label="Chiudi"'));
+  const back=(c:GameCard)=>renderToStaticMarkup(<CardVisual card={c} flipped/>);
+  assert.ok(back(card).includes(FACTION_CARD_BACK));
+  const bot=back({...card,card_id:'BOT-CN-ECO-01'});
+  assert.ok(bot.includes(`src="${CARD_BACK}"`));assert.ok(!bot.includes(FACTION_CARD_BACK));
+  const event=back({...card,card_id:'E01',card_type:'Evento'});
+  assert.ok(event.includes(`src="${CARD_BACK_EVENTO}"`));assert.ok(!event.includes(FACTION_CARD_BACK));
+});
+test('base materials expose every faction plus neutrals, and the actual common back', () => {
+  for(const faction of FACTIONS) {
+    const front=renderToStaticMarkup(<Materials onClose={()=>{}} initialCategory="Carte fazione" initialFaction={faction}/>);
+    const cards=FACTION_CARDS.filter(c=>c.origin===faction||c.origin==='Neutrale');
+    assert.ok(front.includes(`${cards.length} elementi`));
+    assert.ok(front.includes('Mostra retri'));
+    assert.equal((front.match(/data-card-source="original"/g)??[]).length,cards.length);
+    for(const card of FACTION_CARDS) assert.equal(front.includes(getFactionCardFront(card.id,card.origin)!),cards.includes(card),card.id);
+    const back=renderToStaticMarkup(<Materials onClose={()=>{}} initialCategory="Carte fazione" initialFaction={faction} initialBack/>);
+    assert.ok(back.includes('Mostra fronti'));
+    assert.equal((back.match(/src="\/assets\/tabletop-v3\/faction-cards\/retro_Mazzo_Base.jpg/g)??[]).length,cards.length);
+    assert.ok(!back.includes('data-card-source="original"'));
   }
 });
 test('hand uses the same graphical face for mixed factions and retains discard selection', () => {
   const s=uiFixture.state;
-  s.players.Iran.hand=['NI03','C073C'];
+  s.players.Iran.hand=['NI03','C073C',...['Russia','Europa','Neutrale'].map(f=>FACTION_CARDS.find(c=>c.origin===f)!.id),'SE_C01'];
   s.phase='discard';s.pending={kind:'discard',actor:'Iran',count:1,limit:5};
   const html=render();
   assert.ok(html.includes('tabletop-hand-grid'));
   assert.ok(html.includes('data-card-id="NI03" data-card-source="original"'));
   assert.ok(html.includes('data-card-id="C073C" data-card-source="original"'));
+  for(const id of s.players.Iran.hand) assert.ok(html.includes(`data-card-id="${id}" data-card-source="original"`),id);
   assert.ok(html.includes('Seleziona per lo scarto'));
   assert.ok(html.includes('Velocità animazioni carte'));
   assert.ok(html.includes('Lenta · 10 s'));
+});
+test('complete base archive binds all 348 unchanged originals by source hash', () => {
+  const manifest=JSON.parse(readFileSync('public/assets/tabletop-v3/base-art-manifest.json','utf8'));
+  assert.equal(manifest.edition,'2026-11-23-base');
+  assert.equal(manifest.fronts,347);assert.equal(manifest.backs,1);
+  assert.equal(Object.keys(manifest.assets).length,348);
+  assert.deepEqual(manifest.origins,{Cina:58,Coalizione:73,Europa:58,Iran:70,Neutrale:30,Russia:58});
+  for(const [url,hash] of Object.entries(manifest.assets))
+    assert.equal(createHash('sha256').update(readFileSync(`public${url}`)).digest('hex'),hash,url);
+  for(const card of FACTION_CARDS) assert.ok(manifest.assets[getFactionCardFront(card.id,card.origin)!.split('?')[0]],card.id);
+  assert.ok(manifest.assets[FACTION_CARD_BACK.split('?')[0]]);
 });
 test('new BOT asset manifest covers all 120 fronts and 20 backs with exact deployed source hashes', () => {
   const manifest=JSON.parse(readFileSync('public/assets/tabletop-v3/bot-art-manifest.json','utf8'));

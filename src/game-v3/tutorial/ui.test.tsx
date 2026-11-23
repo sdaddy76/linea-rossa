@@ -10,6 +10,8 @@ test('public tutorial renders semantic controls, genuine board, five factions, t
   assert.ok(html.includes('/assets/tabletop-v3/board.jpg'));
   assert.ok(html.includes('aria-label="Controlli del tutorial"'));
   assert.ok(html.includes('guide-preview-options'));
+  assert.ok(html.includes('/assets/tabletop-v3/faction-cards/C097.jpg?v=2026-11-23-base'));
+  assert.ok(html.includes('Fronte originale: Mediazione UE'));
   assert.ok(html.includes('chi la provoca è escluso dalla vittoria'));
   assert.ok(!html.includes('tutti perdono'));
   assert.ok(!html.includes('supabase'));

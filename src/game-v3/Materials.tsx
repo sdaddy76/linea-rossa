@@ -1,7 +1,7 @@
 import {useEffect,useState} from 'react';
 import {BOT_CARDS, BOT_INFLUENCE, TERRITORIES, EVENTS, FACTIONS, FACTION_CARDS, OBJECTIVES, UNITS} from './catalog';
 import {FactionCardFace} from './FactionCardFace';
-import {getObjectiveCardBack, getObjectiveCardFront} from '@/data/card-graphics';
+import {getFactionCardBack, getObjectiveCardBack, getObjectiveCardFront} from '@/data/card-graphics';
 import type {Faction} from './catalog-types';
 import release from '../../public/assets/tabletop-v3/release.json';
 import {PlayerAid} from './PlayerAid';
@@ -9,12 +9,12 @@ import {BOARD_ART, EVENT_BACK, RULEBOOK_URL, RULEBOOK_FILENAME, UNIT_REFERENCE_U
   botBackArt, botFrontArt, eventFrontArt, factionBoardArt, unitBackArt, unitFrontArt} from './art';
 
 type Category = 'Tabellone e plance' | 'Carte fazione' | 'Eventi' | 'BOT' | 'Obiettivi' | 'Unità';
-export function Materials({onClose, initialCategory = 'Tabellone e plance', initialFaction = 'Iran'}: {
-  onClose: () => void; initialCategory?: Category; initialFaction?: Faction;
+export function Materials({onClose, initialCategory = 'Tabellone e plance', initialFaction = 'Iran', initialBack = false}: {
+  onClose: () => void; initialCategory?: Category; initialFaction?: Faction; initialBack?: boolean;
 }) {
   const [category,setCategory] = useState<Category>(initialCategory);
   const [faction,setFaction] = useState<Faction>(initialFaction);
-  const [back,setBack] = useState(false);
+  const [back,setBack] = useState(initialBack);
   const [aid,setAid] = useState(false);
   const [zoom,setZoom] = useState<{src:string;title:string}|null>(null);
   const [cardZoom,setCardZoom] = useState<string|null>(null);
@@ -47,19 +47,21 @@ export function Materials({onClose, initialCategory = 'Tabellone e plance', init
         <a href={UNIT_REFERENCE_URL} target="_blank" rel="noreferrer" className="underline text-emerald-300">Scheda unità PDF</a>
         <button onClick={()=>setAid(true)} className="underline text-emerald-300">Consulta aiuto giocatore</button>
       </div>
-      <p className="mb-4 text-sm text-slate-400">Materiali ufficiali allineati al regolamento v3.11. Il manuale PDF e l’aiuto giocatore sono consultabili e scaricabili; le opzioni strutturate del catalogo aggiornato prevalgono sui testi eventualmente precedenti nelle illustrazioni delle carte. Le partite già avviate conservano le regole del loro salvataggio.</p>
+      <p className="mb-4 text-sm text-slate-400">Materiali ufficiali del gioco da tavolo: mazzo base completo con 347 fronti originali e retro comune, eventi, BOT, obiettivi e unità. Il manuale v3.11 e l’aiuto giocatore sono consultabili e scaricabili. Le partite già avviate conservano le regole del loro salvataggio.</p>
       <nav className="flex flex-wrap gap-2 mb-4" aria-label="Tipo di materiale">
         {(['Tabellone e plance','Carte fazione','Eventi','BOT','Obiettivi','Unità'] as Category[]).map(c=><button key={c} onClick={()=>{setCategory(c);setBack(false);}} aria-pressed={c===category} className={`rounded-lg px-4 py-2 border ${category===c?'border-emerald-400 bg-emerald-950':'border-slate-700'}`}>{c}</button>)}
       </nav>
       <div className="flex flex-wrap items-center gap-4 mb-6">
         {(category==='BOT'||category==='Unità'||category==='Carte fazione'||category==='Obiettivi')&&<label>Fazione <select className="ml-2 rounded bg-slate-800 p-2" value={faction} onChange={e=>setFaction(e.target.value as Faction)}>{FACTIONS.map(f=><option key={f}>{f}</option>)}</select></label>}
-        {category!=='Tabellone e plance'&&category!=='Carte fazione'&&<button onClick={()=>setBack(!back)} className="rounded border border-slate-600 px-4 py-2">{back?'Mostra fronti':'Mostra retri'}</button>}
+        {category!=='Tabellone e plance'&&<button onClick={()=>setBack(!back)} className="rounded border border-slate-600 px-4 py-2">{back?'Mostra fronti':'Mostra retri'}</button>}
         <span className="text-sm text-slate-400">{category==='Carte fazione'?cards.length:images.length} elementi · tocca per ingrandire</span>
       </div>
       {category==='BOT'&&<p className="text-sm text-emerald-200 mb-5">Nuovo mazzo: 120 fronti e 20 retri originali. Tutte le 120 carte indicano lo Stato dell’Influenza a fine round; nelle nuove partite il piazzamento è automatico. Le partite precedenti conservano la scelta manuale, con la destinazione ora consultabile sulla carta.</p>}
       {category==='Obiettivi'&&<p className="text-sm text-emerald-200 mb-5">Mazzo completo: 75 fronti originali e 5 retri di fazione. Scegli una fazione, consulta le sue 15 carte e tocca una carta per ingrandirla. Durante la partita ciascun giocatore vede soltanto i propri obiettivi assegnati.</p>}
-      {category==='Carte fazione' ? <><p className="text-sm text-slate-400 mb-5">Stessa visualizzazione della mano. Include le carte Neutrali del mazzo comune. Sono collegati i fronti originali disponibili nei mazzi caricati: Iran 27/70, Coalizione 51/73 e Cina 58/58. Le carte senza scansione originale restano fronti digitali esplicitamente contrassegnati, senza riutilizzare la stessa illustrazione come se fosse il fronte del mazzo.</p>
-        <div className="tabletop-hand-grid">{cards.map(card=><button key={card.id} className="tabletop-hand-card" onClick={()=>setCardZoom(card.id)} aria-label={`Ingrandisci ${card.id} · ${card.name}`}><FactionCardFace card={card}/><span className="tabletop-hand-hint">Ingrandisci carta</span></button>)}</div>
+      {category==='Carte fazione' ? <><p className="text-sm text-slate-400 mb-5">Mazzo base completo: 347 fronti originali e un retro comune. Iran 70/70 · Coalizione 73/73 · Russia 58/58 · Cina 58/58 · Europa 58/58 · Neutrali 30/30. La stessa grafica è usata nella mano, negli ingrandimenti, nella partita guidata e nelle animazioni. Le 30 carte Neutrali sono incluse con ogni fazione.</p>
+        <div className="tabletop-hand-grid">{cards.map(card=><button key={card.id} className="tabletop-hand-card" onClick={()=>back?setZoom({src:getFactionCardBack(card.origin)!,title:`${card.id} · retro comune del mazzo base`}):setCardZoom(card.id)} aria-label={`Ingrandisci ${card.id} · ${back?'retro comune':card.name}`}>
+          {back?<span className="faction-card-original"><img src={getFactionCardBack(card.origin)!} alt={`${card.id} · retro comune del mazzo base`} loading="lazy" draggable={false}/></span>:<FactionCardFace card={card}/>}
+          <span className="tabletop-hand-hint">Ingrandisci {back?'retro':'carta'}</span></button>)}</div>
       </> : <div className={`grid gap-5 ${category==='Tabellone e plance'?'md:grid-cols-2':'grid-cols-2 md:grid-cols-4 lg:grid-cols-5'}`}>
         {images.map(item=><button key={item.id} onClick={()=>setZoom(item)} className="text-left rounded-xl overflow-hidden border border-slate-700 bg-slate-900 focus-visible:outline-emerald-300">
           <img src={item.src} alt={item.title} loading="lazy" className="w-full h-auto object-contain"/>

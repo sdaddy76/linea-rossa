@@ -5,6 +5,7 @@
 // Descrizione | Modificatori tracciati | Metadati
 // =============================================
 import { useEffect } from 'react';
+import { getFactionCardFront } from '@/data/card-graphics';
 import type { GameCard, DeckCard } from '@/types/game';
 import { isGoodForFaction, groupDeltas, type DeltaItem } from '@/lib/cardColors';
 import {
@@ -134,6 +135,27 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
   }, [onClose]);
+
+  const suppliedFront = getFactionCardFront(card.card_id, faction);
+  if (suppliedFront) return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ backgroundColor: '#000000cc', backdropFilter: 'blur(8px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div role="dialog" aria-modal="true" aria-label={`${card.card_id} · ${card.card_name}`}
+        className="relative flex max-h-[92vh] max-w-lg flex-col overflow-auto rounded-2xl bg-slate-950 p-3 shadow-2xl">
+        <button type="button" autoFocus onClick={onClose} aria-label="Chiudi"
+          className="absolute right-3 top-3 z-10 rounded-full bg-black/90 px-3 py-2 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">✕</button>
+        <img src={suppliedFront} alt={`${card.card_id} · ${card.card_name} — fronte originale`}
+          data-card-source="original" className="max-h-[80vh] w-full shrink-0 object-contain" />
+        {onPlay && <button type="button" onClick={() => { onClose(); onPlay(); }}
+          className="mt-3 rounded-lg bg-red-700 px-4 py-3 font-bold text-white hover:bg-red-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+          ▶ Gioca questa carta
+        </button>}
+      </div>
+    </div>
+  );
 
   return (
     <div

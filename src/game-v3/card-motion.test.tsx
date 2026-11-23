@@ -138,8 +138,9 @@ test('played card uses the shared graphical face; presentation CSS allows clicks
   const state = fixture(), card = FACTION_CARDS.find(c => c.origin === 'Russia')!;
   const [cue] = confirmedCues(state, withLogs(state, [`Iran: gioca [${card.id}] ${card.name} per ${card.cost} OP.`]), 10);
   const html = renderToStaticMarkup(<CardMotion cue={cue} reduced={false} onDismiss={() => {}}/>);
-  assert.ok(html.includes('data-card-source="digital"'));
-  assert.ok(html.includes('/card-art/russia_art.png'));
+  assert.ok(html.includes('data-card-source="original"'));
+  assert.ok(html.includes(`/assets/tabletop-v3/faction-cards/${card.id}.jpg?v=2026-11-23-base`));
+  assert.ok(!html.includes('/card-art/russia_art.png'));
   assert.ok(html.includes(`${card.cost} OP`));
   const css = readFileSync('src/game-v3/card-motion.css', 'utf8');
   assert.ok(css.includes('pointer-events:none'));
