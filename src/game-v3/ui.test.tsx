@@ -13,7 +13,9 @@ import { FactionCardFace } from './FactionCardFace';
 import CardVisual, { CARD_BACK, CARD_BACK_EVENTO } from '@/components/CardVisual';
 import CardDetailModal from '@/components/CardDetailModal';
 import type { GameCard } from '@/types/game';
-import { TERRITORY_LAYOUT, territorySlot } from './board-layout';
+import { TERRITORY_LAYOUT, territorySlot, perimeterPoint, globalTrackPoint } from './board-layout';
+import { viewerFaction } from './player-visibility';
+import { InfluenceAction, sameInfluenceProposal } from './InfluenceAction';
 import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, TERRITORIES, UNITS } from './catalog';
 import { getFactionCardBack, getFactionCardFront, FACTION_CARD_BACK, getObjectiveCardBack, getObjectiveCardFront } from '@/data/card-graphics';
 import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL, PLAYER_AID_URL, PLAYER_AID_WHITE_URL } from './art';
@@ -82,6 +84,65 @@ test('only the current player hand/objectives are rendered, spectators have neit
   const spectator = render();
   assert.ok(!spectator.includes('I tuoi obiettivi segreti'));
   assert.ok(!spectator.includes('La tua mano'));
+});
+test('a route faction or spectator cannot impersonate a seat or see private Intelligence snapshots', () => {
+  const players=[{player_id:'me',faction:'Europa',is_bot:false},{player_id:'other',faction:'Russia',is_bot:false},{player_id:null,faction:'Iran',is_bot:true}];
+  assert.equal(viewerFaction('me',players),'Europa');
+  assert.equal(viewerFaction(undefined,players),null);assert.equal(viewerFaction('spectator',players),null);
+  assert.equal(viewerFaction('me',[...players,{player_id:'me',faction:'Cina',is_bot:false}]),null);
+  const state=uiFixture.state,privateCard=FACTION_CARDS.find(c=>c.origin==='Russia')!;
+  state.players.Iran.hand=['NI03'];
+  state.players.Russia.hand=[privateCard.id];
+  state.intel.Iran=[{target:'Russia',hand:[privateCard.id],activation:1}];
+  const html=render();
+  assert.ok(html.includes('data-card-id="NI03"'));
+  assert.ok(!html.includes('Intelligence · consultazioni riservate'));
+  assert.ok(!html.includes(privateCard.name));assert.ok(!html.includes(`data-card-id="${privateCard.id}"`));
+  uiFixture.member=false;
+  assert.ok(!render().includes('La tua mano'));assert.ok(!render().includes('I tuoi obiettivi segreti'));
+});
+test('human control decisions are never rendered to another human; old BOT control prompts wait for automatic recovery', () => {
+  uiFixture.state.phase='control';uiFixture.state.roundClosure=true;
+  uiFixture.state.pending={kind:'control',actor:'Russia',territoryId:'iraq',choices:['Economia','Militare']};
+  assert.ok(!render().includes('bonus stampato:'));
+  uiFixture.own='Russia';assert.ok(render().includes('bonus stampato:'));
+  uiFixture.state.players.Russia.bot=true;assert.ok(!render().includes('bonus stampato:'));
+});
+test('Influence requires a confirmation naming the territory, exact cost and remaining budget', () => {
+  const proposal={revision:4,actor:'Europa',territoryId:'iran',territoryName:'Iran',cost:3,budget:4};
+  const initial=renderToStaticMarkup(<InfluenceAction proposal={proposal} disabled={false} onConfirm={()=>{throw new Error('SSR never places Influence');}}/>);
+  assert.ok(initial.includes('Piazzare Influenza in Iran · 3 OP…'));assert.ok(!initial.includes('role="dialog"'));
+  const pending=renderToStaticMarkup(<InfluenceAction proposal={proposal} initialProposal={proposal} disabled={false} onConfirm={()=>{}}/>);
+  for(const text of ['Conferma piazzamento Influenza','Annulla','Conferma · Iran · 3 OP','Residuo: 1 OP'])assert.ok(pending.includes(text),text);
+  assert.equal(sameInfluenceProposal(proposal,{...proposal}),true);
+  for(const changed of [{...proposal,revision:5},{...proposal,territoryId:'turchia'},{...proposal,cost:1},{...proposal,budget:3},{...proposal,actor:'Iran'}]) {
+    assert.equal(sameInfluenceProposal(proposal,changed),false);
+    const stale=renderToStaticMarkup(<InfluenceAction proposal={changed} initialProposal={proposal} disabled={false} onConfirm={()=>{}}/>);
+    assert.ok(stale.includes('La partita o la selezione sono cambiate'));
+    assert.ok(/disabled=""[^>]*>Conferma/.test(stale));
+  }
+});
+test('short duration is explicitly a threshold followed by completion of the current round', () => {
+  uiFixture.state.mode='breve';uiFixture.state.turnMarker=39;
+  const html=render();
+  assert.ok(html.includes('Ultimo round: soglia 30 raggiunta.'));
+  assert.ok(html.includes('senza pescare un nuovo Evento'));
+});
+test('perimeter tokens share measured cell centres and single faction markers are never offset', () => {
+  assert.deepEqual(perimeterPoint(1),{x:298/3072*100,y:66/2048*100});
+  assert.deepEqual(perimeterPoint(6),{x:872/3072*100,y:66/2048*100});
+  assert.deepEqual(perimeterPoint(0),perimeterPoint(-4));
+  assert.deepEqual(perimeterPoint(100),perimeterPoint(130));
+  const s=uiFixture.state;s.turnMarker=6;
+  const pv={Iran:0,Coalizione:0,Russia:0,Cina:0,Europa:1};
+  const html=renderToStaticMarkup(<TabletopBoard globals={s.globals} round={1} elapsed={1} units={[]} gameState={s}
+    pv={pv} selected="iran" onSelect={()=>{}}/>);
+  assert.equal((html.match(/data-track-cell=/g)??[]).length,3);
+  assert.ok(html.includes(`data-track-cell="1" data-track-point="true"`)||html.includes(`data-track-cell="1" data-track-point=""`));
+  assert.ok(html.includes(`left:${perimeterPoint(1).x}%;top:${perimeterPoint(1).y}%`));
+  const crisis=globalTrackPoint('Crisi Bellica',6);
+  assert.equal(crisis.x,2637/3072*100);assert.equal(crisis.y,1521.5/2048*100);
+  assert.ok(html.includes('transform:translate(-50%, -50%)'));
 });
 test('OP controls expose remaining budget, targets, deployment costs and explicit activation end', () => {
   const s = uiFixture.state;

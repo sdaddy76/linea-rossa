@@ -23,6 +23,18 @@ function firstFactionMention(text: string): Faction | undefined {
 export function weakestTrack(s: EngineState, faction: Faction): Track {
   return [...priorities[faction]].sort((a, b) => s.players[faction].tracks[a] - s.players[faction].tracks[b])[0];
 }
+/** Resolve a BOT's printed alternatives without delegating its decision to a human.
+ * Prefer a winning Nuclear step; otherwise repair the weakest offered track
+ * (printed faction priority breaks ties). Nuclear remains useful at full Consenso.
+ */
+export function chooseBotControlBonus(s: EngineState, faction: Faction, choices: (Track | 'Nucleare')[]): Track | 'Nucleare' {
+  if (choices.includes('Nucleare') && s.globals.Nucleare >= 14) return 'Nucleare';
+  const tracks = priorities[faction].filter(t => choices.includes(t)).sort((a,b) => s.players[faction].tracks[a]-s.players[faction].tracks[b]);
+  if (choices.includes('Nucleare') && (!tracks.length || s.players[faction].tracks[tracks[0]] >= 8)) return 'Nucleare';
+  const chosen = tracks[0] ?? choices[0];
+  if (!chosen) throw new Error('Nessun bonus BOT disponibile');
+  return chosen;
+}
 export function chooseBotCorrelation(s: EngineState, faction: Faction, track: Track): number {
   const changes = CORRELATIONS[faction][track];
   return changes.map((change, i) => ({ change, i })).sort((a, b) => {

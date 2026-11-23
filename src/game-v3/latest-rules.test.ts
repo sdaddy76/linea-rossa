@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, reduce, canDeploy, canInfluence, influenceCost, occupiedSlots, territoryController, type EngineState } from './engine';
 import { FACTIONS, FACTION_CARDS, INITIAL_TRACKS, BOT_CARDS, BOT_INFLUENCE, TERRITORIES, type Faction } from './catalog';
+import { chooseBotControlBonus, chooseBotCorrelation, weakestTrack } from './bots';
+import { objectiveComplete } from './objectives';
 const rng = () => 0.3;
 function setup(bots: Faction[] = [], neutrals: Faction[] = []) {
   const s = createGame({ bots, neutrals, rulesRevision: '2026-11-21' }, rng);
@@ -23,6 +25,82 @@ function close(s = setup()) {
   ops(s, 'Europa'); s.lap = 2;
   return reduce(s, 'Europa', { type: 'finish-ops' }, rng);
 }
+test('BOT Iran controlling Iraq selects its weaker printed bonus and completes round closure', () => {
+  const s=setup(['Iran']);s.botInfluenceEdition='2026-11-22';
+  s.influence=[{id:'own',faction:'Iran',territory:'iraq',slot:0}];
+  s.players.Iran.tracks.Economia=2;s.players.Iran.tracks.Militare=7;
+  s.lastBotCards={Iran:BOT_CARDS.find(c=>c.faction==='Iran'&&BOT_INFLUENCE[c.id]==='iraq')!.id};
+  const next=close(s);
+  assert.equal(next.round,2);assert.equal(next.roundClosure,false);assert.equal(next.pending,null);
+  assert.ok(next.log.includes('Iran BOT: sceglie automaticamente Economia per il controllo di Iraq.'));
+  assert.equal(next.players.Iran.tracks.Economia,3);
+  assert.equal(next.log.filter(l=>l==='Iran: bonus controllo Iraq, Economia +1.').length,1);
+});
+test('persisted BOT control prompts recover automatically without repeating closure effects', () => {
+  const s=setup(['Iran']);
+  s.phase='control';s.roundClosure=true;s.pending={kind:'control',actor:'Iran',territoryId:'iraq',choices:['Economia','Militare']};
+  s.players.Iran.tracks.Economia=2;s.queue=[{kind:'closure-score'},{kind:'closure-units'},{kind:'closure-refill'}];
+  s.globals.Sanzioni=9;s.players.Iran.hand=[];s.units=[];s.eventDeck=['E05'];
+  const next=reduce(s,'Iran',{type:'advance-bot'},rng);
+  assert.equal(next.round,2);assert.equal(next.players.Iran.tracks.Economia,3);
+  assert.equal(next.log.filter(l=>l.includes('bonus controllo Iraq')).length,1);
+  assert.equal(next.log.filter(l=>l.includes('PV di fine round')).length,5);
+  assert.throws(()=>reduce(next,'Iran',{type:'control-bonus',track:'Economia'},rng));
+});
+test('BOT control choice repairs tracks, breaks ties by faction priority and can win at Nuclear 14', () => {
+  const s=setup(['Iran']);
+  s.players.Iran.tracks.Economia=5;s.players.Iran.tracks.Militare=5;
+  assert.equal(chooseBotControlBonus(s,'Iran',['Economia','Militare']),'Militare');
+  s.players.Iran.tracks.Consenso=2;
+  assert.equal(chooseBotControlBonus(s,'Iran',['Consenso','Nucleare']),'Consenso');
+  s.players.Iran.tracks.Consenso=8;
+  assert.equal(chooseBotControlBonus(s,'Iran',['Consenso','Nucleare']),'Nucleare');
+  s.globals.Nucleare=14;s.players.Iran.tracks.Consenso=1;
+  assert.equal(chooseBotControlBonus(s,'Iran',['Consenso','Nucleare']),'Nucleare');
+});
+test('a human control choice is still owned by that player, never silently automated', () => {
+  const s=setup();s.influence=[{id:'own',faction:'Iran',territory:'iraq',slot:0}];
+  const next=close(s);
+  assert.equal(next.phase,'control');assert.equal(next.pending?.actor,'Iran');
+  assert.throws(()=>reduce(next,'Europa',{type:'control-bonus',track:'Economia'},rng));
+  assert.equal(reduce(next,'Iran',{type:'control-bonus',track:'Economia'},rng).round,2);
+});
+test('reported economy and consensus penalties follow printed negative correlations, not extra chained effects', () => {
+  const s=ops(setup(),'Russia');
+  assert.equal(chooseBotCorrelation(s,'Russia','Economia'),0);
+  const economy=s.players.Europa.tracks.Economia;
+  const before=structuredClone(s.players);
+  const next=reduce(s,'Russia',{type:'develop',track:'Economia',correlation:chooseBotCorrelation(s,'Russia','Economia')},rng);
+  assert.equal(next.players.Europa.tracks.Economia,economy-1);
+  assert.equal(next.players.Russia.tracks.Economia,before.Russia.tracks.Economia+1);
+  for(const f of ['Iran','Coalizione','Cina'] as const)assert.deepEqual(next.players[f].tracks,before[f].tracks);
+  assert.equal(chooseBotCorrelation(s,'Iran','Diplomazia'),1);
+  assert.equal(chooseBotCorrelation(s,'Russia','Consenso'),0);
+});
+test('Coalition fallback repairs Consensus in crisis; Russian fallback follows weakest track rather than always Diplomacy', () => {
+  const s=setup(['Coalizione']);s.turnIndex=s.order.indexOf('Coalizione');
+  s.players.Coalizione.tracks.Consenso=1;
+  assert.equal(weakestTrack(s,'Coalizione'),'Consenso');
+  s.deck=[FACTION_CARDS.find(c=>!c.options.some(o=>o.boost.faction==='Coalizione'))!.id];
+  s.botDecks.Coalizione.Consenso=['BOT-CO-C2'];
+  const next=reduce(s,'Coalizione',{type:'advance-bot'},rng);
+  assert.equal(next.players.Coalizione.tracks.Consenso,3);
+  s.players.Russia.tracks.Diplomazia=10;s.players.Russia.tracks.Consenso=2;
+  assert.equal(weakestTrack(s,'Russia'),'Consenso');
+});
+test('Fronte atlantico and Russian diplomatic objective keep their printed thresholds', () => {
+  const s=setup();s.players.Europa.tracks.Consenso=6;s.players.Coalizione.tracks.Consenso=6;
+  assert.equal(objectiveComplete(s,'OBJ-EU-15'),true);
+  s.players.Coalizione.tracks.Consenso=5;assert.equal(objectiveComplete(s,'OBJ-EU-15'),false);
+  s.players.Russia.tracks.Diplomazia=3;assert.equal(objectiveComplete(s,'OBJ-EU-10'),true);
+  s.players.Russia.tracks.Diplomazia=4;assert.equal(objectiveComplete(s,'OBJ-EU-10'),false);
+});
+test('a short game at marker 39 ends at this round closure and never draws a new event', () => {
+  const s=setup();s.mode='breve';s.turnMarker=39;
+  const next=close(s);
+  assert.equal(next.phase,'ended');assert.equal(next.result?.reason,'points');
+  assert.equal(next.turnMarker,39);assert.equal(next.round,1);assert.deepEqual(next.eventDeck,['E05']);
+});
 test('latest setup mixes all 15 specials; neutral and BOT seats receive no cards or objectives', () => {
   const s = setup(['Russia'], ['Cina', 'Europa']);
   assert.equal(s.specialReserve.length, 0);

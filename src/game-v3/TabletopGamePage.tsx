@@ -12,6 +12,8 @@ import { Materials } from './Materials';
 import { PlayerAid } from './PlayerAid';
 import { CardMotion, useCardMotion } from './CardMotion';
 import { FactionCardFace } from './FactionCardFace';
+import { InfluenceAction } from './InfluenceAction';
+import { viewerFaction } from './player-visibility';
 import { botFrontArt, eventFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from './art';
 
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
@@ -68,15 +70,15 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   }, [refresh]);
   const s = saved?.state;
   const actor = s ? currentActor(s) : null;
-  const own = myFaction && FACTIONS.includes(myFaction as Faction) ? myFaction as Faction : null;
-  const member = players.some(p => p.player_id === profile?.id && p.faction === own && !p.is_bot);
+  const own = viewerFaction(profile?.id,players);
+  const member = own !== null;
   const isBot = !!s && !!actor && (s.players[actor].bot || !!s.players[actor].neutral);
-  const needsManualResolution = !!s?.pending && ['bot-influence', 'control'].includes(s.pending.kind);
+  const needsManualResolution = !!isBot && s?.pending?.kind === 'bot-influence';
   const canAct = !!actor && member && (actor === own && !isBot || needsManualResolution) && !busy;
   const send = useCallback(async (command: Command, automatic = false) => {
     if (!saved || !gameId || !actor || busyRef.current) return;
-    const pendingChoice = saved.state.pending?.kind === 'bot-influence' || saved.state.pending?.kind === 'control';
-    if (!member || (!automatic && !(actor === own && !saved.state.players[actor].bot) && !pendingChoice)) return;
+    const pendingChoice = saved.state.players[actor].bot && saved.state.pending?.kind === 'bot-influence' && command.type === 'bot-influence';
+    if (!member || (automatic ? !isBot || command.type!=='advance-bot' : !(actor === own && !saved.state.players[actor].bot) && !pendingChoice)) return;
     busyRef.current = true; setBusy(true); setError('');
     try {
       const next = await commitCommand(gameId, saved, actor, command);
@@ -94,7 +96,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
       busyRef.current = false;
       if (mounted.current) setBusy(false);
     }
-  }, [saved, gameId, actor, own, member, refresh]);
+  }, [saved, gameId, actor, own, member, isBot, refresh]);
   useEffect(() => {
     if (!isBot || !member || busy || autoPaused || needsManualResolution || motion.active) return;
     const timer = window.setTimeout((): void => { void send({ type: 'advance-bot' }, true); }, 1400);
@@ -106,7 +108,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const event = EVENTS.find(e => e.id === s.event);
   const lastBotId = [...s.log].reverse().map(line => line.match(/\[(BOT-[^\]]+)\]/)?.[1]).find(Boolean);
   const lastBotCard = BOT_CARDS.find(c => c.id === lastBotId);
-  const chosen = FACTION_CARDS.find(c => c.id === cardId);
+  const chosen = p?.hand.includes(cardId ?? '') ? FACTION_CARDS.find(c => c.id === cardId) : undefined;
   const opsActor = s.ops?.actor;
   const territory = TERRITORIES.find(t => t.id === selected)!;
   const localUnits = s.units.filter(u => u.territory === selected);
@@ -148,6 +150,12 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
     </header>
     <div className="max-w-[1600px] mx-auto px-3 md:px-6 space-y-5 mt-5">
       <p className="text-xs text-amber-200 border border-amber-900 bg-amber-950/20 p-3 rounded-lg">Modalità tavolo fidato: mani e obiettivi sono nascosti nell’interfaccia, ma lo stato condiviso non è ancora isolato sul server. Questa versione non offre protezione contro l’ispezione tecnica delle carte avversarie.</p>
+      {official && <p className={'rounded-lg border p-3 text-sm '+((s.turnMarker??0)>=threshold?'border-amber-500 bg-amber-950/30 text-amber-100':'border-slate-700 text-slate-300')}>
+        {(s.turnMarker??0)>=threshold
+          ? s.result ? `Soglia ${threshold} superata: partita conclusa dopo la chiusura del round, come da regolamento.`
+            : `Ultimo round: soglia ${threshold} raggiunta. Si completano entrambi i giri e tutte le fasi di fine round; poi punteggio finale, senza pescare un nuovo Evento. Il segna-turni può superare ${threshold}.`
+          : `La soglia ${threshold} avvia la chiusura alla fine del round, non un arresto immediato. Il valore finale può essere superiore; gli Eventi di blocco possono allungare la durata (cap. 7).`}
+      </p>}
       <div className="flex flex-wrap gap-3">{GLOBALS.map(g => <div key={`${g}-${motion.active?.key ?? 'idle'}`}
         className={'rounded-lg bg-slate-900 border border-slate-700 px-4 py-2' + (motion.active?.changes.some(c => c.target === g) ? ' tabletop-track-changed' : '')}><span className="text-slate-400 text-xs block">{g}</span><strong className="text-xl">{s.globals[g]}</strong></div>)}
         {hormuzBlocked(s) && <p className="self-center text-amber-300">Blocco di Hormuz attivo · Coalizione +1 OP per schierare</p>}
@@ -234,7 +242,8 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
             <h3 className="font-semibold mt-5 mb-2">Attacco · 2 OP</h3><p className="text-xs text-slate-400 mb-2">Nel territorio selezionato devono esserci unità di Iran e Coalizione. Crisi Bellica −1 immediato.</p>
             <button className={button} disabled={budget < 2 || !['Iran', 'Coalizione'].includes(opsActor) || !localUnits.some(u => u.faction === 'Iran') || !localUnits.some(u => u.faction === 'Coalizione')} onClick={() => send({ type: 'attack', territoryId: selected })}>Attacca in {territory.name}</button>
             {official && <><h3 className="font-semibold mt-5 mb-2">Influenza · {influenceCost(s, opsActor, selected)} OP</h3><p className="text-xs text-slate-400 mb-2">Base: 1 OP amico, 2 neutrale, 3 nemico.{usesLatestRules(s) && ' Si applicano i modificatori Militare per Russia/Cina/Europa e Opinione per Iran/Coalizione; minimo 1 OP. Destabilizzare costa 2 OP, in qualsiasi Stato.'}</p>
-              <button className={button} disabled={!canInfluence(s, selected) || budget < influenceCost(s, opsActor, selected)} onClick={() => send({type:'influence',territoryId:selected})}>Piazza Influenza · {influenceCost(s, opsActor, selected)} OP</button>
+              <InfluenceAction key={`${gameId}-${saved.revision}-${opsActor}-${selected}`} proposal={{revision:saved.revision,actor:opsActor,territoryId:selected,territoryName:territory.name,cost:influenceCost(s,opsActor,selected),budget}}
+                disabled={!canAct || !canInfluence(s,selected) || budget<influenceCost(s,opsActor,selected)} onConfirm={()=>{void send({type:'influence',territoryId:selected});}}/>
               {localInfluence.filter(marker => marker.faction !== opsActor && (usesLatestRules(s) || territoryPresence(s, opsActor, selected) > 0)).map(marker=><button key={marker.id} className={button+' ml-2'} disabled={budget<2} onClick={()=>send({type:'destabilize',influenceId:marker.id})}>Destabilizza {marker.faction} · 2 OP</button>)}
             </>}
           </div>
@@ -255,7 +264,7 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
         {s.pending?.kind === 'discard' && actor === own && <div className="text-amber-200"><p>Seleziona {s.pending.count} carte da scartare. Limite mano: {s.pending.limit}.</p>
           <button className={button + ' mt-2'} disabled={!canAct || marked.length !== s.pending.count} onClick={() => send({ type: 'discard', cardIds: marked })}>Conferma scarto ({marked.length}/{s.pending.count})</button></div>}
         {!p.hand.length && <p className="text-slate-400">Mano vuota.{canAct && s.phase === 'activation' && <button className={button + ' ml-3'} onClick={() => send({ type: 'skip' })}>Passa attivazione</button>}</p>}
-        <p className="text-xs text-slate-400">Tocca una carta per ingrandirla e scegliere evento o OP. I fronti originali disponibili sono conservati; gli altri sono fronti digitali con le tre opzioni del catalogo aggiornato.</p>
+        <p className="text-xs text-slate-400">Questa è soltanto la tua mano. Cambiare la plancia consultata non mostra le carte degli altri giocatori. Tocca un fronte originale per ingrandirlo e scegliere evento o OP.</p>
         <div className="tabletop-hand-grid">{p.hand.map(id => {
           const c = FACTION_CARDS.find(x => x.id === id)!;
           return <button key={id} className="tabletop-hand-card" aria-label={`${marked.includes(id) ? 'Selezionata · ' : ''}${c.id} · ${c.name} · ${c.cost} OP`} aria-pressed={marked.includes(id)}
@@ -269,7 +278,6 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
         const front = getObjectiveCardFront(o.id);
         return <div key={o.id} className="rounded-lg border border-slate-700 p-3">{front && <img src={front} alt={`${o.id} · ${o.name}`} className="w-full h-auto mb-3" loading="lazy" />}<strong>{o.name} · {o.points} PV</strong><p className="text-sm mt-2">{o.condition}</p><p className={'text-sm mt-2 ' + (o.complete ? 'text-emerald-300' : 'text-slate-400')}>{o.complete ? 'Condizione attualmente soddisfatta' : 'Non ancora soddisfatto'}</p></div>;
       })}</div></Panel>}
-      {own && s.intel[own].length > 0 && <Panel title="Intelligence · consultazioni riservate">{s.intel[own].map((intel, i) => <div key={i}><strong>{intel.target} · fotografia della mano all’attivazione {intel.activation}</strong><p className="text-sm text-slate-300">{intel.hand.map(id => FACTION_CARDS.find(c => c.id === id)?.name ?? id).join(' · ') || 'Mano vuota (i BOT non hanno mano)'}</p></div>)}</Panel>}
       <p className="text-xs text-slate-500">BOT: nessuna mano né obiettivi. Sostegno automatico: Russia/Cina per Iran, Europa per Coalizione; perdite meno costose per prime. Regolamento aggiornato: un solo Scudo difendente annulla tutti i Missili balistici attaccanti. La mano usa i fronti originali del mazzo base completo; gli effetti vengono applicati dalle opzioni strutturate del catalogo.</p>
     </div>
     {chosen && <div role="dialog" aria-modal="true" aria-label={chosen.name} className="fixed inset-0 z-40 overflow-y-auto bg-black/90 p-4 md:p-8">

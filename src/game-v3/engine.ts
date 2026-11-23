@@ -1,7 +1,7 @@
 import { FACTIONS, TRACKS, type Faction, type Track, type GlobalTrack, type TrackChange, type GlobalChange } from './catalog-types';
 import { FACTION_CARDS, EVENTS, BOT_CARDS, BOT_INFLUENCE, OBJECTIVES, UNITS, TERRITORIES, CORRELATIONS, INITIAL_TRACKS } from './catalog';
 import { objectiveComplete } from './objectives';
-import { botCondition, botPlan, weakestTrack, chooseBotCorrelation, type BotAction } from './bots';
+import { botCondition, botPlan, weakestTrack, chooseBotCorrelation, chooseBotControlBonus, type BotAction } from './bots';
 
 export type RNG = () => number;
 export interface PlayerState {
@@ -388,7 +388,13 @@ function resolveControl(s: EngineState, territoryId: string) {
   if (!actor) return;
   const choices = controlBonusChoices(s, territoryId, actor);
   if (choices.length > 1) {
-    s.phase = 'control'; s.pending = { kind: 'control', actor, territoryId, choices: choices as ControlChoice[] };
+    if (s.players[actor].bot) {
+      const choice = chooseBotControlBonus(s, actor, choices as ControlChoice[]);
+      s.log.push(`${actor} BOT: sceglie automaticamente ${choice} per il controllo di ${territoryDef(territoryId).name}.`);
+      grantControlBonus(s, actor, territoryId, choice);
+    } else {
+      s.phase = 'control'; s.pending = { kind: 'control', actor, territoryId, choices: choices as ControlChoice[] };
+    }
   } else if (choices.length) grantControlBonus(s, actor, territoryId, choices[0]);
 }
 function drain(s: EngineState, rng: RNG) {
@@ -606,6 +612,14 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
     return s;
   }
   if (command.type === 'advance-bot') {
+    // Also recover games saved before automatic BOT control choices were added.
+    if (s.players[actor].bot && s.phase === 'control' && s.pending?.kind === 'control' && s.roundClosure) {
+      const pending = s.pending, choice = chooseBotControlBonus(s, actor, pending.choices);
+      s.log.push(`${actor} BOT: sceglie automaticamente ${choice} per il controllo di ${territoryDef(pending.territoryId).name}.`);
+      grantControlBonus(s, actor, pending.territoryId, choice);
+      if (!s.result) { s.pending = null; s.phase = 'activation'; drain(s, rng); }
+      return s;
+    }
     if (usesLatestRules(s) && s.players[actor].neutral) {
       assert(s.phase === 'activation', 'Fazione neutrale fuori attivazione');
       moveTurnMarker(s, actor, 2); s.log.push(`${actor}: fazione neutrale, salta l’attivazione.`); finish(s, rng); return s;

@@ -25,3 +25,24 @@ export function territorySlot(territory: string, index: number) {
   if (!layout) throw new Error(`Territorio senza coordinate sulla mappa: ${territory}`);
   return { x: layout.x + index * layout.step, y: layout.y };
 }
+
+// Measured on the supplied 3072 × 2048 artwork. The perimeter is not a
+// uniform grid: its first six top cells are wider than the later cells.
+const TOP_CENTRES = [298,413,527,642,758,872,984,1093,1203,1312,1423,1532,1641,1751,1861,1969,2077,2184,2292,2396,2502,2608,2716,2829,2942];
+const BOTTOM_CENTRES = [2884,2772,2658,2543,2432,2320,2208,2098,1985,1870,1754,1642,1528,1414,1300,1186,1072,958,843,728,617,509,400,291,179];
+const percent = (x:number,y:number) => ({x:x/3072*100,y:y/2048*100});
+/** Same printed cell for a PV marker and the turn marker at the same value. */
+export function perimeterPoint(value:number) {
+  const n=Math.min(100,Math.max(0,Math.floor(value)));
+  if(n===0)return percent(105,67);
+  if(n<=25)return percent(TOP_CENTRES[n-1],66);
+  if(n<=50)return percent(2986,173+(n-26)*71.15);
+  if(n<=75)return percent(BOTTOM_CENTRES[n-51],1981);
+  return percent(88.5,1880.6-(n-76)*71.15);
+}
+export function globalTrackPoint(track:'Nucleare'|'Sanzioni'|'Crisi Bellica'|'Opinione',value:number) {
+  if(track==='Nucleare')return percent(250.5,1530-(value-1)*73.4);
+  if(track==='Sanzioni')return percent(2637,1056-(value-1)*61.5);
+  if(track==='Crisi Bellica')return percent(2637,1253+(value-1)*53.7);
+  return percent(584+(value+10)*108.3,1843);
+}

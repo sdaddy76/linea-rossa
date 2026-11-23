@@ -663,7 +663,7 @@ test('official BOT with no revealed card draws weakest first; full states evict 
   assert.equal(s.phase, 'bot-influence'); assert.equal((s.pending as { cardId: string }).cardId, 'BOT-CN-E2');
   assert.equal(JSON.stringify(s.units), unitsBefore); assert.equal(s.influence!.length, 0);
 });
-test('official control bonuses cover every State and owning choices are validated even for a BOT', () => {
+test('official control bonuses cover every State and BOT choices resolve without a human prompt', () => {
   const s = official();
   const expected: Record<string, string[]> = {
     'Arabia Saudita': ['Economia'], Emirati: ['Economia'], Qatar: ['Economia'], Kuwait: ['Economia'],
@@ -678,10 +678,10 @@ test('official control bonuses cover every State and owning choices are validate
   influence(c, 'Cina', 'Iraq');
   c = reduce(c, 'Europa', { type: 'finish-ops' }, rng);
   c = reduce(c, 'Cina', { type: 'bot-influence', territoryId: placeId('Qatar') }, rng);
-  assert.equal(c.phase, 'control'); assert.equal(currentActor(c), 'Cina');
+  assert.notEqual(c.phase, 'control');
+  assert.ok(c.log.some(line=>line.includes('Cina BOT: sceglie automaticamente')&&line.includes('Iraq')));
   assert.throws(() => reduce(c, 'Iran', { type: 'control-bonus', track: 'Economia' }, rng));
   assert.throws(() => reduce(c, 'Cina', { type: 'control-bonus', track: 'Nucleare' }, rng));
-  assert.doesNotThrow(() => reduce(c, 'Cina', { type: 'control-bonus', track: 'Militare' }, rng));
 });
 test('official Iran nuclear control bonus can win immediately before zone score or rotation', () => {
   let s = closing(); s.globals.Nucleare = 14; s.globals['Crisi Bellica'] = 7;

@@ -2,31 +2,15 @@ import {useEffect, useState, type ReactNode} from 'react';
 import {TERRITORIES, UNITS} from './catalog';
 import {FACTIONS, TRACKS, type Faction, type GlobalTrack, type Track} from './catalog-types';
 import {BOARD_ART, factionBoardArt, unitFrontArt} from './art';
-import {territorySlot} from './board-layout';
+import {territorySlot,perimeterPoint,globalTrackPoint} from './board-layout';
 import {occupiedSlots, territoryController, usesOfficialRules, usesLatestRules, type PlacedInfluence, type EngineState} from './engine';
 
 export const COLORS: Record<Faction,string> = {Iran:'#4ade80',Coalizione:'#60a5fa',Russia:'#f87171',Cina:'#fbbf24',Europa:'#c4b5fd'};
 export const SHORT: Record<Faction,string> = {Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'};
 export interface BoardUnit {id:string;faction:Faction;type:string;territory:string;deployedAt:number;slot?:number;rotated?:boolean}
 function Point({x,y,label,color,children}: {x:number;y:number;label:string;color:string;children:ReactNode}) {
-  return <span data-track-point title={label} aria-label={label} style={{left:`${x}%`,top:`${y}%`,background:color,transition:'left var(--guide-duration, 400ms) ease, top var(--guide-duration, 400ms) ease'}}
-    className="absolute -translate-x-1/2 -translate-y-1/2 rounded border border-white text-black font-black text-[clamp(6px,0.7vw,12px)] px-[0.3%] min-w-[1.4%] text-center shadow-md pointer-events-none">{children}</span>;
-}
-function scorePoint(score:number):[number,number] {
-  const n=Math.min(100,Math.max(0,score));
-  if(n===0)return [3.4,3.3];
-  if(n<=25)return [9.7+(n-1)*3.67,3.3];
-  if(n<=50)return [97.2,8.5+(n-26)*3.48];
-  if(n<=75)return [94.1-(n-51)*3.67,96.7];
-  return [2.9,91.7-(n-76)*3.48];
-}
-function turnMarkerPoint(position:number):[number,number] {
-  const n=Math.min(100,Math.max(0,position));
-  if(n===0)return [4.2,3.2];
-  if(n<=25)return [8.5+(n-1)*3.7,3.2];
-  if(n<=50)return [97.3,8.2+(n-26)*3.48];
-  if(n<=75)return [96.5-(n-51)*3.72,96.7];
-  return [3.1,91.7-(n-76)*3.48];
+  return <span data-track-point title={label} aria-label={label} style={{left:`${x}%`,top:`${y}%`,background:color,transform:'translate(-50%, -50%)',transition:'left var(--guide-duration, 400ms) ease, top var(--guide-duration, 400ms) ease'}}
+    className="absolute rounded border border-white text-black font-black text-[clamp(7px,0.7vw,12px)] px-1 min-w-4 text-center leading-tight shadow-md pointer-events-none">{children}</span>;
 }
 export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,selected,onSelect}: {
   globals:Record<GlobalTrack,number>;round:number;elapsed:number;units:BoardUnit[];
@@ -36,6 +20,9 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
   const [zoom,setZoom]=useState(100);
   const latest = !!gameState && usesLatestRules(gameState);
   const territory=TERRITORIES.find(t=>t.id===selected);
+  const perimeterMarkers=FACTIONS.map(f=>({value:pv[f],label:`${f}: ${pv[f]} PV`,text:SHORT[f],color:COLORS[f]}));
+  if(gameState&&usesOfficialRules(gameState))perimeterMarkers.push({value:gameState.turnMarker??0,label:`Segna-turni ${gameState.turnMarker??0}`,text:'T',color:'#fef08a'});
+  const markerCells=[...new Set(perimeterMarkers.map(m=>Math.min(100,Math.max(0,Math.floor(m.value)))))];
   return <section aria-label="Mappa delle unità schierate" className="min-w-0 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="font-bold text-lg">Plancia generale · unità sui territori</h2>
@@ -48,12 +35,18 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
     <div className="overflow-x-auto rounded-xl border border-slate-700" tabIndex={0} role="region" aria-label="Tabellone scorrevole">
       <div data-board-map style={{width:`${zoom}%`,minWidth:`${1040*zoom/100}px`}} className="relative">
         <img data-image-slot="tabletop.board" src={BOARD_ART} alt="Tabellone ufficiale: territori, allineamenti, PV e tracciati globali" className="w-full h-auto"/>
-        <Point x={8.2} y={74.8-(globals.Nucleare-1)*3.58} label={`Nucleare ${globals.Nucleare}`} color="#facc15">{globals.Nucleare}</Point>
-        <Point x={85.8} y={51.6-(globals.Sanzioni-1)*3.01} label={`Sanzioni ${globals.Sanzioni}`} color="#fb923c">{globals.Sanzioni}</Point>
-        <Point x={85.1} y={61.2+(globals['Crisi Bellica']-1)*2.62} label={`Crisi Bellica ${globals['Crisi Bellica']}`} color="#f87171">{globals['Crisi Bellica']}</Point>
-        <Point x={18.9+(globals.Opinione+10)*3.54} y={89.9} label={`Opinione ${globals.Opinione}`} color="#f9a8d4">{globals.Opinione}</Point>
-        {gameState && usesOfficialRules(gameState) && (()=>{const [x,y]=turnMarkerPoint(gameState.turnMarker??0);return <Point x={x} y={y} label={`Segna-turni ${gameState.turnMarker??0}`} color="#fef08a">T</Point>;})()}
-        {FACTIONS.map((f,i)=>{const [x,y]=scorePoint(pv[f]);return <Point key={f} x={x+(i-2)*0.25} y={y+(i-2)*0.55} label={`${f}: ${pv[f]} PV`} color={COLORS[f]}>{SHORT[f]}</Point>;})}
+        {(['Nucleare','Sanzioni','Crisi Bellica','Opinione'] as GlobalTrack[]).map((track,i)=><Point key={track}
+          {...globalTrackPoint(track,globals[track])} label={`${track} ${globals[track]}`} color={['#facc15','#fb923c','#f87171','#f9a8d4'][i]}>{globals[track]}</Point>)}
+        {markerCells.map(value=>{
+          const markers=perimeterMarkers.filter(m=>Math.min(100,Math.max(0,Math.floor(m.value)))===value),pos=perimeterPoint(value);
+          return <span key={value} data-track-cell={value} data-track-point
+            className="absolute grid place-items-center gap-px pointer-events-none"
+            style={{left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%, -50%)',gridTemplateColumns:`repeat(${Math.min(3,markers.length)},auto)`}}>
+            {markers.map(m=><span key={m.label} title={m.label} aria-label={m.label}
+              className="rounded-sm border border-white px-0.5 text-center text-black font-black leading-tight shadow-sm"
+              style={{background:m.color,fontSize:'clamp(6px,0.65vw,11px)',minWidth:markers.length===1?'18px':'12px'}}>{m.text}</span>)}
+          </span>;
+        })}
         {TERRITORIES.flatMap(t=>{
           const local=latest ? [] : units.filter(u=>u.territory===t.id);
           const localInfluence=influence.filter(i=>i.territory===t.id);
