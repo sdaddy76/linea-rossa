@@ -11,7 +11,8 @@ import { PlayerAid } from './PlayerAid';
 import { Materials } from './Materials';
 import { FactionCardFace } from './FactionCardFace';
 import { TERRITORY_LAYOUT, territorySlot } from './board-layout';
-import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, TERRITORIES, UNITS } from './catalog';
+import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, TERRITORIES, UNITS } from './catalog';
+import { getObjectiveCardBack, getObjectiveCardFront } from '@/data/card-graphics';
 import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL, PLAYER_AID_URL, PLAYER_AID_WHITE_URL } from './art';
 
 const render = () => renderToStaticMarkup(<TabletopGamePage onBack={() => {}} />);
@@ -175,4 +176,69 @@ test('new BOT asset manifest covers all 120 fronts and 20 backs with exact deplo
     assert.equal(createHash('sha256').update(readFileSync(`public/assets/tabletop-v3/bots/${name}`)).digest('hex'),hash,name);
   }
   for(const card of BOT_CARDS) assert.ok(manifest.assets[`${card.id}.jpg`],card.id);
+});
+
+test('all 75 objective fronts and five backs use the supplied current deck, with saved aliases preserved', () => {
+  for(const objective of OBJECTIVES) {
+    const url=getObjectiveCardFront(objective.id);
+    assert.equal(url,`/assets/tabletop-v3/objectives/${objective.id}.jpg?v=2026-11-23`);
+    assert.ok(existsSync(`public${url!.split('?')[0]}`));
+  }
+  const codes={Iran:'IRAN',Coalizione:'COAL',Russia:'RUSS',Cina:'CINA',Europa:'EU'} as const;
+  for(const faction of FACTIONS) {
+    const url=getObjectiveCardBack(faction);
+    assert.ok(url?.includes(`retro_Obiettivi_${faction}.jpg`));
+    assert.ok(existsSync(`public${url!.split('?')[0]}`));
+    for(const o of OBJECTIVES.filter(o=>o.faction===faction)) {
+      assert.equal(getObjectiveCardFront(`OBJ_${codes[faction]}_${String(o.number).padStart(2,'0')}`),getObjectiveCardFront(o.id));
+    }
+  }
+  for(const id of ['OBJ-IR-00','OBJ-IR-16','OBJ-XX-01','OBJ_IRAN_99','../../other']) assert.equal(getObjectiveCardFront(id),null);
+  assert.equal(getObjectiveCardBack('unknown'),null);
+});
+
+test('materials expose each complete objective faction deck, without mixing factions', () => {
+  for(const faction of FACTIONS) {
+    const html=renderToStaticMarkup(<Materials onClose={()=>{}} initialCategory="Obiettivi" initialFaction={faction}/>);
+    assert.ok(html.includes('75 fronti originali e 5 retri'));
+    assert.ok(html.includes('15 elementi'));
+    assert.ok(html.includes('Mostra retri'));
+    for(const o of OBJECTIVES) {
+      assert.equal(html.includes(getObjectiveCardFront(o.id)!),o.faction===faction,o.id);
+    }
+  }
+});
+
+test('every faction sees graphical versions of only its assigned secret objectives', () => {
+  for(const faction of FACTIONS) {
+    uiFixture.own=faction;
+    const assigned=OBJECTIVES.filter(o=>o.faction===faction).slice(0,3);
+    uiFixture.state.players[faction].objectives=assigned.map(o=>o.id);
+    const html=render();
+    for(const o of OBJECTIVES) {
+      assert.equal(html.includes(getObjectiveCardFront(o.id)!),assigned.some(a=>a.id===o.id),o.id);
+    }
+    assert.ok(!html.includes('/card-art/real/objectives-iran/'));
+  }
+  uiFixture.own=null;uiFixture.member=false;
+  assert.ok(!render().includes('/assets/tabletop-v3/objectives/'));
+});
+
+test('the four uploaded decks bind all 337 exact front and back files by source hash', () => {
+  const manifest=JSON.parse(readFileSync('public/assets/tabletop-v3/deck-art-manifest.json','utf8'));
+  assert.equal(manifest.edition,'2026-11-23');
+  assert.equal(manifest.sources.length,4);
+  assert.equal(Object.keys(manifest.assets).length,337);
+  for(const [url,hash] of Object.entries(manifest.assets)) {
+    assert.equal(createHash('sha256').update(readFileSync(`public${url}`)).digest('hex'),hash,url);
+  }
+  const urls=[
+    ...EVENTS.map(c=>eventFrontArt(c.id)),
+    ...BOT_CARDS.flatMap(c=>[botFrontArt(c.id),botBackArt(c.faction,c.track)]),
+    ...UNITS.map(c=>unitFrontArt(c.id)),
+    ...OBJECTIVES.map(c=>getObjectiveCardFront(c.id)!),
+    ...FACTIONS.flatMap(f=>[getObjectiveCardBack(f)!,unitBackArt(f)]),
+    EVENT_BACK,
+  ];
+  for(const url of urls) assert.ok(manifest.assets[url.split('?')[0]],url);
 });

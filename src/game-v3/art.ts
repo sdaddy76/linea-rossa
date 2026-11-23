@@ -3,9 +3,9 @@ import type {Faction, Track} from './catalog-types';
 export const BOARD_ART = '/assets/tabletop-v3/board.jpg?v=2026-11-17';
 export const EVENT_BACK = '/assets/tabletop-v3/events/retro_Eventi.jpg';
 export const factionBoardArt = (faction: Faction) => `/assets/tabletop-v3/boards/${faction}.jpg?v=2026-11-17`;
-export const unitFrontArt = (id: string) => `/assets/tabletop-v3/units/${id}.jpg`;
-export const unitBackArt = (faction: Faction) => `/assets/tabletop-v3/units/retro_Unita_${faction}.jpg`;
-export const eventFrontArt = (id: string) => `/assets/tabletop-v3/events/${id}.jpg`;
+export const unitFrontArt = (id: string) => `/assets/tabletop-v3/units/${id}.jpg?v=2026-11-23`;
+export const unitBackArt = (faction: Faction) => `/assets/tabletop-v3/units/retro_Unita_${faction}.jpg?v=2026-11-23`;
+export const eventFrontArt = (id: string) => `/assets/tabletop-v3/events/${id}.jpg?v=2026-11-23`;
 export const botFrontArt = (id: string) => `/assets/tabletop-v3/bots/${id}.jpg?v=2026-11-22`;
 export const botBackArt = (faction: Faction, track: Track) => `/assets/tabletop-v3/bots/retro_BOT_${faction}_${track}.jpg`;
 

@@ -21,12 +21,16 @@ const CINA_CARD_IDS = new Set([
   ...Array.from({ length: 40 }, (_, index) => `NN${String(index + 1).padStart(2, '0')}`),
 ]);
 
-const IRAN_OBJECTIVE_IDS = new Set(
-  Array.from({ length: 15 }, (_, index) => `OBJ_IRAN_${String(index + 1).padStart(2, '0')}`),
-);
-
 export const IRAN_CARD_BACK = '/card-art/real/iran/retro.jpg';
-export const IRAN_OBJECTIVE_BACK = '/card-art/real/objectives-iran/retro.jpg';
+export const IRAN_OBJECTIVE_BACK = '/assets/tabletop-v3/objectives/retro_Obiettivi_Iran.jpg?v=2026-11-23';
+
+const OBJECTIVE_FACTION_CODES: Record<string, string> = {
+  IRAN: 'IR', COAL: 'CO', RUSS: 'RU', CINA: 'CN', EU: 'EU',
+};
+const OBJECTIVE_FACTIONS: Record<string, string> = {
+  Iran: 'Iran', Iraniano: 'Iran', Coalizione: 'Coalizione',
+  Russia: 'Russia', Cina: 'Cina', Europa: 'Europa',
+};
 
 export function getFactionCardFront(cardId: string, faction: string): string | null {
   if (faction === 'Iran' && IRAN_CARD_IDS.has(cardId)) {
@@ -46,10 +50,14 @@ export function getFactionCardBack(faction: string): string | null {
 }
 
 export function getObjectiveCardFront(objectiveId: string): string | null {
-  if (!IRAN_OBJECTIVE_IDS.has(objectiveId)) return null;
-  return `/card-art/real/objectives-iran/${objectiveId}.jpg`;
+  // Accept existing saved aliases without changing or redealing saved objectives.
+  const legacy = objectiveId.match(/^OBJ_(IRAN|COAL|RUSS|CINA|EU)_(\d{2})$/);
+  const id = legacy ? `OBJ-${OBJECTIVE_FACTION_CODES[legacy[1]]}-${legacy[2]}` : objectiveId;
+  if (!/^OBJ-(IR|CO|RU|CN|EU)-(0[1-9]|1[0-5])$/.test(id)) return null;
+  return `/assets/tabletop-v3/objectives/${id}.jpg?v=2026-11-23`;
 }
 
 export function getObjectiveCardBack(faction: string): string | null {
-  return faction === 'Iran' || faction === 'Iraniano' ? IRAN_OBJECTIVE_BACK : null;
+  const name = OBJECTIVE_FACTIONS[faction];
+  return name ? `/assets/tabletop-v3/objectives/retro_Obiettivi_${name}.jpg?v=2026-11-23` : null;
 }
