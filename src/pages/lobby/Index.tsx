@@ -14,6 +14,8 @@ import WaitingRoom from '@/components/WaitingRoom';
 import { Materials } from '@/game-v3/Materials';
 import { PlayerAid } from '@/game-v3/PlayerAid';
 import { isLineaRossaAdmin } from '@/lib/admin';
+import SalaPartite from './SalaPartite';
+import { loadRoom, openedAt, type RoomGame } from './sala';
 
 interface LobbyPageProps {
   profile: Profile;
@@ -34,9 +36,7 @@ const FACTION_STYLE: Record<Faction, { color: string; bg: string; emoji: string 
 };
 
 // Partita arricchita con i giocatori correnti (per la lista)
-interface GameWithPlayers extends Game {
-  _players?: { faction: Faction; is_bot: boolean; player_id: string | null }[];
-}
+type GameWithPlayers = RoomGame;
 
 // ─── helpers codice ──────────────────────────────────────────────────────────
 const PREFIXES = ['GULF','IRAN','ATOM','NUKE','HAWK','DOVE','SAND','SILK','BRIC','NATO'];
@@ -58,7 +58,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
 
   // ── Stato join manuale ───────────────────────────────────────────────────
   const [joinCode, setJoinCode]     = useState('');
-  const [tab, setTab]               = useState<'create' | 'join'>('create');
+  const [tab, setTab]               = useState<'room' | 'create' | 'join'>('room');
 
   // ── Setup pre-creazione ────────────────────────────────────────────────────
   const [setupFaction, setSetupFaction] = useState<string | null>(null);
@@ -73,6 +73,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
   // ── Lista tavoli ─────────────────────────────────────────────────────────
   const [openGames, setOpenGames]     = useState<GameWithPlayers[]>([]);
   const [recentGames, setRecentGames] = useState<GameWithPlayers[]>([]);
+  const [roomLoading, setRoomLoading] = useState(true);
+  const [roomError, setRoomError] = useState('');
+  const [roomUpdatedAt, setRoomUpdatedAt] = useState<string | null>(null);
+  const loadingRoom = useRef(false);
+  const roomMounted = useRef(false);
 
   // ── Elimina partita (solo creatore) ──────────────────────────────────────
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -195,71 +200,40 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
 
   // ─── Carica lista tavoli ─────────────────────────────────────────────────
   const loadGames = useCallback(async () => {
-    // Tavoli aperti in lobby — con fallback se colonna is_public non ancora migrata
-    let openData: Game[] | null = null;
-    const openRes = await supabase
-      .from('games')
-      .select('*')
-      .eq('is_public', true)
-      .in('status', ['lobby', 'active'])
-      .order('created_at', { ascending: false })
-      .limit(8);
-    if (!openRes.error) {
-      openData = openRes.data as Game[];
-    } else {
-      // Colonna is_public non ancora presente → carica tutti i lobby aperti
-      const fallback = await supabase
-        .from('games')
-        .select('*')
-        .in('status', ['lobby', 'active'])
-        .order('created_at', { ascending: false })
-        .limit(20);
-      openData = (fallback.data as Game[]) ?? [];
+    if (loadingRoom.current) return;
+    loadingRoom.current = true;
+    if (roomMounted.current) setRoomLoading(true);
+    try {
+      const result = await loadRoom(supabase, profile.id);
+      if (!roomMounted.current) return;
+      setOpenGames(result.open); setRecentGames(result.recent);
+      setRoomError(''); setRoomUpdatedAt(new Date().toISOString());
+    } catch (err) {
+      if (roomMounted.current) setRoomError(`Sala non aggiornata: ${(err as { message?: string }).message || 'errore di connessione'}`);
+    } finally {
+      loadingRoom.current = false;
+      if (roomMounted.current) setRoomLoading(false);
     }
+  }, [profile.id]);
 
-    // Partite recenti dell'utente (qualsiasi stato)
-    const { data: recentData } = await supabase
-      .from('games')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    // Carica giocatori per ogni partita trovata
-    // LIMIT 8 per evitare URL troppo lungo (502 Bad Gateway con 20+ ID)
-    const openGamesLimited = (openData ?? []).slice(0, 8);
-    const recentGamesLimited = (recentData ?? []).slice(0, 5);
-    const allGames = [...openGamesLimited, ...recentGamesLimited];
-    const uniqueIds = [...new Set(allGames.map((g) => g.id))];
-
-    const playersMap: Record<string, { faction: Faction; is_bot: boolean; player_id: string | null }[]> = {};
-    if (uniqueIds.length > 0) {
-      // Spezza in batch da 8 per evitare URL troppo lungo → 502
-      const BATCH = 8;
-      const allPlayersData: typeof playersMap[string][] = [];
-      for (let i = 0; i < uniqueIds.length; i += BATCH) {
-        const batchIds = uniqueIds.slice(i, i + BATCH);
-        const { data: batchData } = await supabase
-          .from('game_players')
-          .select('game_id, faction, is_bot, player_id')
-          .in('game_id', batchIds);
-        (batchData ?? []).forEach((p) => {
-          if (!playersMap[p.game_id]) playersMap[p.game_id] = [];
-          playersMap[p.game_id].push(p as { faction: Faction; is_bot: boolean; player_id: string | null });
-        });
-      }
-    }
-
-    const enrich = (g: Game): GameWithPlayers => ({
-      ...g,
-      _players: playersMap[g.id] ?? [],
-    });
-
-    const visible = (games: Game[]) => games.filter(g => g.winner_condition !== 'archived_by_owner');
-    setOpenGames(visible(openData ?? []).map(enrich));
-    setRecentGames(visible(recentData ?? []).map(enrich));
-  }, []);
-
-  useEffect(() => { loadGames(); }, [loadGames]);
+  useEffect(() => {
+    roomMounted.current = true;
+    void loadGames();
+    let debounce: ReturnType<typeof setTimeout>;
+    const refresh = () => { clearTimeout(debounce); debounce = setTimeout(() => void loadGames(), 300); };
+    const channel = supabase.channel(`sala-partite-${profile.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players' }, refresh)
+      .subscribe();
+    const interval = setInterval(() => { if (!document.hidden) void loadGames(); }, 15000);
+    const onVisible = () => { if (!document.hidden) refresh(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      roomMounted.current = false; clearInterval(interval); clearTimeout(debounce);
+      document.removeEventListener('visibilitychange', onVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [loadGames, profile.id]);
 
   // ── CREA PARTITA ──────────────────────────────────────────────────────────
   const createGame = async (mode: 'solo' | 'apri' = 'apri') => {
@@ -475,6 +449,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
               {game.code}
               {isMine && <span className="ml-1.5 text-[9px] text-[#445566]">tua</span>}
             </p>
+            <p className="text-xs text-slate-400 mt-1">Aperta il <time dateTime={game.created_at}>{openedAt(game.created_at)}</time></p>
+            <p className="text-xs text-slate-300 mt-1 break-words">{humanPlayers.map(p => p.profile?.username || 'Giocatore').join(', ') || 'Nessun giocatore iscritto'}</p>
 
             {/* Fazioni */}
             <div className="flex gap-1 mt-1.5 flex-wrap">
@@ -674,35 +650,24 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
           </div>
         </div>
 
-        {/* ── Tavoli aperti ── */}
-        {openGames.length > 0 && (
-          <section>
-            <h2 className="text-[10px] font-mono text-[#445566] uppercase tracking-widest mb-2">
-              🌐 Tavoli aperti ({openGames.filter(g => !hiddenIds.has(g.id)).length})
-            </h2>
-            <div className="space-y-2">
-              {openGames.filter(g => !hiddenIds.has(g.id)).map((g) => <TableRow key={g.id} game={g} />)}
-              {openGames.filter(g => !hiddenIds.has(g.id)).length === 0 && (
-                <p className="text-xs font-mono text-[#334455] italic px-1">Nessun tavolo aperto visibile.</p>
-              )}
-            </div>
-          </section>
-        )}
-
         {/* ── Tabs Crea / Entra ── */}
         <div>
-          <div className="grid grid-cols-2 gap-2 mb-4 p-1 bg-[#060d18] rounded-xl border border-[#1e3a5f]">
-            {(['create', 'join'] as const).map((t) => (
+          <nav aria-label="Sala e tavoli" className="grid grid-cols-3 gap-2 mb-4 p-1 bg-[#060d18] rounded-xl border border-[#1e3a5f]">
+            {(['room', 'create', 'join'] as const).map((t) => (
               <button key={t} onClick={() => { setTab(t); setError(''); }}
+                aria-pressed={tab === t}
                 className="py-2.5 rounded-lg font-mono text-sm font-bold transition-all"
                 style={{
                   background: tab === t ? '#00ff88' : 'transparent',
                   color: tab === t ? '#0a0e1a' : '#8899aa',
                 }}>
-                {t === 'create' ? '🎮 Nuova partita' : '🔗 Entra con codice'}
+                {t === 'room' ? 'Sala partite' : t === 'create' ? 'Nuova partita' : 'Entra con codice'}
               </button>
             ))}
-          </div>
+          </nav>
+          {tab === 'room' && <SalaPartite games={openGames} userId={profile.id} loading={roomLoading}
+            error={roomError} updatedAt={roomUpdatedAt} onRefresh={() => void loadGames()}
+            onEnter={joinOpen} onCreate={() => setTab('create')} onCode={() => setTab('join')}/>}
 
           {/* ── TAB: CREA ── */}
           {tab === 'create' && (

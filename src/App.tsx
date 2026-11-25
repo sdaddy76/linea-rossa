@@ -161,7 +161,7 @@ function AppRouter() {
     return <UserAnalytics onBack={() => setView('lobby')} />;
   }
 
-  if (view === 'lobby' && profile) return (
+  if (view === 'lobby' && session && profile) return (
     <LobbyPage
       profile={profile}
       onJoinGame={handleJoinGame}

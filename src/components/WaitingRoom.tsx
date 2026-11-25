@@ -5,6 +5,7 @@ import { FACTIONS, type Faction } from '@/game-v3/catalog-types';
 import type { GameMode } from '@/game-v3/engine';
 import { initializeTabletop, readTabletop } from '@/game-v3/online';
 import { Materials } from '@/game-v3/Materials';
+import { openedAt } from '@/pages/lobby/sala';
 
 interface Player { id: string; faction: string; player_id: string | null; is_bot: boolean; profile?: { username: string } | null }
 interface Props {
@@ -21,7 +22,10 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
   const [gameMode, setGameMode] = useState<GameMode>(tabletopMode ?? 'media');
   const [neutrals, setNeutrals] = useState<Faction[]>([]);
   const [copied, setCopied] = useState(false);
+  const [opened, setOpened] = useState<string | null>(null);
+  const [joinsAllowed, setJoinsAllowed] = useState(true);
   const mounted = useRef(true);
+  const choosing = useRef(false);
   const launched = useRef(false);
   const initialChosen = useRef(false);
   const startCallback = useRef(onGameStart);
@@ -30,26 +34,38 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
   const factionRef = useRef<string | null>(null);
   factionRef.current = mine?.faction ?? factionRef.current;
   const refresh = useCallback(async () => {
-    const result = await supabase.from('game_players').select('*, profile:profiles(username)').eq('game_id', gameId).order('turn_order');
+    const [result, table] = await Promise.all([
+      supabase.from('game_players').select('*, profile:profiles(username)').eq('game_id', gameId).order('turn_order'),
+      supabase.from('games').select('status,created_at,allow_join').eq('id', gameId).single(),
+    ]);
     if (mounted.current) {
-      if (result.error) setError(result.error.message);
-      else setPlayers((result.data ?? []) as Player[]);
+      if (result.error || table.error) setError(result.error?.message || table.error?.message || 'Impossibile aggiornare il tavolo.');
+      else {
+        const roster = (result.data ?? []) as Player[];
+        setPlayers(roster);
+        factionRef.current = roster.find(p => p.player_id === profile.id && !p.is_bot)?.faction ?? null;
+        setOpened(table.data.created_at);
+        setJoinsAllowed(table.data.allow_join !== false && table.data.status === 'lobby');
+        if (table.data.status === 'active') startCallback.current(factionRef.current);
+        else if (table.data.status === 'finished') setError('Questo tavolo è stato chiuso. Torna alla sala partite.');
+      }
     }
-  }, [gameId]);
+  }, [gameId, profile.id]);
   useEffect(() => {
     mounted.current = true;
     refresh();
     const channel = supabase.channel('tabletop-lobby-' + gameId)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'game_players', filter: 'game_id=eq.' + gameId }, refresh)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: 'id=eq.' + gameId }, payload => {
-        if (payload.new.status === 'active') startCallback.current(factionRef.current);
-      }).subscribe();
-    return () => { mounted.current = false; supabase.removeChannel(channel); };
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: 'id=eq.' + gameId }, refresh).subscribe();
+    const interval = setInterval(() => { if (!document.hidden) void refresh(); }, 10000);
+    return () => { mounted.current = false; clearInterval(interval); supabase.removeChannel(channel); };
   }, [gameId, refresh]);
   const choose = useCallback(async (faction: Faction) => {
+    if (choosing.current) return;
+    choosing.current = true;
     setBusy(true); setError('');
     try {
-      const status = await supabase.from('games').select('status').eq('id', gameId).single();
+      const status = await supabase.from('games').select('status,allow_join').eq('id', gameId).single();
       if (status.error) throw status.error;
       if (status.data.status !== 'lobby') throw new Error('La partita è iniziata. Rientra dalla lobby senza cambiare fazione.');
       const setup = await supabase.from('game_state').select('special_uses').eq('game_id', gameId).maybeSingle();
@@ -60,15 +76,20 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
       const occupied = current.data.find(p => p.faction === faction);
       if (occupied && occupied.player_id !== profile.id) throw new Error('Questa fazione è già occupata. Scegline una libera.');
       const me = current.data.find(p => p.player_id === profile.id);
+      if (!me && status.data.allow_join === false) throw new Error('Le iscrizioni a questo tavolo sono chiuse.');
       const values = { faction, is_ready: true, is_bot: false, turn_order: FACTIONS.indexOf(faction) + 1 };
       const result = me
-        ? await supabase.from('game_players').update(values).eq('id', me.id).eq('player_id', profile.id)
-        : await supabase.from('game_players').insert({ ...values, player_id: profile.id, game_id: gameId });
-      if (result.error) throw result.error;
+        ? await supabase.from('game_players').update(values).eq('id', me.id).eq('player_id', profile.id).select('id')
+        : await supabase.from('game_players').insert({ ...values, player_id: profile.id, game_id: gameId }).select('id');
+      if (result.error) {
+        if (result.error.code === '23505') throw new Error('Un altro giocatore ha appena preso questa fazione. Aggiorna il tavolo e scegline una libera.');
+        throw result.error;
+      }
+      if (!result.data?.length) throw new Error('Iscrizione non salvata. Aggiorna il tavolo e riprova.');
       factionRef.current = faction;
       await refresh();
     } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : (err as { message: string }).message); }
-    finally { if (mounted.current) setBusy(false); }
+    finally { choosing.current = false; if (mounted.current) setBusy(false); }
   }, [gameId, profile.id, refresh]);
   const start = useCallback(async () => {
     if (!factionRef.current || launched.current) return;
@@ -91,13 +112,17 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
     if (autoStart && isHost && mine?.faction && !busy && !error && !launched.current) void start();
   }, [autoStart, isHost, mine?.faction, busy, error, start]);
   const leave = async () => {
+    if (!mine || isHost) return;
+    if (!window.confirm('Vuoi annullare la tua iscrizione e liberare la fazione?')) return;
     setBusy(true); setError('');
-    // Leaving the room does not delete the host's table or anyone else's data.
     try {
-      if (!isHost && mine) {
-        const result = await supabase.from('game_players').delete().eq('id', mine.id).eq('player_id', profile.id);
-        if (result.error) throw result.error;
-      }
+      const table = await supabase.from('games').select('status').eq('id', gameId).single();
+      if (table.error) throw table.error;
+      if (table.data.status !== 'lobby') throw new Error('La partita è già iniziata: non puoi liberare il posto dalla sala.');
+      const result = await supabase.from('game_players').delete().eq('id', mine.id).eq('player_id', profile.id).select('id');
+      if (result.error) throw result.error;
+      if (!result.data?.length) throw new Error('Iscrizione non annullata. Riprova.');
+      factionRef.current = null;
       onLeave();
     } catch (err) { setError((err as { message: string }).message); setBusy(false); }
   };
@@ -105,7 +130,14 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
     <div className="max-w-2xl mx-auto space-y-5">
       <header className="flex justify-between gap-4"><div><p className="text-red-400 text-xs uppercase tracking-widest">Linea Rossa · Edizione da tavolo</p>
         <h1 className="text-2xl font-bold mt-2">{gameName || 'Sala di attesa'}</h1><p className="text-slate-400 text-sm">{isPublic ? 'Tavolo aperto prima dell’avvio' : 'Tavolo riservato'}</p></div>
-        <button disabled={busy} onClick={leave} className="text-slate-300 underline">Torna alla lobby</button></header>
+        <button disabled={busy} onClick={onLeave} className="text-slate-300 underline">Torna alla sala</button></header>
+      <section aria-label="Giocatori iscritti" className="p-4 rounded-xl border border-slate-700 bg-slate-900 text-sm space-y-2">
+        <div className="flex justify-between gap-3"><p className="font-bold">{players.filter(p => p.player_id && !p.is_bot).length}/5 giocatori iscritti</p>
+          <button disabled={busy} onClick={() => void refresh()} className="text-cyan-300 underline">Aggiorna tavolo</button></div>
+        <p className="text-slate-300">{players.filter(p => p.player_id && !p.is_bot).map(p => p.profile?.username || 'Giocatore').join(', ') || 'Nessun giocatore iscritto'}</p>
+        {opened && <p className="text-slate-400">Aperta il <time dateTime={opened}>{openedAt(opened)}</time></p>}
+        <p className="text-slate-400">Tornando alla sala mantieni l’iscrizione. {mine && !isHost && <button disabled={busy} onClick={leave} className="text-red-300 underline">Annulla iscrizione</button>}</p>
+      </section>
       <section className="p-5 rounded-xl bg-slate-900 border border-slate-700 flex justify-between items-center">
         <div><p className="text-xs text-slate-400">CODICE INVITO</p><strong className="text-2xl tracking-widest">{gameCode}</strong></div>
         <button onClick={async () => { try { await navigator.clipboard.writeText(gameCode); setCopied(true); } catch { setError('Copia manualmente il codice visualizzato.'); } }} className="border rounded-lg px-4 py-2">{copied ? 'Copiato' : 'Copia codice'}</button>
@@ -115,7 +147,7 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
         <div className="grid sm:grid-cols-2 gap-3">{FACTIONS.map(f => {
           const player = players.find(p => p.faction === f);
           const isMine = player?.player_id === profile.id;
-          return <button key={f} disabled={busy || (!!player && !isMine)} onClick={() => choose(f)}
+          return <button key={f} disabled={busy || (!!player && !isMine) || (!mine && !joinsAllowed)} onClick={() => choose(f)}
             className={'p-4 rounded-lg border text-left disabled:opacity-60 ' + (isMine ? 'border-red-400 bg-red-950' : 'border-slate-600 hover:border-slate-300')}>
             <strong>{f}</strong><span className="block text-sm text-slate-300">{isMine ? 'La tua fazione' : player ? player.profile?.username || 'Occupata' : 'Libera · BOT se nessuno la sceglie'}</span>
           </button>;
