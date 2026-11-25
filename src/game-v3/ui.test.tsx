@@ -17,7 +17,7 @@ import type { GameCard } from '@/types/game';
 import { TERRITORY_LAYOUT, territorySlot, perimeterPoint, globalTrackPoint } from './board-layout';
 import { viewerFaction } from './player-visibility';
 import { InfluenceAction, sameInfluenceProposal } from './InfluenceAction';
-import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, OBJECTIVES, TERRITORIES, UNITS } from './catalog';
+import { FACTIONS, FACTION_CARDS, EVENTS, BOT_CARDS, BOT_INFLUENCE, OBJECTIVES, TERRITORIES, UNITS } from './catalog';
 import { getFactionCardBack, getFactionCardFront, FACTION_CARD_BACK, getObjectiveCardBack, getObjectiveCardFront } from '@/data/card-graphics';
 import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL, PLAYER_AID_URL, PLAYER_AID_WHITE_URL } from './art';
 
@@ -204,6 +204,37 @@ test('the board renders real rotation, including a maintained old unit with rota
   assert.ok(html.includes('data-unit-id="maintained"'));
   assert.ok(html.includes('data-rotated="false"'));
   assert.ok(!html.includes('rotate(90deg)'));
+});
+test('BOT maintenance is explained publicly without exposing human OP controls for BOT turns', () => {
+  const s = uiFixture.state;
+  s.players.Russia.bot = true; s.turnIndex = s.order.indexOf('Russia');
+  s.units = [{ id: 'bot-expiring', faction: 'Russia', type: 'RU-U04', territory: 'iran', placedRound: 1, rotated: true }];
+  const before = render();
+  assert.ok(before.includes('Mantenimento automatico BOT (gratis, 1 unità per attivazione)'));
+  assert.ok(!before.includes('data-maintain-unit='));
+  s.deck = [FACTION_CARDS.find(c => c.options.some(o => o.boost.faction === 'Russia'))!.id];
+  uiFixture.state = reduce(s, 'Russia', { type: 'advance-bot' });
+  const after = render();
+  assert.ok(after.includes('Russia BOT: Mantenimento gratuito'));
+  assert.ok(after.includes('data-rotated="false"'));
+  assert.ok(!after.includes('BOT senza Mantenimento'));
+});
+test('minimum BOT presence renders the saved base unit beside the printed State without replacing Influence', () => {
+  const s = uiFixture.state; s.rulesRevision = '2026-11-21';
+  s.players.Coalizione.bot = true; s.turnIndex = s.order.indexOf('Coalizione');
+  s.players.Coalizione.tracks.Consenso = 2;
+  s.players.Coalizione.tracks.Economia = 6; s.players.Coalizione.tracks.Militare = 6; s.players.Coalizione.tracks.Diplomazia = 6;
+  s.botDecks.Coalizione.Consenso = ['BOT-CO-C2'];
+  s.deck = [FACTION_CARDS.find(c => !c.options.some(o => o.boost.faction === 'Coalizione'))!.id];
+  const territory = BOT_INFLUENCE['BOT-CO-C2'];
+  s.influence = [{ id: 'preserved-influence', faction: 'Iran', territory, slot: 0 }];
+  uiFixture.state = reduce(s, 'Coalizione', { type: 'advance-bot' });
+  const html = render();
+  assert.ok(html.includes(`data-unit-stack="${territory}" data-faction="Coalizione"`));
+  assert.ok(html.includes(unitFrontArt('CO-U01')));
+  assert.ok(html.includes('data-influence-id="preserved-influence"'));
+  assert.ok(html.includes('presenza minima: Schiera Convenzionale'));
+  assert.equal(uiFixture.state.units[0].slot, undefined);
 });
 test('pending veto, casualty, support and discard decisions have an owning UI', () => {
   const s = uiFixture.state;

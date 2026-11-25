@@ -438,6 +438,26 @@ export const MAINTENANCE_COST = 1;
 export function maintainableUnits(s: Pick<EngineState, 'units'>, faction: Faction): PlacedUnit[] {
   return s.units.filter(u => u.faction === faction && u.rotated);
 }
+/** One renewal per BOT activation; protect decisive control, then contested States,
+ * then other controlled States. Prefer the higher printed deployment cost on ties.
+ * Keeping the existing list order breaks perfect ties without consuming RNG.
+ */
+export function chooseBotMaintenance(s: EngineState, actor: Faction): PlacedUnit | undefined {
+  const priority = (u: PlacedUnit) => {
+    const own = territoryPresence(s, actor, u.territory);
+    const rival = Math.max(0, ...FACTIONS.filter(f => f !== actor).map(f => territoryPresence(s, f, u.territory)));
+    return own > rival ? own - 1 <= rival ? 3 : 1 : own === rival ? 2 : 0;
+  };
+  return maintainableUnits(s, actor).slice().sort((a, b) =>
+    priority(b) - priority(a) || unitDef(b.type).cost - unitDef(a.type).cost)[0];
+}
+function renewUnit(s: EngineState, actor: Faction, unitId: string): PlacedUnit {
+  const u = s.units.find(x => x.id === unitId);
+  assert(u && u.faction === actor, 'Scegli una tua unità sul tabellone');
+  assert(u.rotated, 'Si mantengono solo le unità in scadenza a fine round');
+  u.rotated = false;
+  return u;
+}
 export function canDeploy(s: EngineState, faction: Faction, unitId: string, territoryId: string): boolean {
   const u = UNITS.find(d => d.id === unitId), t = TERRITORIES.find(d => d.id === territoryId);
   if (!u || !t || u.faction !== faction || (u.naval && t.name.toLowerCase().includes('giordania'))) return false;
@@ -569,7 +589,18 @@ function executeBotAction(s: EngineState, actor: Faction, track: Track, action: 
     deployment(s, actor, def.id, selected, target, 'opinion');
   }
 }
+/** Presenza minima BOT (2026-11-25): unità base quando il BOT non ha unità sul tabellone. */
+export const BOT_BASE_UNIT: Record<Faction, string> = {
+  Iran: 'Forze convenzionali', Coalizione: 'Convenzionale', Russia: 'Consiglieri militari', Cina: 'Investimenti BRI', Europa: 'Caschi blu',
+};
 function botActivation(s: EngineState, actor: Faction, rng: RNG) {
+  // BOT operations already have no OP cost (chapter 14). Renewal follows that
+  // rule, but is bounded to one expiring unit per actual activation, not closure.
+  const maintained = chooseBotMaintenance(s, actor);
+  if (maintained) {
+    renewUnit(s, actor, maintained.id);
+    s.log.push(`${actor} BOT: Mantenimento gratuito di ${unitDef(maintained.type).name} in ${territoryDef(maintained.territory).name} (${maintained.id}); resta un altro round. Massimo 1 unità per attivazione.`);
+  }
   const id = draw(s, rng); s.continuation = 'finish';
   if (id) {
     const card = cardDef(id); const option = card.options.find(o => o.boost.faction === actor);
@@ -583,7 +614,17 @@ function botActivation(s: EngineState, actor: Faction, rng: RNG) {
   let p1 = botCondition(s, actor, card.condition);
   let actions = botPlan(s, actor, p1 ? card.priority1 : card.priority2, card.condition);
   if (actions.some(a => a.kind === 'attack') && s.globals['Crisi Bellica'] <= 3) { p1 = false; actions = botPlan(s, actor, card.priority2, card.condition); }
-  s.log.push(`${actor}: [${card.id}] ${card.name} — ${p1 ? 'P1' : 'P2'} (${p1 ? card.priority1 : card.priority2})`);
+  // Without units, replace the first Development with the base unit in the
+  // printed Influence State. A priority already deploying a unit is left intact.
+  let presence = '';
+  if (usesLatestRules(s) && !s.units.some(u => u.faction === actor) && !actions.some(a => a.kind === 'deploy')) {
+    const i = actions.findIndex(a => a.kind === 'develop');
+    if (i >= 0) {
+      actions[i] = { kind: 'deploy', unit: BOT_BASE_UNIT[actor], territory: BOT_INFLUENCE[card.id] };
+      presence = ` · presenza minima: Schiera ${BOT_BASE_UNIT[actor]} in ${territoryDef(BOT_INFLUENCE[card.id]).name} al posto del primo Sviluppo`;
+    }
+  }
+  s.log.push(`${actor}: [${card.id}] ${card.name} — ${p1 ? 'P1' : 'P2'} (${p1 ? card.priority1 : card.priority2})${presence}`);
   s.queue = actions.map(action => ({ kind: 'bot', actor, track, action })); drain(s, rng);
 }
 export function reduce(state: EngineState, actor: Faction, command: Command, rng: RNG = Math.random): EngineState {
@@ -706,10 +747,8 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
   } else if (command.type === 'maintain') {
     // Mantenimento (2026-11-25): 1 OP per una propria unità in scadenza; resta un altro round.
     assert(s.ops.remaining >= MAINTENANCE_COST, 'Serve 1 OP');
-    const u = s.units.find(x => x.id === command.unitId);
-    assert(u && u.faction === actor, 'Scegli una tua unità sul tabellone');
-    assert(u.rotated, 'Si mantengono solo le unità in scadenza a fine round');
-    u.rotated = false; s.ops.remaining -= MAINTENANCE_COST;
+    const u = renewUnit(s, actor, command.unitId);
+    s.ops.remaining -= MAINTENANCE_COST;
     s.log.push(`${actor}: Mantenimento di ${unitDef(u.type).name} in ${territoryDef(u.territory).name}, costo 1 OP; restano ${s.ops.remaining} OP.`);
   } else if (command.type === 'attack') {
     assert(s.ops.remaining >= 2, 'Servono 2 OP'); s.ops.remaining -= 2;

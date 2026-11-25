@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, reduce, canDeploy, canInfluence, maintainableUnits, influenceCost, occupiedSlots, territoryController, type EngineState } from './engine';
-import { FACTIONS, FACTION_CARDS, INITIAL_TRACKS, BOT_CARDS, BOT_INFLUENCE, OBJECTIVES, TERRITORIES, type Faction } from './catalog';
+import { createGame, reduce, canDeploy, canInfluence, maintainableUnits, BOT_BASE_UNIT, influenceCost, occupiedSlots, territoryController, type EngineState } from './engine';
+import { FACTIONS, FACTION_CARDS, INITIAL_TRACKS, BOT_CARDS, BOT_INFLUENCE, OBJECTIVES, TERRITORIES, UNITS, type Faction } from './catalog';
 import { chooseBotControlBonus, chooseBotCorrelation, weakestTrack } from './bots';
 import { objectiveComplete } from './objectives';
 const rng = () => 0.3;
@@ -60,7 +60,7 @@ test('latest final objectives require maintenance while territorial PF still com
   assert.equal(final(true) - final(false), OBJECTIVES.find(o => o.id === 'OBJ-RU-09')!.points,
     'same control bonuses, only the printed objective reward changes');
 });
-test('BOT units expire at closure without maintenance or an automatic OP debit', () => {
+test('BOT units not renewed during activation expire at closure; no extra closure maintenance', () => {
   const s = setup(['Russia']); s.botInfluenceEdition = '2026-11-22';
   unit(s, 'RU-U04', 'Russia', 'siria'); s.units[0].rotated = true;
   const id = s.units[0].id;
@@ -127,6 +127,7 @@ test('Coalition fallback repairs Consensus in crisis; Russian fallback follows w
   assert.equal(weakestTrack(s,'Coalizione'),'Consenso');
   s.deck=[FACTION_CARDS.find(c=>!c.options.some(o=>o.boost.faction==='Coalizione'))!.id];
   s.botDecks.Coalizione.Consenso=['BOT-CO-C2'];
+  unit(s,'CO-U01','Coalizione','kuwait'); // Already present: test the original Development fallback.
   const next=reduce(s,'Coalizione',{type:'advance-bot'},rng);
   assert.equal(next.players.Coalizione.tracks.Consenso,3);
   s.players.Russia.tracks.Diplomazia=10;s.players.Russia.tracks.Consenso=2;
@@ -278,4 +279,69 @@ test('previous BOT edition retains explicit manual choice rather than migrating 
   const next=reduce(s,'Iran',{type:'finish-ops'},rng);
   assert.equal(next.pending?.kind,'bot-influence');
   assert.equal(next.botInfluenceEdition,undefined);
+});
+
+function botPresenceTurn(s: EngineState, f: Faction, cardId: string) {
+  s.turnIndex = s.order.indexOf(f); s.phase = 'activation';
+  s.deck = [FACTION_CARDS.find(c => !c.options.some(o => o.boost.faction === f))!.id];
+  const track = BOT_CARDS.find(c => c.id === cardId)!.track;
+  for (const t of ['Economia', 'Militare', 'Diplomazia', 'Consenso'] as const) s.players[f].tracks[t] = t === track ? 2 : 6;
+  s.botDecks[f][track] = [cardId];
+  return reduce(s, f, { type: 'advance-bot' }, rng);
+}
+test('BOT without units replaces only its first Development with the base unit in the printed State', () => {
+  const cardId = 'BOT-CO-C2';
+  const next = botPresenceTurn(setup(['Coalizione']), 'Coalizione', cardId);
+  const placed = next.units.filter(u => u.faction === 'Coalizione');
+  assert.equal(placed.length, 1); assert.equal(placed[0].type, 'CO-U01');
+  assert.equal(placed[0].territory, BOT_INFLUENCE[cardId]);
+  assert.ok(next.log.some(l => l.includes('presenza minima')));
+});
+test('BOT presence leaves existing units, printed deployment and older saved rules unchanged', () => {
+  const withUnit = setup(['Europa']); unit(withUnit, 'EU-U01', 'Europa', 'libano');
+  const a = botPresenceTurn(withUnit, 'Europa', 'BOT-EU-C2');
+  assert.equal(a.units.filter(u => u.faction === 'Europa').length, 1);
+  assert.ok(!a.log.some(l => l.includes('presenza minima')));
+  const printed = BOT_CARDS.find(c => c.faction === 'Iran' && /^Schiera/.test(c.priority2) && !/Schiera/.test(c.priority1))!;
+  const b = botPresenceTurn(setup(['Iran']), 'Iran', printed.id);
+  assert.ok(!b.log.some(l => l.includes('presenza minima')));
+  for (const revision of [undefined, '2026-11-16'] as const) {
+    const old = setup(['Coalizione']); old.rulesRevision = revision;
+    const c = botPresenceTurn(old, 'Coalizione', 'BOT-CO-C2');
+    assert.equal(c.units.length, 0); assert.ok(!c.log.some(l => l.includes('presenza minima')));
+  }
+});
+test('all five BOT factions can deploy their actual base unit through minimum presence', () => {
+  for (const f of FACTIONS) {
+    const card = BOT_CARDS.find(c => c.faction === f && !/Schiera|Attacco/.test(c.priority2) && /Sviluppo/.test(c.priority2))!;
+    const next = botPresenceTurn(setup([f]), f, card.id);
+    const placed = next.units.filter(u => u.faction === f);
+    assert.equal(placed.length, 1, `${f} ${card.id}`);
+    assert.equal(UNITS.find(u => u.id === placed[0].type)!.name, BOT_BASE_UNIT[f]);
+    assert.equal(placed[0].territory, BOT_INFLUENCE[card.id]);
+  }
+});
+test('minimum presence does not alter a drawn faction event or add deployment after maintenance', () => {
+  const s = setup(['Russia']); s.turnIndex = s.order.indexOf('Russia');
+  const own = FACTION_CARDS.find(c => c.options.some(o => o.boost.faction === 'Russia'))!;
+  s.deck = [own.id];
+  const event = reduce(s, 'Russia', { type: 'advance-bot' }, rng);
+  assert.equal(event.units.length, 0);
+  assert.ok(!event.log.some(l => l.includes('presenza minima')));
+  const retained = setup(['Coalizione']); unit(retained, 'CO-U01', 'Coalizione', 'kuwait');
+  retained.units[0].rotated = true;
+  const maintained = botPresenceTurn(retained, 'Coalizione', 'BOT-CO-C2');
+  assert.equal(maintained.units.length, 1); assert.equal(maintained.units[0].rotated, false);
+  assert.ok(maintained.log.some(l => l.includes('Mantenimento gratuito')));
+  assert.ok(!maintained.log.some(l => l.includes('presenza minima')));
+});
+test('minimum presence keeps remaining Development actions, marker cost and permanent Influence intact', () => {
+  const s = setup(['Coalizione']); s.advancers = ['Coalizione']; s.turnMarker = 0;
+  s.influence = [{ id: 'permanent', faction: 'Coalizione', territory: 'kuwait', slot: 0 }];
+  const next = botPresenceTurn(s, 'Coalizione', 'BOT-CO-C2'); // Consensus in crisis selects Development ×2.
+  assert.equal(next.units.length, 1);
+  assert.equal(next.players.Coalizione.tracks.Consenso, 3, 'only one of the two Developments is replaced');
+  assert.equal(next.turnMarker, 2, 'BOT card still advances by two');
+  assert.deepEqual(next.influence, s.influence);
+  assert.equal(next.rulesRevision, s.rulesRevision);
 });

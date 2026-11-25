@@ -201,7 +201,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{localUnits.map(u => {
               const definition = UNITS.find(d => d.id === u.type)!;
               return <div key={u.id} className="rounded-lg border p-2 space-y-2" style={{ borderColor: COLORS[u.faction] }}><UnitImage id={u.type} name={definition.name} />
-                <p className="text-xs">{u.faction} · {u.rotated ? s.players[u.faction].bot ? 'Ruotata: rientra a fine round (BOT senza Mantenimento)' : 'Ruotata: rientra a fine round, salvo Mantenimento (1 OP)' : 'Attiva: rientra a fine round successivo'}</p></div>;
+                <p className="text-xs">{u.faction} · {u.rotated ? s.players[u.faction].bot ? 'Ruotata: rientra a fine round, salvo Mantenimento automatico BOT (gratis, 1 unità per attivazione)' : 'Ruotata: rientra a fine round, salvo Mantenimento (1 OP)' : 'Attiva: rientra a fine round successivo'}</p></div>;
             })}</div>
             {localInfluence.length > 0 && <p className="text-sm">Influenza permanente: {localInfluence.map(i => <span key={i.id} className="mr-3" style={{color:COLORS[i.faction]}}>{i.faction} · riquadro {i.slot + 1}</span>)}</p>}
             <p className="text-xs text-slate-400">Presenza: {FACTIONS.map(f => `${f} ${territoryPresence(s, f, selected)}`).join(' · ')}</p>
@@ -271,7 +271,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
           </div>
         </div>
         {expiringUnits.length > 0 && <div className="mt-4" aria-label="Mantenimento delle unità"><h3 className="font-semibold mb-2">Mantenimento · {MAINTENANCE_COST} OP per unità</h3>
-          <p className="text-xs text-slate-400 mb-3">Queste unità tornano in riserva al prossimo fine round. Paga {MAINTENANCE_COST} OP per tenerne una un altro round. Al punteggio finale contano solo le unità ancora sul tabellone. I BOT non mantengono le unità.</p>
+          <p className="text-xs text-slate-400 mb-3">Queste unità tornano in riserva al prossimo fine round. Paga {MAINTENANCE_COST} OP per tenerne una un altro round. Al punteggio finale contano solo le unità ancora sul tabellone. I BOT mantengono gratuitamente 1 unità ruotata per attivazione, privilegiando il controllo degli Stati e poi le unità più costose.</p>
           <div className="flex flex-wrap gap-2">{expiringUnits.map(u => <button key={u.id} data-maintain-unit={u.id} className={button} disabled={!canAct || budget < MAINTENANCE_COST}
             onClick={() => send({ type: 'maintain', unitId: u.id })}>Mantieni {UNITS.find(d => d.id === u.type)?.name} · {TERRITORIES.find(t => t.id === u.territory)?.name} · {u.id} · {MAINTENANCE_COST} OP</button>)}</div></div>}
         <button className={button + ' border-red-500'} onClick={() => send({ type: 'finish-ops' })}>Termina attivazione{budget ? ` · rinuncia a ${budget} OP` : ''}</button>
@@ -294,7 +294,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
         const front = getObjectiveCardFront(o.id);
         return <div key={o.id} className="rounded-lg border border-slate-700 p-3">{front && <img src={front} alt={`${o.id} · ${o.name}`} className="w-full h-auto mb-3" loading="lazy" />}<strong>{o.name} · {o.points} PV</strong><p className="text-sm mt-2">{o.condition}</p><p className={'text-sm mt-2 ' + (o.complete ? 'text-emerald-300' : 'text-slate-400')}>{o.complete ? 'Condizione attualmente soddisfatta' : 'Non ancora soddisfatto'}</p></div>;
       })}</div></Panel>}
-      <p className="text-xs text-slate-500">BOT: nessuna mano né obiettivi. Sostegno automatico: Russia/Cina per Iran, Europa per Coalizione; perdite meno costose per prime. Regolamento aggiornato: un solo Scudo difendente annulla tutti i Missili balistici attaccanti. La mano usa i fronti originali del mazzo base completo; gli effetti vengono applicati dalle opzioni strutturate del catalogo.</p>
+      <p className="text-xs text-slate-500">BOT: nessuna mano né obiettivi. Mantenimento gratuito: 1 unità ruotata per attivazione.{usesLatestRules(s) && ' Presenza minima: senza unità, una carta BOT priva di Schieramento sostituisce il primo Sviluppo con l’unità base nello Stato stampato.'} Sostegno automatico: Russia/Cina per Iran, Europa per Coalizione; perdite meno costose per prime. Regolamento aggiornato: un solo Scudo difendente annulla tutti i Missili balistici attaccanti. La mano usa i fronti originali del mazzo base completo; gli effetti vengono applicati dalle opzioni strutturate del catalogo.</p>
     </div>
     {chosen && <div role="dialog" aria-modal="true" aria-label={chosen.name} className="fixed inset-0 z-40 overflow-y-auto bg-black/90 p-4 md:p-8">
       <div className="max-w-4xl mx-auto bg-slate-900 border border-slate-600 p-5 rounded-xl space-y-4">

@@ -63,8 +63,18 @@ backup delle partite.
   condizioni immediate e punteggio finale con spareggi.
 - Mantenimento (regola del 2026-11-25): nelle Operazioni una fazione paga 1 OP
   per una propria unità ruotata, che resta un altro round. Le unità che scadono
-  all'ultimo fine round tornano in riserva prima del punteggio finale. I BOT non
-  mantengono: le loro unità scadono come sempre.
+  all'ultimo fine round tornano in riserva prima del punteggio finale.
+- Anche i BOT mantengono: all'inizio di ogni attivazione rinnovano gratuitamente
+  una propria unità ruotata, senza sostituire la normale azione della carta.
+  Priorità: unità decisiva per il controllo, Stato conteso, altro Stato controllato;
+  poi il costo stampato più alto; a parità completa l'ordine delle unità nel salvataggio.
+  Le unità non scelte scadono normalmente. Nessun mantenimento extra a fine round.
+- Presenza minima BOT (regola del 2026-11-25, per salvataggi con regole 2026-11-21):
+  quando un BOT gioca una carta BOT e non ha unità sul tabellone, il primo
+  Sviluppo diventa Schiera della sua unità base (Forze convenzionali, Convenzionale,
+  Consiglieri militari, Investimenti BRI, Caschi blu) nello Stato stampato sulla carta.
+  Nessuna sostituzione se la priorità prevede già uno Schieramento; le altre azioni
+  restano invariate. Mantenimento e presenza minima non generano schieramenti doppi.
 - 120 carte BOT con P1/P2, priorità di tracciato e schieramento stampate.
 - Tabellone, cinque plance, 75 eventi, 120 fronti BOT, 36 fronti unità compresi
   cinque Dummy, 26 retri: 263 immagini. I Dummy sono solo nella galleria,

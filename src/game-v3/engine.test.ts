@@ -1,7 +1,7 @@
 /** Run by bundling this entry with esbuild (platform=node), then node --test the output. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, reduce, currentActor, canDeploy, maintainableUnits, MAINTENANCE_COST, deployCost, hormuzBlocked, influenceCost, occupiedSlots, territoryPresence, territoryController,
+import { createGame, reduce, currentActor, canDeploy, maintainableUnits, chooseBotMaintenance, MAINTENANCE_COST, deployCost, hormuzBlocked, influenceCost, occupiedSlots, territoryPresence, territoryController,
   controlBonusChoices, MODE_THRESHOLDS, type EngineState, type PlacedUnit, type GameMode } from './engine';
 import { botCondition, botPlan, weakestTrack, chooseBotCorrelation } from './bots';
 import { objectiveComplete, controlsTerritory } from './objectives';
@@ -773,7 +773,7 @@ test('maintenance can repeat next round, not twice in one round; preserves unit 
   s = closeMaintenanceRound(s);
   assert.ok(s.units.some(u => u.id === fleet.id));
 });
-test('maintenance requires own active OP phase and is never a BOT action', () => {
+test('manual maintenance requires own active OP phase; BOTs still use advance-bot', () => {
   const s = fixture(), fleet = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria');
   fleet.rotated = true;
   s.turnIndex = s.order.indexOf('Russia');
@@ -804,4 +804,101 @@ test('final scoring removes expired units first; maintained units count for fina
   };
   assert.equal(objectiveComplete(finalPoints(false), obj), false);
   assert.equal(objectiveComplete(finalPoints(true), obj), true);
+});
+
+test('BOT maintenance prioritizes decisive control, then contested States, then printed cost with stable ties', () => {
+  const s = fixture(); s.rulesRevision = '2026-11-21';
+  const costly = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria');
+  const decisive = unit(s, 'Russia', 'Consiglieri militari', 'Turchia');
+  const samePriority = unit(s, 'Russia', 'Consiglieri militari', 'Libano');
+  const safe = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Iraq');
+  unit(s, 'Russia', 'Consiglieri militari', 'Iraq');
+  unit(s, 'Iran', 'IRGC', 'Siria'); // Contested Syria.
+  unit(s, 'Iran', 'IRGC', 'Iran').rotated = true; // Enemy units never eligible.
+  for (const u of [costly, decisive, samePriority, safe]) u.rotated = true;
+  const before = JSON.stringify(s);
+  assert.equal(chooseBotMaintenance(s, 'Russia')?.id, decisive.id);
+  assert.equal(JSON.stringify(s), before, 'selection is read-only');
+  decisive.rotated = false;
+  assert.equal(chooseBotMaintenance(s, 'Russia')?.id, samePriority.id);
+  samePriority.rotated = false;
+  assert.equal(chooseBotMaintenance(s, 'Russia')?.id, costly.id, 'contested beats safe control');
+  // Both are decisive after removing the opposing Syria unit and the extra Iraq unit.
+  s.units = s.units.filter(u => !(u.faction === 'Iran' && u.territory === costly.territory) &&
+    !(u.faction === 'Russia' && u.territory === safe.territory && u.id !== safe.id));
+  assert.equal(chooseBotMaintenance(s, 'Russia')?.id, costly.id, 'printed cost tie keeps saved list order');
+});
+test('all five BOT factions maintain exactly one expiring unit for free and still apply their drawn event', () => {
+  for (const f of FACTIONS) {
+    const s = fixture(); s.players[f].bot = true; s.turnIndex = s.order.indexOf(f);
+    const def = UNITS.find(d => d.faction === f)!;
+    const a = unit(s, f, def.name, 'Siria'), b = unit(s, f, def.name, 'Libano');
+    a.rotated = true; b.rotated = true;
+    const fresh = unit(s, f, def.name, 'Iran');
+    const card = FACTION_CARDS.find(c => c.options.some(o => o.boost.faction === f))!;
+    const option = card.options.find(o => o.boost.faction === f)!;
+    s.deck = [card.id];
+    const value = s.players[f].tracks[option.boost.track];
+    const before = JSON.stringify(s);
+    const next = reduce(s, f, { type: 'advance-bot' }, rng);
+    assert.equal(JSON.stringify(s), before);
+    assert.equal(next.units.find(u => u.id === a.id)!.rotated, false);
+    assert.equal(next.units.find(u => u.id === b.id)!.rotated, true);
+    assert.equal(next.units.find(u => u.id === fresh.id)!.rotated, false);
+    assert.equal(next.players[f].tracks[option.boost.track], Math.min(10, value + option.boost.delta));
+    assert.equal(next.log.filter(l => l.includes('Mantenimento gratuito')).length, 1);
+    assert.equal(next.ops, null);
+    assert.equal(next.nextUnit, s.nextUnit, 'maintenance never redeploys or creates units');
+  }
+});
+test('BOT maintenance can renew again next round and otherwise unchosen units still expire', () => {
+  let s = fixture(); s.players.Russia.bot = true;
+  const a = unit(s, 'Russia', 'Consiglieri militari', 'Siria');
+  const b = unit(s, 'Russia', 'Consiglieri militari', 'Libano');
+  const c = unit(s, 'Russia', 'Consiglieri militari', 'Turchia');
+  s.units.forEach(u => { u.rotated = true; });
+  const beforeUnits = structuredClone(s.units);
+  const card = FACTION_CARDS.find(c => c.options.some(o => o.boost.faction === 'Russia'))!;
+  const activate = (source: EngineState) => {
+    source.turnIndex = source.order.indexOf('Russia'); source.phase = 'activation'; source.deck = [card.id];
+    return reduce(source, 'Russia', { type: 'advance-bot' }, rng);
+  };
+  s = activate(s); s = activate(s);
+  assert.equal(s.log.filter(l => l.includes('Mantenimento gratuito')).length, 2);
+  assert.deepEqual(s.units, beforeUnits.map(u => ({ ...u, rotated: u.id === c.id })));
+  s = closeMaintenanceRound(s);
+  assert.ok(!s.units.some(u => u.id === c.id)); assert.ok(s.units.some(u => u.id === b.id));
+  s = activate(JSON.parse(JSON.stringify(s)));
+  assert.equal(s.units.find(u => u.id === a.id)!.rotated, false);
+  assert.equal(s.units.find(u => u.id === b.id)!.rotated, true);
+  assert.equal(s.log.filter(l => l.includes('Mantenimento gratuito')).length, 3);
+});
+test('BOT fallback keeps its printed P1/P2 actions and marker advancement after maintenance', () => {
+  const s = fixture(); s.rulesRevision = '2026-11-21';
+  s.players.Russia.bot = true; s.turnIndex = s.order.indexOf('Russia'); s.advancers = ['Russia']; s.turnMarker = 0;
+  const fleet = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria'); fleet.rotated = true;
+  s.deck = [FACTION_CARDS.find(c => !c.options.some(o => o.boost.faction === 'Russia'))!.id];
+  const track = weakestTrack(s, 'Russia');
+  const card = BOT_CARDS.find(c => c.faction === 'Russia' && c.track === track)!;
+  s.botDecks.Russia[track] = [card.id];
+  const next = reduce(s, 'Russia', { type: 'advance-bot' }, rng);
+  assert.equal(next.units.find(u => u.id === fleet.id)!.rotated, false);
+  assert.ok(next.log.some(l => l.includes(`[${card.id}]`) && /P[12]/.test(l)));
+  assert.equal(next.turnMarker, 2, 'no extra marker advancement for maintenance');
+  assert.ok(next.log.some(l => l.startsWith('Russia: Sviluppo') || l.startsWith('Russia: schiera')));
+});
+test('maintenance is not repeated when a BOT activation resumes after a saved human veto', () => {
+  let s = fixture(); s.players.Russia.bot = true; s.turnIndex = s.order.indexOf('Russia');
+  const a = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria');
+  const b = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Libano'); a.rotated = true; b.rotated = true;
+  const card = FACTION_CARDS.find(c => c.options.some(o =>
+    o.boost.faction === 'Russia' && o.correlation.faction !== 'Russia' && o.correlation.delta < 0))!;
+  const option = card.options.find(o => o.boost.faction === 'Russia')!;
+  s.players[option.correlation.faction].tracks.Diplomazia = 8; s.deck = [card.id];
+  s = reduce(s, 'Russia', { type: 'advance-bot' }, rng);
+  assert.equal(s.phase, 'veto');
+  assert.equal(s.log.filter(l => l.includes('Mantenimento gratuito')).length, 1);
+  s = reduce(JSON.parse(JSON.stringify(s)), currentActor(s)!, { type: 'veto', use: false }, rng);
+  assert.equal(s.units.find(u => u.id === b.id)!.rotated, true);
+  assert.equal(s.log.filter(l => l.includes('Mantenimento gratuito')).length, 1);
 });

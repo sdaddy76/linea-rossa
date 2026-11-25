@@ -96,3 +96,21 @@ test('maintenance persists the same unit and OP debit; a stale second click neve
   assert.deepEqual(persisted, next);
   assert.equal((database.state!.special_uses as { unrelated: string }).unrelated, 'preserve');
 });
+test('BOT maintenance and its normal action persist together; stale retries cannot renew another unit', async () => {
+  await initializeTabletop('game', 'host');
+  const saved = readTabletop(database.state)!;
+  saved.state.order = ['Russia', 'Iran', 'Coalizione', 'Cina', 'Europa']; saved.state.turnIndex = 0;
+  saved.state.deck = [FACTION_CARDS.find(c => c.options.some(o => o.boost.faction === 'Russia'))!.id];
+  saved.state.units = [
+    { id: 'bot-a', faction: 'Russia', type: 'RU-U04', territory: 'siria', placedRound: 1, rotated: true },
+    { id: 'bot-b', faction: 'Russia', type: 'RU-U04', territory: 'libano', placedRound: 1, rotated: true },
+  ];
+  database.state!.special_uses = { tabletop_v3: saved, unrelated: 'preserve' };
+  const next = await commitCommand('game', saved, 'Russia', { type: 'advance-bot' });
+  assert.equal(next.revision, saved.revision + 1);
+  assert.equal(next.state.units[0].rotated, false); assert.equal(next.state.units[1].rotated, true);
+  assert.equal(next.state.log.filter(l => l.includes('Mantenimento gratuito')).length, 1);
+  await assert.rejects(commitCommand('game', saved, 'Russia', { type: 'advance-bot' }), /altro giocatore/);
+  assert.deepEqual(readTabletop(JSON.parse(JSON.stringify(database.state))), next);
+  assert.equal((database.state!.special_uses as { unrelated: string }).unrelated, 'preserve');
+});
