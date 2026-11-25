@@ -20,7 +20,7 @@ const delta = (c: TrackChange) => `${c.faction} · ${c.track} ${c.delta > 0 ? '+
 export function FactionCardFace({ card, compact = false }: { card: FactionCard; compact?: boolean }) {
   const original = getFactionCardFront(card.id, card.origin);
   const [failed, setFailed] = useState<string | null>(null);
-  if (original && failed !== original) return <span className="faction-card-original" data-card-id={card.id} data-card-source="original">
+  if (original && failed !== original) return <span className={`faction-card-original${compact ? ' faction-card-compact' : ''}`} data-card-id={card.id} data-card-source="original">
     <img src={original} alt={`${card.id} · ${card.name} · fronte originale`} loading="lazy" draggable={false} onError={() => setFailed(original)} />
   </span>;
   return <span className={`faction-card-face${compact ? ' faction-card-compact' : ''}`}

@@ -147,6 +147,15 @@ test('played card uses the shared graphical face; presentation CSS allows clicks
   assert.ok(css.includes('prefers-reduced-motion:reduce'));
   assert.ok(css.includes('animation:none!important'));
 });
+test('played tall original fronts fit the compact animation frame without clipping', () => {
+  const state = fixture(), card = FACTION_CARDS.find(c => c.id === 'C004')!;
+  const [cue] = confirmedCues(state, withLogs(state, [`Iran: gioca [${card.id}] ${card.name} per ${card.cost} OP.`]), 11);
+  const html = renderToStaticMarkup(<CardMotion cue={cue} reduced={false} onDismiss={() => {}}/>);
+  assert.ok(html.includes('faction-card-original faction-card-compact'));
+  const css = readFileSync('src/game-v3/faction-card-face.css', 'utf8');
+  assert.ok(css.includes('.faction-card-original.faction-card-compact img'));
+  assert.match(css, /\.faction-card-original\.faction-card-compact img\{[^}]*object-fit:contain/);
+});
 test('slower timings scale with effects without reducing reading time for accessibility', () => {
   const cue=openingEvent(fixture())[0];
   assert.equal(motionSpeed(null),'slow');assert.equal(motionSpeed('invalid'),'slow');
