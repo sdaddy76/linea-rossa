@@ -6,6 +6,7 @@ import type { GameMode } from '@/game-v3/engine';
 import { initializeTabletop, readTabletop } from '@/game-v3/online';
 import { Materials } from '@/game-v3/Materials';
 import { openedAt } from '@/pages/lobby/sala';
+import { ReadabilityFrame } from '@/pages/lobby/Readability';
 
 interface Player { id: string; faction: string; player_id: string | null; is_bot: boolean; profile?: { username: string } | null }
 interface Props {
@@ -13,8 +14,9 @@ interface Props {
   onGameStart: (faction: string | null) => void; onLeave: () => void;
   initialFaction?: string; initialBots?: Set<string>; autoStart?: boolean;
   tabletopMode?: GameMode;
+  highReadability?: boolean; onToggleReadability?: () => void;
 }
-export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, profile, isHost, onGameStart, onLeave, initialFaction, autoStart, tabletopMode }: Props) {
+export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, profile, isHost, onGameStart, onLeave, initialFaction, autoStart, tabletopMode, highReadability = false, onToggleReadability = () => {} }: Props) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -126,19 +128,20 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
       onLeave();
     } catch (err) { setError((err as { message: string }).message); setBusy(false); }
   };
-  return <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-10">
-    <div className="max-w-2xl mx-auto space-y-5">
-      <header className="flex justify-between gap-4"><div><p className="text-red-400 text-xs uppercase tracking-widest">Linea Rossa · Edizione da tavolo</p>
+  return <ReadabilityFrame high={highReadability} onToggle={onToggleReadability}>
+  <main className="readability-content min-h-screen bg-slate-950 text-slate-100 px-4 py-6">
+    <div className="lobby-container max-w-2xl mx-auto space-y-5">
+      <header className="waiting-header flex justify-between gap-4"><div><p className="text-red-400 text-xs uppercase tracking-widest">Linea Rossa · Edizione da tavolo</p>
         <h1 className="text-2xl font-bold mt-2">{gameName || 'Sala di attesa'}</h1><p className="text-slate-400 text-sm">{isPublic ? 'Tavolo aperto prima dell’avvio' : 'Tavolo riservato'}</p></div>
         <button disabled={busy} onClick={onLeave} className="text-slate-300 underline">Torna alla sala</button></header>
       <section aria-label="Giocatori iscritti" className="p-4 rounded-xl border border-slate-700 bg-slate-900 text-sm space-y-2">
-        <div className="flex justify-between gap-3"><p className="font-bold">{players.filter(p => p.player_id && !p.is_bot).length}/5 giocatori iscritti</p>
+        <div className="waiting-summary flex justify-between gap-3"><p className="font-bold">{players.filter(p => p.player_id && !p.is_bot).length}/5 giocatori iscritti</p>
           <button disabled={busy} onClick={() => void refresh()} className="text-cyan-300 underline">Aggiorna tavolo</button></div>
         <p className="text-slate-300">{players.filter(p => p.player_id && !p.is_bot).map(p => p.profile?.username || 'Giocatore').join(', ') || 'Nessun giocatore iscritto'}</p>
         {opened && <p className="text-slate-400">Aperta il <time dateTime={opened}>{openedAt(opened)}</time></p>}
         <p className="text-slate-400">Tornando alla sala mantieni l’iscrizione. {mine && !isHost && <button disabled={busy} onClick={leave} className="text-red-300 underline">Annulla iscrizione</button>}</p>
       </section>
-      <section className="p-5 rounded-xl bg-slate-900 border border-slate-700 flex justify-between items-center">
+      <section className="waiting-invite p-5 rounded-xl bg-slate-900 border border-slate-700 flex justify-between items-center">
         <div><p className="text-xs text-slate-400">CODICE INVITO</p><strong className="text-2xl tracking-widest">{gameCode}</strong></div>
         <button onClick={async () => { try { await navigator.clipboard.writeText(gameCode); setCopied(true); } catch { setError('Copia manualmente il codice visualizzato.'); } }} className="border rounded-lg px-4 py-2">{copied ? 'Copiato' : 'Copia codice'}</button>
       </section>
@@ -162,7 +165,7 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
         <fieldset className="mt-4 space-y-2"><legend className="font-bold">Fazioni senza giocatore</legend>
           <p className="text-sm text-slate-400">Per ogni posto libero scegli BOT attivo o fazione neutrale passiva (cap. 14). La scelta si applica all’avvio.</p>
           {FACTIONS.filter(f => !players.some(p => p.faction === f && p.player_id && !p.is_bot)).map(f =>
-            <label key={f} className="flex items-center justify-between gap-3 text-sm">{f}
+            <label key={f} className="waiting-options flex items-center justify-between gap-3 text-sm">{f}
               <select disabled={busy} className="rounded bg-slate-800 p-2" value={neutrals.includes(f) ? 'neutral' : 'bot'}
                 onChange={e => setNeutrals(old => e.target.value === 'neutral' ? [...old.filter(x => x !== f), f] : old.filter(x => x !== f))}>
                 <option value="bot">BOT</option><option value="neutral">Neutrale</option>
@@ -180,6 +183,7 @@ export default function WaitingRoom({ gameId, gameCode, gameName, isPublic, prof
       {isHost ? <button disabled={busy || !mine?.faction} onClick={start} className="w-full bg-red-600 hover:bg-red-500 disabled:bg-slate-700 rounded-xl py-4 font-bold">
         {busy ? 'Preparazione della partita…' : 'Avvia partita · completa i posti con BOT'}</button>
         : <p className="text-center text-slate-300">{mine ? 'Fazione pronta. In attesa dell’host.' : 'Scegli una fazione per partecipare.'}</p>}
-    </div>{materials && <Materials onClose={() => setMaterials(false)} />}
-  </main>;
+    </div>
+  </main>{materials && <Materials onClose={() => setMaterials(false)} />}
+  </ReadabilityFrame>;
 }

@@ -16,6 +16,7 @@ import { PlayerAid } from '@/game-v3/PlayerAid';
 import { isLineaRossaAdmin } from '@/lib/admin';
 import SalaPartite from './SalaPartite';
 import { loadRoom, openedAt, type RoomGame } from './sala';
+import { ReadabilityFrame, useReadability, READABLE_PALETTE as RP } from './Readability';
 
 interface LobbyPageProps {
   profile: Profile;
@@ -46,6 +47,7 @@ const makeCode = () => {
 };
 
 export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTutorial }: LobbyPageProps) {
+  const { high: highReadability, toggle: toggleReadability } = useReadability();
   // ── Stato form crea ──────────────────────────────────────────────────────
   const [isPublic, setIsPublic]     = useState(true);   // aperta vs riservata
   const [customCode, setCustomCode] = useState('');      // codice scelto dall'host (riservata)
@@ -385,6 +387,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
         initialBots={waitingGame.hostBots}
         autoStart={waitingGame.autoStart}
         tabletopMode={waitingGame.tabletopMode}
+        highReadability={highReadability}
+        onToggleReadability={toggleReadability}
       />
     );
   }
@@ -399,9 +403,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
         title={faction}
         className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold"
         style={{
-          background:  takenByHuman ? s.bg : '#1a2233',
-          color:       takenByHuman ? s.color : '#445566',
-          border:      `1px solid ${takenByHuman ? s.color + '60' : '#223344'}`,
+          background:  highReadability ? RP.inset : takenByHuman ? s.bg : '#1a2233',
+          color:       highReadability ? RP.text : takenByHuman ? s.color : '#445566',
+          border:      `1px solid ${highReadability ? RP.border : takenByHuman ? s.color + '60' : '#223344'}`,
         }}
       >
         <span>{s.emoji}</span>
@@ -422,11 +426,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
     const alreadyIn     = humanPlayers.some(p => p.player_id === profile.id);
 
     return (
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3
+      <div className="lobby-history-row flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3
         bg-[#0d1424] border border-[#1e3a5f] hover:border-[#2a4a6f] rounded-xl transition-all relative group/row">
 
         {/* Sinistra: badge + codice + fazioni */}
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="lobby-history-heading flex items-center gap-3 min-w-0">
           {/* Badge stato */}
           <span className={`shrink-0 px-2 py-0.5 rounded text-[9px] font-mono font-black tracking-wider ${
             isFinished ? 'bg-[#33445520] text-[#445566]' :
@@ -443,7 +447,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
             {game.is_public ? '🌐 Aperta' : '🔒 Riservata'}
           </span>
 
-          <div className="min-w-0">
+          <div className="lobby-history-title min-w-0">
             {/* Codice */}
             <p className="font-mono font-bold text-[#00ff88] text-sm tracking-wider leading-none">
               {game.code}
@@ -462,7 +466,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
         </div>
 
         {/* Destra: info + pulsante */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="lobby-history-details flex items-center gap-3 shrink-0">
           {/* Turno (partite attive/chiuse) */}
           {(isActive || isFinished) && (
             <span className="text-[#556677] text-xs font-mono whitespace-nowrap">
@@ -518,8 +522,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
               onClick={() => joinOpen(game)}
               className="px-3 py-1.5 rounded-lg font-mono text-xs font-bold transition-all"
               style={{
-                background: 'linear-gradient(135deg,#00ff88,#00cc66)',
-                color: '#0a0e1a',
+                background: highReadability ? RP.primary : 'linear-gradient(135deg,#00ff88,#00cc66)',
+                color: highReadability ? RP.onPrimary : '#0a0e1a',
               }}>
               {isMine ? '↩ Rientra' : '+ Unisciti'}
             </button>
@@ -530,7 +534,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
             <button
               onClick={(e) => { e.stopPropagation(); unhideGame(game.id); }}
               title="Ripristina partita nella lista"
-              className="px-2 py-1.5 rounded-lg font-mono text-xs transition-all
+              className="lobby-icon-button px-2 py-1.5 rounded-lg font-mono text-xs transition-all
                 border border-[#334455] text-[#445566] hover:border-[#00ff88] hover:text-[#00ff88]">
               ↩
             </button>
@@ -538,7 +542,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
             <button
               onClick={(e) => { e.stopPropagation(); hideGame(game.id); }}
               title="Nascondi questa partita dalla lista"
-              className="px-2 py-1.5 rounded-lg font-mono text-xs transition-all
+              className="lobby-icon-button px-2 py-1.5 rounded-lg font-mono text-xs transition-all
                 border border-[#334455] text-[#445566] hover:border-[#ff4444] hover:text-[#ff4444]
                 opacity-0 group-hover/row:opacity-100">
               ✕
@@ -551,7 +555,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
               onClick={(e) => { e.stopPropagation(); deleteGame(game); }}
               disabled={deletingId === game.id}
               title="Elimina partita (solo tu puoi farlo)"
-              className="px-2 py-1.5 rounded-lg font-mono text-xs transition-all
+              className="lobby-icon-button px-2 py-1.5 rounded-lg font-mono text-xs transition-all
                 border border-[#ff444430] text-[#ff444488]
                 hover:border-[#ff4444] hover:text-[#ff4444] hover:bg-[#ff444412]
                 disabled:opacity-40 disabled:cursor-not-allowed
@@ -566,11 +570,12 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
 
   // ─── Render principale ────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#0a0e1a] p-4">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <ReadabilityFrame high={highReadability} onToggle={toggleReadability}>
+    <div className="readability-content min-h-screen bg-[#0a0e1a] p-4">
+      <div className="lobby-container max-w-2xl mx-auto space-y-6">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between">
+        <div className="lobby-header flex items-center justify-between">
           <div>
             <h1 className="text-xl font-black text-[#00ff88] font-mono tracking-widest">☢️ LINEA ROSSA</h1>
             <p className="text-[#8899aa] text-xs font-mono mt-0.5">
@@ -607,7 +612,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                   <>
                     {/* overlay trasparente per chiudere cliccando fuori */}
                     <div className="fixed inset-0 z-40" onClick={() => setShowAdminMenu(false)} />
-                    <div className="absolute right-0 top-9 z-50 w-52 rounded-xl border border-[#f59e0b44]
+                    <div className="absolute right-0 top-full mt-2 z-50 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-[#f59e0b44]
                       bg-[#0d1220] shadow-2xl overflow-hidden"
                       style={{ boxShadow: '0 0 30px #f59e0b22' }}>
                       <div className="px-3 py-2 border-b border-[#1e3a5f]">
@@ -628,9 +633,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                         ].map(({ label, action, color }) => (
                           <button key={label} onClick={action}
                             className="w-full text-left px-4 py-2 font-mono text-xs hover:bg-[#ffffff08] transition-colors"
-                            style={{ color: '#8899aa' }}
-                            onMouseEnter={e => (e.currentTarget.style.color = color)}
-                            onMouseLeave={e => (e.currentTarget.style.color = '#8899aa')}
+                            style={{ color: highReadability ? RP.text : '#8899aa' }}
+                            onMouseEnter={e => (e.currentTarget.style.color = highReadability ? RP.primary : color)}
+                            onMouseLeave={e => (e.currentTarget.style.color = highReadability ? RP.text : '#8899aa')}
                           >
                             {label}
                           </button>
@@ -652,14 +657,14 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
 
         {/* ── Tabs Crea / Entra ── */}
         <div>
-          <nav aria-label="Sala e tavoli" className="grid grid-cols-3 gap-2 mb-4 p-1 bg-[#060d18] rounded-xl border border-[#1e3a5f]">
+          <nav aria-label="Sala e tavoli" className="lobby-nav grid grid-cols-3 gap-2 mb-4 p-1 bg-[#060d18] rounded-xl border border-[#1e3a5f]">
             {(['room', 'create', 'join'] as const).map((t) => (
               <button key={t} onClick={() => { setTab(t); setError(''); }}
                 aria-pressed={tab === t}
                 className="py-2.5 rounded-lg font-mono text-sm font-bold transition-all"
                 style={{
-                  background: tab === t ? '#00ff88' : 'transparent',
-                  color: tab === t ? '#0a0e1a' : '#8899aa',
+                  background: tab === t ? 'var(--reading-primary)' : 'transparent',
+                  color: tab === t ? 'var(--reading-on-primary)' : 'var(--reading-text)',
                 }}>
                 {t === 'room' ? 'Sala partite' : t === 'create' ? 'Nuova partita' : 'Entra con codice'}
               </button>
@@ -688,11 +693,11 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                       onClick={() => { setIsPublic(val); setError(''); }}
                       className="p-3 rounded-xl border text-left transition-all"
                       style={{
-                        borderColor: isPublic === val ? (val ? '#22d3ee' : '#a78bfa') : '#1e3a5f',
-                        background:  isPublic === val ? (val ? '#22d3ee0f' : '#a78bfa0f') : 'transparent',
+                        borderColor: isPublic === val ? (val ? 'var(--reading-cyan)' : 'var(--reading-purple)') : 'var(--reading-border)',
+                        background:  isPublic === val ? (val ? 'var(--reading-selected)' : 'var(--reading-selected-purple)') : 'transparent',
                       }}>
                       <p className="font-mono font-bold text-sm"
-                        style={{ color: isPublic === val ? (val ? '#22d3ee' : '#a78bfa') : '#8899aa' }}>
+                        style={{ color: isPublic === val ? (val ? 'var(--reading-cyan)' : 'var(--reading-purple)') : 'var(--reading-text)' }}>
                         {label}
                       </p>
                       <p className="font-mono text-[10px] text-[#445566] mt-0.5">{sub}</p>
@@ -755,9 +760,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                         return (
                           <button key={f} onClick={() => setSetupFaction(f)}
                             className="flex items-center gap-3 p-3 rounded-xl border text-left transition-all"
-                            style={{ borderColor: sel ? COLORS[f]+'88' : '#1e3a5f', backgroundColor: sel ? COLORS[f]+'15' : '#060d18' }}>
+                            style={{ borderColor: highReadability ? (sel ? RP.primary : RP.border) : sel ? COLORS[f]+'88' : '#1e3a5f', backgroundColor: highReadability ? (sel ? '#e6f4ed' : RP.surface) : sel ? COLORS[f]+'15' : '#060d18' }}>
                             <span className="text-2xl">{FLAGS[f]}</span>
-                            <span className="font-mono font-bold text-sm" style={{ color: sel ? COLORS[f] : '#8899aa' }}>{f}</span>
+                            <span className="font-mono font-bold text-sm" style={{ color: highReadability ? (sel ? RP.primary : RP.text) : sel ? COLORS[f] : '#8899aa' }}>{f}</span>
                             {sel && <span className="ml-auto text-[9px] font-mono px-2 py-0.5 rounded bg-[#00ff8820] text-[#00ff88]">✓ TU</span>}
                           </button>
                         );
@@ -771,7 +776,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                   <div className="grid grid-cols-1 gap-2">
                     <button onClick={() => createGame('solo')} disabled={!setupFaction || loading}
                       className="w-full py-3 rounded-xl font-black font-mono text-sm disabled:opacity-40"
-                      style={{ background: 'linear-gradient(135deg,#00ff88,#00cc66)', color: '#0a0e1a' }}>
+                      style={{ background: highReadability ? RP.primary : 'linear-gradient(135deg,#00ff88,#00cc66)', color: highReadability ? RP.onPrimary : '#0a0e1a' }}>
                       {loading ? '⏳ AVVIO…' : '🤖 GIOCA DA SOLO (con bot)'}
                     </button>
                     <button onClick={() => createGame('apri')} disabled={!setupFaction || loading}
@@ -790,9 +795,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                   className="w-full py-3.5 rounded-xl font-black font-mono tracking-widest text-sm
                     transition-all disabled:opacity-40"
                   style={{
-                    background: 'linear-gradient(135deg, #00ff88, #00cc66)',
-                    color: '#0a0e1a',
-                    boxShadow: '0 0 30px #00ff8840',
+                    background: highReadability ? RP.primary : 'linear-gradient(135deg, #00ff88, #00cc66)',
+                    color: highReadability ? RP.onPrimary : '#0a0e1a',
+                    boxShadow: highReadability ? 'none' : '0 0 30px #00ff8840',
                   }}>
                   Continua → Scegli Fazione
                 </button>
@@ -833,9 +838,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                 className="w-full py-3.5 rounded-xl font-black font-mono tracking-widest text-sm
                   transition-all disabled:opacity-40"
                 style={{
-                  background: 'linear-gradient(135deg, #a78bfa, #7c3aed)',
+                  background: highReadability ? RP.purple : 'linear-gradient(135deg, #a78bfa, #7c3aed)',
                   color: '#fff',
-                  boxShadow: '0 0 30px #a78bfa40',
+                  boxShadow: highReadability ? 'none' : '0 0 30px #a78bfa40',
                 }}>
                 {loading ? '⏳ RICERCA…' : '🔗 ENTRA'}
               </button>
@@ -881,7 +886,8 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
 
       </div>
 
-      {/* ── Modali ── */}
+    </div>
+      {/* ── Modali: original artwork keeps its own rendering ── */}
       {showMaterials && <Materials onClose={() => setShowMaterials(false)} />}
       {showAid && <PlayerAid onClose={() => setShowAid(false)} />}
       {showLibrary    && <CardLibraryManager   onClose={() => setShowLibrary(false)} />}
@@ -892,7 +898,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       {showStats && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
           onClick={() => setShowStats(false)}>
-          <div className="bg-[#080e1a] border border-[#1e3a5f] rounded-2xl p-6 w-full max-w-sm"
+          <div className="readability-content bg-[#080e1a] border border-[#1e3a5f] rounded-2xl p-6 w-full max-w-sm max-h-[90vh] overflow-y-auto"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-sm font-black font-mono tracking-widest text-[#00ff88]">
@@ -914,19 +920,19 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
                   { label: 'Partite\nvinte',     value: playerStats.vinte,    color: '#22c55e', icon: '🏆' },
                 ].map(({ label, value, color, icon }) => (
                   <div key={label} className="flex flex-col items-center gap-1 p-3 rounded-xl"
-                    style={{ background: '#0a0e1a', border: `1px solid ${color}44` }}>
+                    style={{ background: highReadability ? RP.surface : '#0a0e1a', border: `1px solid ${highReadability ? RP.border : color+'44'}` }}>
                     <span className="text-xl">{icon}</span>
-                    <span className="text-2xl font-black font-mono" style={{ color }}>{value}</span>
+                    <span className="text-2xl font-black font-mono" style={{ color: highReadability ? RP.text : color }}>{value}</span>
                     <span className="text-[10px] font-mono text-center leading-tight whitespace-pre-line"
-                      style={{ color: '#445566' }}>{label}</span>
+                      style={{ color: highReadability ? RP.muted : '#445566' }}>{label}</span>
                   </div>
                 ))}
               </div>
             )}
             {playerStats && playerStats.giocate > 0 && (
-              <p className="text-xs font-mono text-center mt-4" style={{ color: '#445566' }}>
+              <p className="text-xs font-mono text-center mt-4" style={{ color: highReadability ? RP.muted : '#445566' }}>
                 Win rate:{' '}
-                <span className="font-bold" style={{ color: '#22c55e' }}>
+                <span className="font-bold" style={{ color: highReadability ? RP.primary : '#22c55e' }}>
                   {Math.round((playerStats.vinte / playerStats.giocate) * 100)}%
                 </span>
               </p>
@@ -947,6 +953,6 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
           </div>
         </div>
       )}
-    </div>
+    </ReadabilityFrame>
   );
 }

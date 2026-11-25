@@ -37,7 +37,7 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
         className="mt-1 block w-full min-h-11 rounded-lg border border-slate-600 bg-[#060d18] px-3 text-white focus:outline-cyan-300"/>
     </label>
     {error && <div role="alert" className="rounded-lg border border-red-600 bg-red-950 p-3 text-sm text-red-200">{error} <button onClick={onRefresh} className="underline">Riprova</button></div>}
-    <p role="status" className="text-xs text-slate-400">{loading ? 'Aggiornamento dei tavoli…' : updatedAt ? `Ultimo aggiornamento ${new Date(updatedAt).toLocaleTimeString('it-IT')}. Aggiornamento automatico attivo.` : 'Caricamento della sala…'}</p>
+    <p role="status" className="text-xs text-slate-400">{loading ? 'Aggiornamento dei tavoli…' : updatedAt ? `Ultimo aggiornamento ${new Date(updatedAt).toLocaleTimeString('it-IT')}. Aggiornamento automatico attivo.` : 'Sala pronta.'}</p>
     <div className="space-y-3">
       {visible.map(game => {
         const seats = tableSeats(game, userId), host = game.created_by === userId;
@@ -51,7 +51,7 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
               {game.status === 'active' ? 'In corso · iscrizioni chiuse' : seats.canJoin ? 'In attesa di giocatori' : 'In attesa dell’avvio'}
             </span>
           </div>
-          <p className="flex items-center gap-2 text-sm text-slate-300"><Clock3 size={15} aria-hidden="true"/> Aperta il <time dateTime={game.created_at}>{openedAt(game.created_at)}</time></p>
+          <p className="room-date flex items-center gap-2 text-sm text-slate-300"><Clock3 size={15} aria-hidden="true"/> Aperta il <time dateTime={game.created_at}>{openedAt(game.created_at)}</time></p>
           <p className="flex items-center gap-2 text-sm text-white"><Users size={16} aria-hidden="true"/>
             {seats.humans.length}/5 giocatori{seats.bots > 0 && ` · ${seats.bots} BOT`}{game.status === 'lobby' && ` · ${seats.free.length} posti liberi`}
           </p>

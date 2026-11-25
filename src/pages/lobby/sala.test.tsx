@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { readFileSync } from 'node:fs';
 import SalaPartite from './SalaPartite';
 import { loadRoom, openedAt, tableSeats, type RoomGame } from './sala';
+import { ReadabilityFrame, READABLE_PALETTE, READABILITY_KEY, readPreference, savePreference } from './Readability';
+import ReadabilityPreview from './ReadabilityPreview';
 
 const game = (id: string, extra: Partial<RoomGame> = {}): RoomGame => ({
   id, code: `TABLE-${id}`, name: `Tavolo ${id}`, status: 'lobby', is_public: true,
@@ -102,4 +104,71 @@ test('loader surfaces database errors; it never falls back to displaying private
   await assert.rejects(loadRoom(client, 'guest'), { message: 'Network failed' });
   assert.equal(calls.length, 1);
   assert.ok(calls[0].filters.some(([key, value]) => key === 'is_public' && value === true));
+});
+
+test('readability control has an accessible pressed state and preserves both appearances', () => {
+  const render = (high: boolean) => renderToStaticMarkup(<ReadabilityFrame high={high} onToggle={() => {}}>
+    <SalaPartite games={[game('one')]} userId="guest" loading={false} error="" updatedAt={null}
+      onRefresh={() => {}} onEnter={() => {}} onCreate={() => {}} onCode={() => {}}/>
+  </ReadabilityFrame>);
+  assert.ok(render(true).includes('data-readability="high"'));
+  assert.ok(render(true).includes('aria-pressed="true"'));
+  assert.ok(render(true).includes('Tema chiaro'));
+  assert.ok(render(false).includes('data-readability="standard"'));
+  assert.ok(render(false).includes('Alta leggibilità'));
+  for (const high of [true, false]) {
+    assert.ok(render(high).includes('Iscriviti al tavolo'));
+    assert.ok(render(high).includes('Stefano'));
+  }
+});
+test('reading preference persists, rejects unexpected values and survives unavailable storage', () => {
+  const values = new Map<string, string>();
+  const storage = { getItem: (k: string) => values.get(k) ?? null, setItem: (k: string, v: string) => { values.set(k, v); } };
+  assert.equal(readPreference(storage), false);
+  savePreference(true, storage);
+  assert.equal(values.get(READABILITY_KEY), 'high');
+  assert.equal(readPreference(storage), true);
+  savePreference(false, storage);
+  assert.equal(readPreference(storage), false);
+  values.set(READABILITY_KEY, 'unexpected');
+  assert.equal(readPreference(storage), false);
+  const blocked = { getItem: () => { throw new Error('SecurityError'); }, setItem: () => { throw new Error('QuotaExceeded'); } };
+  assert.equal(readPreference(blocked), false);
+  assert.doesNotThrow(() => savePreference(true, blocked));
+});
+function contrast(a: string, b: string) {
+  const luminance = (hex: string) => {
+    const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255)
+      .map(c => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+  };
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+test('light reading palette meets WCAG AA for normal text and primary actions', () => {
+  const p = READABLE_PALETTE;
+  for (const surface of [p.background, p.surface, p.inset]) {
+    for (const text of [p.text, p.muted, p.cyan, p.purple, p.danger, p.warning]) {
+      assert.ok(contrast(text, surface) >= 4.5, `${text} on ${surface}`);
+    }
+  }
+  assert.ok(contrast(p.primary, p.onPrimary) >= 4.5);
+  const css = readFileSync('src/pages/lobby/readability.css', 'utf8');
+  for (const color of Object.values(p)) assert.ok(css.includes(color), color);
+  assert.ok(css.includes('font-size: 16px'));
+  assert.ok(css.includes('font-size: 18px'));
+  assert.ok(css.includes('min-height: 48px'));
+  assert.ok(css.includes('grid-template-columns: 1fr'));
+  assert.ok(!css.includes('!important'));
+});
+test('public example renders the same room, marks fixture data and never queries Supabase', () => {
+  const html = renderToStaticMarkup(<ReadabilityPreview onBack={() => {}}/>);
+  assert.ok(html.includes('data-readability="high"'));
+  assert.ok(html.includes('dati dimostrativi'));
+  assert.ok(html.includes('Iscriviti al tavolo'));
+  assert.ok(html.includes('3 posti liberi'));
+  assert.ok(html.includes('Guarda partita'));
+  const source = readFileSync('src/pages/lobby/ReadabilityPreview.tsx', 'utf8');
+  assert.ok(!source.includes('supabase'));
+  assert.ok(source.includes('<SalaPartite'));
 });

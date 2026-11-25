@@ -9,6 +9,7 @@ const outfile = join(directory, 'sala.test.cjs');
 await build({
   entryPoints: ['src/pages/lobby/sala.test.tsx'], outfile,
   platform: 'node', format: 'cjs', bundle: true, jsx: 'automatic',
+  loader: { '.css': 'empty' },
 });
 const result = spawnSync(process.execPath, ['--test', outfile], { stdio: 'inherit' });
 process.exitCode = result.status ?? 1;
