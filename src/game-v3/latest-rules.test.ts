@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, reduce, canDeploy, canInfluence, influenceCost, occupiedSlots, territoryController, type EngineState } from './engine';
-import { FACTIONS, FACTION_CARDS, INITIAL_TRACKS, BOT_CARDS, BOT_INFLUENCE, TERRITORIES, type Faction } from './catalog';
+import { createGame, reduce, canDeploy, canInfluence, maintainableUnits, influenceCost, occupiedSlots, territoryController, type EngineState } from './engine';
+import { FACTIONS, FACTION_CARDS, INITIAL_TRACKS, BOT_CARDS, BOT_INFLUENCE, OBJECTIVES, TERRITORIES, type Faction } from './catalog';
 import { chooseBotControlBonus, chooseBotCorrelation, weakestTrack } from './bots';
 import { objectiveComplete } from './objectives';
 const rng = () => 0.3;
@@ -25,6 +25,50 @@ function close(s = setup()) {
   ops(s, 'Europa'); s.lap = 2;
   return reduce(s, 'Europa', { type: 'finish-ops' }, rng);
 }
+test('latest maintenance survives serialized human control closure and is charged once', () => {
+  let s = ops(setup(), 'Russia');
+  unit(s, 'RU-U01', 'Russia', 'iraq'); s.units[0].rotated = true;
+  const id = s.units[0].id; s.ops!.remaining = 1;
+  s = reduce(s, 'Russia', { type: 'maintain', unitId: id }, rng);
+  assert.equal(s.ops!.remaining, 0);
+  assert.equal(s.rulesRevision, '2026-11-21');
+  const next = close(s);
+  assert.equal(next.pending?.kind, 'control'); assert.equal(next.pending?.actor, 'Russia');
+  const resumed = reduce(JSON.parse(JSON.stringify(next)), 'Russia', { type: 'control-bonus', track: 'Economia' }, rng);
+  assert.equal(resumed.round, 2); assert.equal(resumed.units[0].rotated, true);
+  assert.equal(resumed.log.filter(l => l.includes('Mantenimento di')).length, 1);
+  assert.equal(maintainableUnits(resumed, 'Russia')[0].id, id);
+});
+test('latest final objectives require maintenance while territorial PF still come only from Influence', () => {
+  const final = (pay: boolean) => {
+    let s = setup(); s.mode = 'breve'; s.turnMarker = 30;
+    s.players.Russia.objectives = ['OBJ-RU-09'];
+    unit(s, 'RU-U04', 'Russia', 'siria'); unit(s, 'RU-U04', 'Russia', 'libano');
+    s.units.forEach(u => { u.rotated = true; });
+    s.influence = [{ id: 'permanent', faction: 'Russia', territory: 'siria', slot: 0 }];
+    if (pay) {
+      s = ops(s, 'Russia'); s.ops!.remaining = 2;
+      for (const u of [...s.units]) s = reduce(s, 'Russia', { type: 'maintain', unitId: u.id }, rng);
+    }
+    s = close(s);
+    assert.equal(s.phase, 'ended');
+    assert.equal(s.units.length, pay ? 2 : 0);
+    assert.equal(s.influence?.length, 1);
+    assert.equal(objectiveComplete(s, 'OBJ-RU-09'), pay);
+    return s.result!.scores.Russia;
+  };
+  assert.equal(final(true) - final(false), OBJECTIVES.find(o => o.id === 'OBJ-RU-09')!.points,
+    'same control bonuses, only the printed objective reward changes');
+});
+test('BOT units expire at closure without maintenance or an automatic OP debit', () => {
+  const s = setup(['Russia']); s.botInfluenceEdition = '2026-11-22';
+  unit(s, 'RU-U04', 'Russia', 'siria'); s.units[0].rotated = true;
+  const id = s.units[0].id;
+  const next = close(s);
+  assert.equal(next.round, 2);
+  assert.ok(!next.units.some(u => u.id === id));
+  assert.ok(!next.log.some(line => line.includes('Mantenimento di')));
+});
 test('BOT Iran controlling Iraq selects its weaker printed bonus and completes round closure', () => {
   const s=setup(['Iran']);s.botInfluenceEdition='2026-11-22';
   s.influence=[{id:'own',faction:'Iran',territory:'iraq',slot:0}];

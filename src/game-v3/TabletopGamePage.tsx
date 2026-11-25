@@ -4,7 +4,7 @@ import { useOnlineGameStore } from '@/store/onlineGameStore';
 import { getObjectiveCardFront } from '@/data/card-graphics';
 import { FACTIONS, TRACKS, type Faction, type GlobalTrack, type TrackChange } from './catalog-types';
 import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
-import { canDeploy, currentActor, deployCost, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, reduce, type EngineState, type Command } from './engine';
+import { canDeploy, currentActor, deployCost, maintainableUnits, MAINTENANCE_COST, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, reduce, type EngineState, type Command } from './engine';
 import { commitCommand, readTabletop, type SavedTabletop } from './online';
 import { objectiveStatus } from './objectives';
 import { COLORS, FactionBoard, TabletopBoard, UnitImage } from './Boards';
@@ -133,6 +133,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
   const targetOptions = intelligence ? [...FACTIONS] : FACTIONS.filter(f => f !== opsActor && (usesLatestRules(s) ? territoryPresence(s,f,selected)>0 : localUnits.some(u => u.faction === f)));
   const deploymentTarget = targetOptions.includes(target) ? target : targetOptions[0];
   const budget = s.ops?.remaining ?? 0;
+  const expiringUnits = opsActor ? maintainableUnits(s, opsActor) : [];
   const pressureCost = opsActor ? (s.players[opsActor].tracks.Diplomazia <= 3 ? 3 : s.players[opsActor].tracks.Diplomazia >= 8 ? 1 : 2) : 0;
   const toggle = (id: string) => setMarked(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id]);
   const points = Object.fromEntries(FACTIONS.map(f => [f, s.players[f].points])) as Record<Faction, number>;
@@ -200,7 +201,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{localUnits.map(u => {
               const definition = UNITS.find(d => d.id === u.type)!;
               return <div key={u.id} className="rounded-lg border p-2 space-y-2" style={{ borderColor: COLORS[u.faction] }}><UnitImage id={u.type} name={definition.name} />
-                <p className="text-xs">{u.faction} · {u.rotated ? 'Ruotata: rientra a fine round' : 'Nuova: rientra a fine round successivo'}</p></div>;
+                <p className="text-xs">{u.faction} · {u.rotated ? s.players[u.faction].bot ? 'Ruotata: rientra a fine round (BOT senza Mantenimento)' : 'Ruotata: rientra a fine round, salvo Mantenimento (1 OP)' : 'Attiva: rientra a fine round successivo'}</p></div>;
             })}</div>
             {localInfluence.length > 0 && <p className="text-sm">Influenza permanente: {localInfluence.map(i => <span key={i.id} className="mr-3" style={{color:COLORS[i.faction]}}>{i.faction} · riquadro {i.slot + 1}</span>)}</p>}
             <p className="text-xs text-slate-400">Presenza: {FACTIONS.map(f => `${f} ${territoryPresence(s, f, selected)}`).join(' · ')}</p>
@@ -269,6 +270,10 @@ export default function TabletopGamePage({ onBack, previewState }: {
               <div className="max-w-48 mt-3"><UnitImage id={chosenUnit.id} name={chosenUnit.name} /></div></>}
           </div>
         </div>
+        {expiringUnits.length > 0 && <div className="mt-4" aria-label="Mantenimento delle unità"><h3 className="font-semibold mb-2">Mantenimento · {MAINTENANCE_COST} OP per unità</h3>
+          <p className="text-xs text-slate-400 mb-3">Queste unità tornano in riserva al prossimo fine round. Paga {MAINTENANCE_COST} OP per tenerne una un altro round. Al punteggio finale contano solo le unità ancora sul tabellone. I BOT non mantengono le unità.</p>
+          <div className="flex flex-wrap gap-2">{expiringUnits.map(u => <button key={u.id} data-maintain-unit={u.id} className={button} disabled={!canAct || budget < MAINTENANCE_COST}
+            onClick={() => send({ type: 'maintain', unitId: u.id })}>Mantieni {UNITS.find(d => d.id === u.type)?.name} · {TERRITORIES.find(t => t.id === u.territory)?.name} · {u.id} · {MAINTENANCE_COST} OP</button>)}</div></div>}
         <button className={button + ' border-red-500'} onClick={() => send({ type: 'finish-ops' })}>Termina attivazione{budget ? ` · rinuncia a ${budget} OP` : ''}</button>
       </Panel>}
       {p && own && <Panel title={`La tua mano · ${own} · ${p.hand.length} carte`}>

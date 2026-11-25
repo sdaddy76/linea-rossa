@@ -1,7 +1,7 @@
 /** Run by bundling this entry with esbuild (platform=node), then node --test the output. */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, reduce, currentActor, canDeploy, deployCost, hormuzBlocked, influenceCost, occupiedSlots, territoryPresence, territoryController,
+import { createGame, reduce, currentActor, canDeploy, maintainableUnits, MAINTENANCE_COST, deployCost, hormuzBlocked, influenceCost, occupiedSlots, territoryPresence, territoryController,
   controlBonusChoices, MODE_THRESHOLDS, type EngineState, type PlacedUnit, type GameMode } from './engine';
 import { botCondition, botPlan, weakestTrack, chooseBotCorrelation } from './bots';
 import { objectiveComplete, controlsTerritory } from './objectives';
@@ -716,4 +716,92 @@ test('legacy states retain refill bonus, unit-only presence/scoring, old duratio
   old.deck = FACTION_CARDS.filter(c => !c.special).slice(0, 30).map(c => c.id);
   old = reduce(old, 'Europa', { type: 'finish-ops' }, rng);
   assert.equal(old.players.Iran.hand.length, 3); assert.equal(old.rulesRevision, undefined);
+});
+
+// Supplied rule amendment (2026-11-25).
+function closeMaintenanceRound(s: EngineState, final = false) {
+  s = ops(s, 'Europa'); s.lap = 2; s.turnIndex = 4; if (final) s.round = 6;
+  for (const f of FACTIONS) s.players[f].hand = [];
+  return reduce(s, 'Europa', { type: 'finish-ops' }, rng);
+}
+test('maintenance: 1 OP keeps an expiring unit one extra round; unpaid renewal expires', () => {
+  let s = fixture();
+  const fleet = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria');
+  s = closeMaintenanceRound(s);
+  assert.deepEqual(maintainableUnits(s, 'Russia').map(u => u.id), [fleet.id]);
+  s = ops(s, 'Russia', 3); s = reduce(s, 'Russia', { type: 'maintain', unitId: fleet.id }, rng);
+  assert.equal(MAINTENANCE_COST, 1);
+  assert.equal(s.ops!.remaining, 2); assert.equal(s.units.find(u => u.id === fleet.id)!.rotated, false);
+  assert.ok(s.log.at(-1)!.includes('Mantenimento'));
+  s = closeMaintenanceRound(s);
+  assert.ok(s.units.some(u => u.id === fleet.id));
+  s = closeMaintenanceRound(s);
+  assert.ok(!s.units.some(u => u.id === fleet.id));
+});
+test('maintenance refuses fresh, enemy, missing units and insufficient OP without changing state', () => {
+  const s = fixture();
+  const fresh = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria');
+  const enemy = unit(s, 'Iran', 'IRGC'); enemy.rotated = true;
+  const own = unit(s, 'Russia', 'Cyber Russia', 'Iraq'); own.rotated = true;
+  for (const [id, budget, error] of [
+    [fresh.id, 3, /in scadenza/], [enemy.id, 3, /tua unità/],
+    ['missing', 3, /tua unità/], [own.id, 0, /1 OP/],
+  ] as const) {
+    const source = ops(structuredClone(s), 'Russia', budget), before = JSON.stringify(source);
+    assert.throws(() => reduce(source, 'Russia', { type: 'maintain', unitId: id }, rng), error);
+    assert.equal(JSON.stringify(source), before);
+  }
+  assert.doesNotThrow(() => reduce(ops(structuredClone(s), 'Russia', 1), 'Russia', { type: 'maintain', unitId: own.id }, rng));
+});
+test('maintenance can repeat next round, not twice in one round; preserves unit identity and saved rules', () => {
+  let s = fixture();
+  const fleet = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria'); fleet.rotated = true;
+  const beforeUnit = structuredClone(fleet), beforeGlobals = structuredClone(s.globals);
+  const beforePlayers = structuredClone(s.players);
+  s = reduce(ops(s, 'Russia', 2), 'Russia', { type: 'maintain', unitId: fleet.id }, rng);
+  assert.deepEqual(s.units[0], { ...beforeUnit, rotated: false });
+  assert.deepEqual(s.players, beforePlayers); assert.deepEqual(s.globals, beforeGlobals);
+  assert.equal(s.rulesRevision, undefined);
+  assert.equal(maintainableUnits(s, 'Russia').length, 0);
+  const unchanged = JSON.stringify(s);
+  assert.throws(() => reduce(s, 'Russia', { type: 'maintain', unitId: fleet.id }, rng), /in scadenza/);
+  assert.equal(JSON.stringify(s), unchanged);
+  s = closeMaintenanceRound(s);
+  assert.equal(maintainableUnits(s, 'Russia')[0].id, fleet.id);
+  s = reduce(ops(s, 'Russia', 1), 'Russia', { type: 'maintain', unitId: fleet.id }, rng);
+  assert.equal(s.ops!.remaining, 0);
+  s = closeMaintenanceRound(s);
+  assert.ok(s.units.some(u => u.id === fleet.id));
+});
+test('maintenance requires own active OP phase and is never a BOT action', () => {
+  const s = fixture(), fleet = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria');
+  fleet.rotated = true;
+  s.turnIndex = s.order.indexOf('Russia');
+  assert.throws(() => reduce(s, 'Russia', { type: 'maintain', unitId: fleet.id }, rng), /carta giocata come OP/);
+  ops(s, 'Russia', 2);
+  assert.throws(() => reduce(s, 'Iran', { type: 'maintain', unitId: fleet.id }, rng), /turno/);
+  s.players.Russia.bot = true;
+  assert.throws(() => reduce(s, 'Russia', { type: 'maintain', unitId: fleet.id }, rng), /advance-bot/);
+  s.players.Russia.bot = false;
+  s.phase = 'veto'; s.pending = { kind: 'veto', actor: 'Russia', change: { faction: 'Russia', track: 'Economia', delta: -1 } };
+  assert.throws(() => reduce(s, 'Russia', { type: 'maintain', unitId: fleet.id }, rng), /carta giocata come OP/);
+});
+test('final scoring removes expired units first; maintained units count for final objectives', () => {
+  const obj = OBJECTIVES.find(o => o.id === 'OBJ-RU-09')!;
+  const finalPoints = (pay: boolean) => {
+    let s = fixture(); s.round = 5; s.players.Russia.objectives = [obj.id];
+    const a = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Siria'), b = unit(s, 'Russia', 'Flotta nel Mediterraneo', 'Libano');
+    s = closeMaintenanceRound(s);
+    assert.equal(s.round, 6);
+    if (pay) {
+      s = reduce(ops(s, 'Russia', 2), 'Russia', { type: 'maintain', unitId: a.id }, rng);
+      s = reduce(s, 'Russia', { type: 'maintain', unitId: b.id }, rng);
+    }
+    s = closeMaintenanceRound(s, true);
+    assert.equal(s.phase, 'ended');
+    assert.equal(s.units.filter(u => u.faction === 'Russia').length, pay ? 2 : 0);
+    return s;
+  };
+  assert.equal(objectiveComplete(finalPoints(false), obj), false);
+  assert.equal(objectiveComplete(finalPoints(true), obj), true);
 });

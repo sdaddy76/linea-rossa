@@ -59,6 +59,7 @@ export type Command =
   | { type: 'deploy'; unitId: string; territoryId: string; target?: Faction; diplomacyEffect?: 'sanctions' | 'opinion' }
   | { type: 'influence'; territoryId: string }
   | { type: 'destabilize'; influenceId: string }
+  | { type: 'maintain'; unitId: string }
   | { type: 'control-bonus'; track: ControlChoice }
   | { type: 'bot-influence'; territoryId: string }
   | { type: 'attack'; territoryId: string }
@@ -432,6 +433,11 @@ function development(s: EngineState, actor: Faction, track: Track, correlation: 
   s.log.push(`${actor}: Sviluppo ${track}; correlazione ${change.faction} ${change.track} ${change.delta > 0 ? '+' : ''}${change.delta}.`);
   changeTrack(s, { faction: actor, track, delta: 1 }); s.queue.unshift({ kind: 'correlation', change });
 }
+/** Unità in scadenza: girate a un fine round, tornano in riserva al prossimo se non mantenute. */
+export const MAINTENANCE_COST = 1;
+export function maintainableUnits(s: Pick<EngineState, 'units'>, faction: Faction): PlacedUnit[] {
+  return s.units.filter(u => u.faction === faction && u.rotated);
+}
 export function canDeploy(s: EngineState, faction: Faction, unitId: string, territoryId: string): boolean {
   const u = UNITS.find(d => d.id === unitId), t = TERRITORIES.find(d => d.id === territoryId);
   if (!u || !t || u.faction !== faction || (u.naval && t.name.toLowerCase().includes('giordania'))) return false;
@@ -697,6 +703,14 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
     assert(usesLatestRules(s) || territoryPresence(s, actor, marker.territory) > 0, 'Destabilizzare richiede presenza nello stesso Stato');
     s.influence = s.influence!.filter(i => i.id !== marker.id); s.ops.remaining -= 2;
     s.log.push(`${actor}: Destabilizzare rimuove Influenza ${marker.faction} da ${territoryDef(marker.territory).name}, costo 2 OP; restano ${s.ops.remaining} OP.`);
+  } else if (command.type === 'maintain') {
+    // Mantenimento (2026-11-25): 1 OP per una propria unità in scadenza; resta un altro round.
+    assert(s.ops.remaining >= MAINTENANCE_COST, 'Serve 1 OP');
+    const u = s.units.find(x => x.id === command.unitId);
+    assert(u && u.faction === actor, 'Scegli una tua unità sul tabellone');
+    assert(u.rotated, 'Si mantengono solo le unità in scadenza a fine round');
+    u.rotated = false; s.ops.remaining -= MAINTENANCE_COST;
+    s.log.push(`${actor}: Mantenimento di ${unitDef(u.type).name} in ${territoryDef(u.territory).name}, costo 1 OP; restano ${s.ops.remaining} OP.`);
   } else if (command.type === 'attack') {
     assert(s.ops.remaining >= 2, 'Servono 2 OP'); s.ops.remaining -= 2;
     s.log.push(`${actor}: spende 2 OP per Attacco; restano ${s.ops.remaining} OP.`);

@@ -61,6 +61,10 @@ backup delle partite.
   dadi, modificatori, scelte di perdite ed effetti delle unità.
 - Tensione di fine round, pesca, limite mano, rotazione/rientro unità,
   condizioni immediate e punteggio finale con spareggi.
+- Mantenimento (regola del 2026-11-25): nelle Operazioni una fazione paga 1 OP
+  per una propria unità ruotata, che resta un altro round. Le unità che scadono
+  all'ultimo fine round tornano in riserva prima del punteggio finale. I BOT non
+  mantengono: le loro unità scadono come sempre.
 - 120 carte BOT con P1/P2, priorità di tracciato e schieramento stampate.
 - Tabellone, cinque plance, 75 eventi, 120 fronti BOT, 36 fronti unità compresi
   cinque Dummy, 26 retri: 263 immagini. I Dummy sono solo nella galleria,

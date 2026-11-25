@@ -38,7 +38,7 @@ const KEY_RULES = [
   ['Correlazioni', 'Un aumento può spostare un tracciato di un’altra fazione: leggi entrambe le conseguenze.'],
   ['Dividendo diplomatico', 'Giocare l’opzione che favorisce un’altra fazione ti dà +1 PV, al massimo una volta per round.'],
   ['Influenza e controllo', 'I riquadri sono riservati all’Influenza permanente, che determina i punti territoriali finali. Le unità sono accanto allo Stato e non occupano riquadri.'],
-  ['Unità a due round', 'Non si muovono: prima si ruotano, poi tornano nella riserva.'],
+  ['Unità a due round', 'Non si muovono: prima si ruotano, poi tornano nella riserva. Con il Mantenimento (1 OP) un’unità ruotata resta un altro round.'],
   ['Combattimento', 'Contano solo le unità locali; ogni attacco riduce la Crisi Bellica.'],
   ['Durata della partita', 'Il segna-turni avanza degli OP delle carte delle fazioni Avanza: soglia 30, 60 o 80.'],
 ];

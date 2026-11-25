@@ -78,3 +78,21 @@ test('unknown and legacy JSON cannot be mistaken for the new edition', () => {
   assert.equal(readTabletop({ special_uses: { veto_russia: 3 } }), null);
   assert.equal(readTabletop({ special_uses: { tabletop_v3: { revision: 0, state: { version: 2 } } } }), null);
 });
+test('maintenance persists the same unit and OP debit; a stale second click never charges twice', async () => {
+  await initializeTabletop('game', 'host');
+  const saved = readTabletop(database.state)!;
+  saved.state.order = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa']; saved.state.turnIndex = 0;
+  saved.state.phase = 'ops';
+  saved.state.ops = { actor: 'Iran', card: 'C027', remaining: 2, pressured: [] };
+  saved.state.units = [{ id: 'expiring', faction: 'Iran', type: 'IR-U01', territory: 'iran', placedRound: 1, rotated: true }];
+  database.state!.special_uses = { tabletop_v3: saved, unrelated: 'preserve' };
+  const next = await commitCommand('game', saved, 'Iran', { type: 'maintain', unitId: 'expiring' });
+  assert.equal(next.revision, saved.revision + 1);
+  assert.equal(next.state.ops!.remaining, 1); assert.equal(next.state.units[0].rotated, false);
+  assert.deepEqual(next.state.units[0], { ...saved.state.units[0], rotated: false });
+  assert.equal(next.state.rulesRevision, saved.state.rulesRevision);
+  await assert.rejects(commitCommand('game', saved, 'Iran', { type: 'maintain', unitId: 'expiring' }), /altro giocatore/);
+  const persisted = readTabletop(JSON.parse(JSON.stringify(database.state)))!;
+  assert.deepEqual(persisted, next);
+  assert.equal((database.state!.special_uses as { unrelated: string }).unrelated, 'preserve');
+});

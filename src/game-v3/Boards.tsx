@@ -54,12 +54,12 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
             const u=local.find(unit=>unit.slot===i) ?? (local.every(unit=>unit.slot===undefined) ? local[i] : undefined);
             const marker=localInfluence.find(item=>item.slot===i), pos=territorySlot(t.id,i);
             const name=u?(UNITS.find(d=>d.id===u.type)?.name??u.type):'';
-            const rotated=!!u&&u.deployedAt<elapsed;
+            const rotated=!!u&&(u.rotated ?? u.deployedAt<elapsed);
             return <button key={`${t.id}-${i}`} type="button" onClick={()=>onSelect(t.id)}
               data-territory={t.id} data-slot={i+1} data-unit-id={u?.id} data-influence-id={marker?.id} data-faction={u?.faction ?? marker?.faction} data-rotated={u?rotated:undefined}
               aria-pressed={selected===t.id}
               aria-label={`${t.name}, riquadro ${i+1}: ${u?`${u.faction}, ${name}${rotated?', ruotata':''}`:marker?`Influenza ${marker.faction}`:'libero'}`}
-              title={`${t.name} · ${u?`${u.faction} · ${name} · ${rotated?'ruotata, rientra a fine round':'nuova'}`:marker?`Influenza ${marker.faction} · permanente`:'riquadro libero: seleziona questo territorio'}`}
+              title={`${t.name} · ${u?`${u.faction} · ${name} · ${rotated?'ruotata, rientra a fine round salvo Mantenimento':'attiva'}`:marker?`Influenza ${marker.faction} · permanente`:'riquadro libero: seleziona questo territorio'}`}
               className={`absolute min-w-0 p-0 -translate-x-1/2 -translate-y-1/2 rounded-sm border-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${selected===t.id?'ring-2 ring-yellow-300':'hover:ring-2 hover:ring-white'}`}
               style={{left:`${pos.x}%`,top:`${pos.y}%`,width:'1.5%',height:'2.25%',background:u?COLORS[u.faction]:marker?COLORS[marker.faction]:'transparent',borderColor:u?COLORS[u.faction]:marker?COLORS[marker.faction]:'transparent'}}>
               {u&&<><img src={unitFrontArt(u.type)} alt={`${u.faction}: ${name}`} draggable={false}
@@ -88,7 +88,7 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
       </div>
     </div>
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Colori delle fazioni">{FACTIONS.map(f=><span key={f} style={{color:COLORS[f]}}>{SHORT[f]} · {f} · {units.filter(u=>u.faction===f).length} unità</span>)}</div>
-    <p className="my-2 text-xs text-slate-400">{latest ? 'I riquadri sono riservati all’Influenza. Le unità sono raggruppate per fazione accanto allo Stato: il numero indica quante sono; seleziona per vedere ogni unità.' : 'Unità e Influenza condividono i riquadri in questo salvataggio precedente.'} L’Influenza è permanente. Le unità ruotate rientrano a fine round.</p>
+    <p className="my-2 text-xs text-slate-400">{latest ? 'I riquadri sono riservati all’Influenza. Le unità sono raggruppate per fazione accanto allo Stato: il numero indica quante sono; seleziona per vedere ogni unità.' : 'Unità e Influenza condividono i riquadri in questo salvataggio precedente.'} L’Influenza è permanente. Le unità ruotate rientrano a fine round, salvo Mantenimento (1 OP per unità nelle Operazioni). I BOT non mantengono.</p>
     <div data-board-territories className="flex flex-wrap gap-2">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs rounded-lg border px-3 py-2 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length} unità · {influence.filter(i=>i.territory===t.id).length}/{t.capacity} Influenza</button>)}</div>
   </section>;
 }

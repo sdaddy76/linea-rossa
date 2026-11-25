@@ -173,6 +173,38 @@ test('OP controls expose remaining budget, targets, deployment costs and explici
   const html = render();
   for (const label of ['4 OP disponibili', 'Sviluppo', 'Pressione', 'Schieramento', 'Termina attivazione', 'Missili balistici']) assert.ok(html.includes(label), label);
 });
+test('maintenance UI lists each expiring own unit, disables without OP and removes paid unit', () => {
+  const s = uiFixture.state;
+  s.phase = 'ops'; s.ops = { actor: 'Iran', remaining: 0, card: s.players.Iran.hand[0], pressured: [] };
+  s.units = [
+    { id: 'own-a', type: 'IR-U01', faction: 'Iran', territory: 'iran', placedRound: 1, rotated: true },
+    { id: 'own-b', type: 'IR-U01', faction: 'Iran', territory: 'iran', placedRound: 1, rotated: true },
+    { id: 'fresh', type: 'IR-U01', faction: 'Iran', territory: 'iran', placedRound: 1, rotated: false },
+    { id: 'enemy', type: 'RU-U01', faction: 'Russia', territory: 'iran', placedRound: 1, rotated: true },
+  ];
+  const html = render();
+  assert.ok(html.includes('Mantenimento · 1 OP per unità'));
+  assert.equal((html.match(/data-maintain-unit=/g) ?? []).length, 2);
+  assert.equal((html.match(/data-maintain-unit="own-[ab]"[^>]*disabled=""/g) ?? []).length, 2);
+  assert.ok(!html.includes('data-maintain-unit="fresh"')); assert.ok(!html.includes('data-maintain-unit="enemy"'));
+  s.ops.remaining = 1;
+  assert.ok(!/data-maintain-unit="own-a"[^>]*disabled=""/.test(render()));
+  uiFixture.state = reduce(s, 'Iran', { type: 'maintain', unitId: 'own-a' });
+  const paid = render();
+  assert.ok(!paid.includes('data-maintain-unit="own-a"'));
+  assert.ok(/data-maintain-unit="own-b"[^>]*disabled=""/.test(paid));
+  uiFixture.own = 'Russia'; assert.ok(!render().includes('data-maintain-unit='));
+  uiFixture.own = null; uiFixture.member = false; assert.ok(!render().includes('data-maintain-unit='));
+});
+test('the board renders real rotation, including a maintained old unit with rotated=false', () => {
+  const s = uiFixture.state;
+  s.actualRound = 3;
+  s.units = [{ id: 'maintained', faction: 'Iran', type: 'IR-U01', territory: 'iran', placedRound: 1, rotated: false }];
+  const html = render();
+  assert.ok(html.includes('data-unit-id="maintained"'));
+  assert.ok(html.includes('data-rotated="false"'));
+  assert.ok(!html.includes('rotate(90deg)'));
+});
 test('pending veto, casualty, support and discard decisions have an owning UI', () => {
   const s = uiFixture.state;
   s.phase = 'veto'; s.pending = { kind: 'veto', actor: 'Iran', change: { faction: 'Iran', track: 'Economia', delta: -1 } };
