@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "include": [
+    "src/types/game.ts",
+    "src/data/mazzi.ts",
+    "scripts/card-types.test.ts"
+  ]
+}

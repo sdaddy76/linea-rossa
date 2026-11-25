@@ -4,8 +4,7 @@
 // Dal peek si può selezionare e giocare la carta.
 // =============================================
 import { useState, useMemo } from 'react';
-import type { DeckCard } from '@/types/game';
-import type { GameCard } from '@/data/mazzi';
+import type { DeckCard, GameCard } from '@/types/game';
 import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } from '@/data/mazzi';
 import type { GameState } from '@/types/game';
 import {

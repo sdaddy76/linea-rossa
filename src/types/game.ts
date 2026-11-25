@@ -44,6 +44,21 @@ export interface CardEffects {
   stabilita_russia?:     (val: number) => number;
   stabilita_cina?:       (val: number) => number;
   stabilita_europa?:     (val: number) => number;
+  // Explicit legacy state fields already used in the card definitions.
+  // Keep this closed (no string index signature): a typo/unknown track must
+  // still fail TypeScript. Tabletop v3 uses catalog-types.CardOption instead.
+  forze_militari_iran?:              (val: number) => number;
+  influenza_diplomatica_coalizione?: (val: number) => number;
+  tecnologia_avanzata_coalizione?:   (val: number) => number;
+  supporto_pubblico_coalizione?:     (val: number) => number;
+  influenza_militare_russia?:        (val: number) => number;
+  veto_onu_russia?:                  (val: number) => number;
+  influenza_commerciale_cina?:       (val: number) => number;
+  cyber_warfare_cina?:               (val: number) => number;
+  stabilita_rotte_cina?:             (val: number) => number;
+  influenza_diplomatica_europa?:     (val: number) => number;
+  aiuti_umanitari_europa?:           (val: number) => number;
+  coesione_ue_europa?:               (val: number) => number;
 }
 
 // Stato tracciati globali
