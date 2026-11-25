@@ -136,7 +136,7 @@ export default function EventoModal({ evento, onConfirm, isMyTurn, currentFactio
                         }}>
                         <span className="text-lg leading-none">{FACTION_FLAGS[faction]}</span>
                         <span className="text-[8px] font-mono font-bold mt-0.5"
-                          style={{ color: isAdvancer ? FACTION_COLORS[faction] : '#334455' }}>
+                          style={{ color: isAdvancer ? FACTION_COLORS[faction] : '#ffffff' }}>
                           {FACTION_SHORT[faction]} {idx + 1}°
                         </span>
                         {isAdvancer && (

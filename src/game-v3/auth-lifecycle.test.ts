@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import type { Session } from '@supabase/supabase-js';
 import { sessionListener } from '../integrations/supabase/session-listener';
 import { databaseFetch } from '../integrations/supabase/request';
+import { withTimeout } from '../lib/with-timeout';
+import { normalizeFaction } from '../lib/factions';
+import { useOnlineGameStore } from '../store/onlineGameStore';
 const session = (id: string) => ({ user: { id } }) as Session;
 
 test('auth callback releases the session lock before any database token lookup', async t => {
@@ -53,4 +56,47 @@ test('HTTP transport preserves caller cancellation and clears its timer', async 
   assert.equal(await (await databaseFetch('https://example.org')).text(), 'ok');
   const controller = new AbortController(); controller.abort(new Error('cancelled'));
   await assert.rejects(databaseFetch('https://example.org', { signal: controller.signal }), /cancelled/);
+});
+test('query timeout assimilates non-Promise thenables and clears the timer after success/rejection', async t => {
+  const clear = t.mock.method(globalThis, 'clearTimeout');
+  let calls = 0;
+  const operation: PromiseLike<number> = {
+    then(resolve, reject) { calls++; return Promise.resolve(7).then(resolve, reject); },
+  };
+  assert.equal(await withTimeout(operation, 1000), 7);
+  assert.equal(calls, 1);
+  await assert.rejects(withTimeout(Promise.reject(new Error('query failed')), 1000), /query failed/);
+  assert.equal(clear.mock.callCount(), 2);
+});
+test('query timeout rejects once and never repeats a pending mutation', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0;
+  const operation: PromiseLike<never> = {
+    then(resolve, reject) { calls++; return new Promise<never>(() => {}).then(resolve, reject); },
+  };
+  const request = withTimeout(operation, 10, 'mutation');
+  await Promise.resolve();
+  t.mock.timers.tick(11);
+  await assert.rejects(request, /Timeout mutation dopo 10ms/);
+  assert.equal(calls, 1);
+});
+test('objective assignment accepts canonical and historical faction names, rejects unknown inputs', async () => {
+  useOnlineGameStore.setState({ game: null });
+  for (const name of ['Iran', 'Coalizione', 'Coalizione Occidentale', 'Russia', 'Cina', 'Europa', 'Unione Europea']) {
+    const faction = normalizeFaction(name);
+    const rows = await useOnlineGameStore.getState().assignObjectivesToFaction(name, 3);
+    assert.equal(rows.length, 3, name);
+    assert.ok(rows.every(o => o.faction === faction));
+  }
+  assert.equal(normalizeFaction('Arabia'), null);
+  await assert.rejects(useOnlineGameStore.getState().assignObjectivesToFaction('Arabia'), /Fazione non riconosciuta/);
+});
+test('manual objective completion and cancellation preserve the requested boolean', async () => {
+  useOnlineGameStore.setState({ game: null });
+  const [objective] = await useOnlineGameStore.getState().assignObjectivesToFaction('Iran');
+  await useOnlineGameStore.getState().markObjectiveComplete(objective.obj_id, true);
+  assert.equal(useOnlineGameStore.getState().myObjectives[0].completato, true);
+  await useOnlineGameStore.getState().markObjectiveComplete(objective.obj_id, false);
+  assert.equal(useOnlineGameStore.getState().myObjectives[0].completato, false);
+  assert.equal(useOnlineGameStore.getState().myObjectives[0].data_completamento, undefined);
 });

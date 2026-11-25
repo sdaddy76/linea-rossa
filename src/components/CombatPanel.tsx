@@ -153,8 +153,9 @@ export default function CombatPanel({
     const defUnits = (ts?.units?.[defenderFaction] ?? {}) as Partial<Record<UnitType, number>>;
     // Hormuz: NavaleGolfo Iran in StrettoHormuz
     const hormuzTs  = territories['StrettoHormuz'];
-    const hormuzQty = (hormuzTs?.units?.['Iran']?.['NavaleGolfo'] ?? 0) +
-                      (hormuzTs?.units?.['Iran']?.['Navale'] ?? 0);
+    // Navale is a historical saved alias, not a new deployable unit type.
+    const hormuzUnits: Partial<Record<UnitType | 'Navale', number>> = hormuzTs?.units?.Iran ?? {};
+    const hormuzQty = (hormuzUnits.NavaleGolfo ?? 0) + (hormuzUnits.Navale ?? 0);
     return resolveCombat({
       attacker: myFaction,
       defender: defenderFaction,

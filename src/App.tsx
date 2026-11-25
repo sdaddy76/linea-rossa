@@ -12,6 +12,7 @@ import CoverPage from "./pages/home/CoverPage";
 import AuthPage from "./pages/auth/Index";
 import LobbyPage from "./pages/lobby/Index";
 import ReadabilityPreview from "./pages/lobby/ReadabilityPreview";
+import GameReadabilityPreview from "./game-v3/GameReadabilityPreview";
 import AdminMigration from '@/pages/admin/Migration';
 import GamePage from "./pages/game/Index";
 import TabletopGamePage from "./game-v3/TabletopGamePage";
@@ -41,15 +42,15 @@ function AppRouter() {
     return params.get('type') === 'recovery' && !!params.get('access_token');
   };
 
-  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas' | 'admin-stats' | 'tutorial' | 'readability-preview'>(
-    detectRecovery() ? 'auth' : window.location.hash === '#/leggibilita' ? 'readability-preview' : window.location.hash === '#/partita-guidata' ? 'tutorial' : 'cover'
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas' | 'admin-stats' | 'tutorial' | 'readability-preview' | 'game-readability-preview'>(
+    detectRecovery() ? 'auth' : window.location.hash === '#/leggibilita-gioco' ? 'game-readability-preview' : window.location.hash === '#/leggibilita' ? 'readability-preview' : window.location.hash === '#/partita-guidata' ? 'tutorial' : 'cover'
   );
   // Flag: siamo in flusso reset password (type=recovery) → non redirezionare a lobby automaticamente
   const isRecoveryFlow = useRef(detectRecovery());
 
   useEffect(() => {
     // The reading example is public and uses only fictional local data.
-    if (view === 'readability-preview') return;
+    if (view === 'readability-preview' || view === 'game-readability-preview') return;
     initAuth();
 
     // ── Parsing manuale dei token dall'URL ──────────────────────────────────
@@ -89,7 +90,7 @@ function AppRouter() {
 
   useEffect(() => {
     const userId = session?.user?.id;
-    if (!userId) return;
+    if (!userId || view === 'game-readability-preview') return;
     return beginAccessTracking(userId);
   }, [session?.user?.id]);
 
@@ -147,6 +148,9 @@ function AppRouter() {
   };
 
   // Render basato su view
+  if (view === 'game-readability-preview') return <GameReadabilityPreview onBack={() => {
+    window.location.assign(window.location.pathname + window.location.search);
+  }}/>;
   if (view === 'readability-preview') return <ReadabilityPreview onBack={() => {
     // Reload the normal entry path so authentication is initialized normally.
     window.location.assign(window.location.pathname + window.location.search);

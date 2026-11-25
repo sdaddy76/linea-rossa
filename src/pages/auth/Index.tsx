@@ -288,7 +288,7 @@ export default function AuthPage({ onPasswordSaved, isRecovery }: AuthPageProps 
 
           {/* Banner configurazione Supabase mancante */}
           {typeof import.meta !== 'undefined' &&
-            (import.meta as Record<string,Record<string,string>>).env?.VITE_SUPABASE_URL?.includes('placeholder') && (
+            import.meta.env?.VITE_SUPABASE_URL?.includes('placeholder') && (
             <div className="mb-4 bg-yellow-900/30 border border-yellow-500 rounded-lg p-3 text-yellow-300 text-xs font-mono">
               ⚠️ Supabase non configurato. Imposta VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY su Vercel.
             </div>

@@ -617,7 +617,7 @@ export default function OpsActionModal({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-bold font-mono text-sm text-white">{t.id}</p>
-                  <p className="text-[10px] font-mono text-[#556677]">{t.type}</p>
+                  <p className="text-[10px] font-mono text-[#556677]">{t.isNaval && t.isLand ? 'Terrestre e navale' : t.isNaval ? 'Navale' : 'Terrestre'}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-black font-mono text-sm" style={{ color: fColor }}>

@@ -575,7 +575,6 @@ export const TERRITORY_BONUS_MAP: Partial<Record<TerritoryId, TerritoryBonusEntr
     bonusByFaction: {
       Iran:       { risorse_iran: 1, nucleare: 1 },
       Coalizione: { sanzioni: 1, defcon: 0 },
-      Arabia:     {},                                           // non è una fazione giocabile
       Russia:     { risorse_russia: 1 },
       Cina:       { risorse_cina: 1 },
       Europa:     { stabilita_europa: 1, opinione: 1 },

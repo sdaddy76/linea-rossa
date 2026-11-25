@@ -8,7 +8,6 @@ import type { Faction, GameState } from '@/types/game';
 import { MAZZI_PER_FAZIONE, MAZZI_SPECIALI } from '@/data/mazzi';
 import type { GameCard } from '@/types/game';
 // MilitaryMarket rimosso — meccanica unificata in OpsActionModal
-import { calcolaCosto, getForzeMilitari } from '@/lib/militaryMarket';
 import { TRACK_TOOLTIPS } from '@/lib/tooltips';
 // CombatPanel rimosso — combattimento integrato in OpsActionModal
 import PlayerActionPanel from '@/components/PlayerActionPanel';
@@ -33,6 +32,7 @@ import ScoreBoard from '@/components/ScoreBoard';
 import GlobalStats from '@/components/GlobalStats';
 import { TurnTrack } from '@/components/TurnTrack';
 import { GraphicFactionBoard, GraphicMainBoard } from '@/components/GraphicBoards';
+import './game-readability.css';
 
 // ─── Colori fazione ───────────────────────────
 // Importati da @/lib/factionColors
@@ -619,7 +619,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   }, [game?.id, game?.status, myFaction, deckCards.length]);
 
   if (!game || !gameState) return (
-    <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
+    <div className="game-interface min-h-screen bg-[#0a0e1a] flex items-center justify-center">
       <div className="text-center space-y-2">
         <div className="text-4xl animate-pulse">☢️</div>
         <p className="text-[#00ff88] font-mono">Caricamento partita...</p>
@@ -699,7 +699,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0e1a] flex flex-col">
+    <div className="game-interface min-h-screen bg-[#0a0e1a] flex flex-col">
 
       {/* ─── NOTIFICA TOAST ─── */}
       {notification && (
@@ -747,14 +747,14 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                           className="flex items-center gap-3 px-4 py-2.5"
                           style={{ background: isWinner ? `${f.color}12` : undefined }}
                         >
-                          <span className="w-5 text-center font-mono text-xs" style={{ color: idx === 0 ? '#f59e0b' : '#445566' }}>
+                          <span className="w-5 text-center font-mono text-xs" style={{ color: idx === 0 ? '#f59e0b' : '#ffffff' }}>
                             {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx+1}.`}
                           </span>
                           <span className="text-base">{f.flag}</span>
-                          <span className="flex-1 font-mono text-xs" style={{ color: isWinner ? f.color : '#8899aa' }}>
+                          <span className="flex-1 font-mono text-xs" style={{ color: isWinner ? f.color : '#ffffff' }}>
                             {f.label}{isWinner ? ' 🏆' : ''}
                           </span>
-                          <span className="font-black font-mono text-lg" style={{ color: isWinner ? f.color : '#8899aa' }}>
+                          <span className="font-black font-mono text-lg" style={{ color: isWinner ? f.color : '#ffffff' }}>
                             {sc}
                           </span>
                           <span className="text-[10px] font-mono text-[#445566]">pt</span>
@@ -984,7 +984,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                             myFaction={myFaction}
                             myObjectives={myObjectives}
                             gameState={gameState}
-                            onMarkComplete={markObjectiveComplete}
+                            onMarkComplete={(id) => markObjectiveComplete(id, true)}
                             onAssignNew={() => assignObjectivesToFaction(myFaction)}
                           />
                         )}
@@ -1255,44 +1255,10 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                     );
                   })()}
 
-                  {/* Pulsante Mercato Risorse Militari */}
-                  {(myFaction === 'Iran' || myFaction === 'Coalizione') && game.status === 'active' && (() => {
-                    const forzeMil = getForzeMilitari(myFaction, {
-                      forze_militari_iran: gameState.forze_militari_iran ?? 5,
-                      forze_militari_coalizione: gameState.forze_militari_coalizione ?? 5,
-                      risorse_russia: gameState.risorse_russia,
-                      risorse_cina: gameState.risorse_cina,
-                      risorse_europa: gameState.risorse_europa,
-                    });
-                    const costoOp = calcolaCosto({
-                      defcon: gameState.defcon,
-                      sanzioni: gameState.sanzioni,
-                      forzeMilitari: forzeMil,
-                      carteOpDisponibili: myCards.reduce((s, c) => s + c.op_points, 0),
-                      faction: myFaction,
-                    }).costoOp;
-                    const factionCol = FACTION_COLORS[myFaction];
-                    return (
-                      <div className="px-3 pb-3">
-                        <button
-                          onClick={() => setShowMarket(true)}
-                          className="w-full py-2 rounded-lg border font-mono text-xs font-bold
-                            flex items-center justify-center gap-2 transition-all hover:opacity-90"
-                          style={{
-                            borderColor: `${factionCol}60`,
-                            backgroundColor: `${factionCol}12`,
-                            color: factionCol,
-                          }}>
-                          <span>⚔️</span>
-                          <span>MERCATO RISORSE MILITARI</span>
-                          <span className="px-1.5 py-0.5 rounded text-[10px]"
-                            style={{ backgroundColor: `${factionCol}25`, border: `1px solid ${factionCol}50` }}>
-                            {costoOp} OP/unità
-                          </span>
-                        </button>
-                      </div>
-                    );
-                  })()}
+                  {/* Purchasing is owned by the selected card's OP modal. */}
+                  <p className="px-3 pb-3 text-sm text-white">
+                    Per acquistare unità, seleziona una carta e scegli «Usa punti OP», poi «Schieramento».
+                  </p>
                 </div>
               )}
 
@@ -1401,7 +1367,7 @@ export default function GamePage({ onBack }: { onBack: () => void }) {
                 )}
                 {moves.map((move, i) => {
                   const isEvento   = move.card_type === 'Evento';
-                  const isAcquisto = move.card_type === 'Acquisto';
+                  const isAcquisto = move.card_type === 'Acquisto' || move.is_market_purchase === true;
                   const fc = isEvento   ? '#f59e0b'
                            : isAcquisto ? '#22c55e'
                            : (FACTION_COLORS[move.faction] ?? '#8899aa');

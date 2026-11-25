@@ -129,12 +129,12 @@ export function TurnTrack({
                     className={`flex flex-col items-center px-1.5 py-1 rounded ${isAdvancer ? 'ring-1' : ''}`}
                     style={{
                       backgroundColor: isAdvancer ? `${FACTION_COLORS[faction]}20` : 'transparent',
-                      ringColor: isAdvancer ? FACTION_COLORS[faction] : 'transparent',
+                      boxShadow: isAdvancer ? `0 0 0 1px ${FACTION_COLORS[faction]}` : 'none',
                       border: isAdvancer ? `1px solid ${FACTION_COLORS[faction]}66` : '1px solid transparent',
                     }}>
                     <span className="text-base leading-none">{FACTION_FLAGS[faction]}</span>
                     <span className="text-[7px] font-mono mt-0.5"
-                      style={{ color: isAdvancer ? FACTION_COLORS[faction] : '#334455' }}>
+                      style={{ color: isAdvancer ? FACTION_COLORS[faction] : '#ffffff' }}>
                       {idx + 1}°{isAdvancer ? ' ⬆' : ''}
                     </span>
                   </div>

@@ -15,6 +15,7 @@ import {
   type ObjFazione,
   type ObjDifficolta,
 } from '@/data/obiettivi';
+import { normalizeFaction } from '@/lib/factions';
 
 // ─── Colonne del template Excel ───────────────────────────────────────────────
 export const OBJ_EXCEL_COLUMNS = [
@@ -194,14 +195,14 @@ export default function ObjectiveLibraryManager({ onClose }: Props) {
           condizione_note:  o.condizione_note  || null,
           attivo:           o.attivo,
         }));
-        const { error, count } = await supabase
+        const { error, data } = await supabase
           .from('objectives')
           .upsert(batch, { onConflict: 'obj_id', ignoreDuplicates: false })
-          .select('obj_id', { count: 'exact', head: true });
+          .select('obj_id');
         if (error) {
           stats.errors.push(`Batch ${i}-${i + BATCH}: ${error.message}`);
         } else {
-          stats.saved += count ?? batch.length;
+          stats.saved += data?.length ?? batch.length;
         }
       }
       setStats(stats);
@@ -213,8 +214,14 @@ export default function ObjectiveLibraryManager({ onClose }: Props) {
   };
 
   const diffColor  = (d: ObjDifficolta) => OBJ_DIFFICOLTA_COLORS[d] ?? '#8899aa';
-  const facColor   = (f: ObjFazione)    => OBJ_FACTION_COLORS[f]    ?? '#8899aa';
-  const facFlag    = (f: ObjFazione)    => OBJ_FACTION_FLAGS[f]      ?? '🌐';
+  const facColor = (f: string) => {
+    const faction = normalizeFaction(f);
+    return faction ? OBJ_FACTION_COLORS[faction] : '#ffffff';
+  };
+  const facFlag = (f: string) => {
+    const faction = normalizeFaction(f);
+    return faction ? OBJ_FACTION_FLAGS[faction] : '🌐';
+  };
   const diffIcon   = (d: ObjDifficolta) => OBJ_DIFFICOLTA_ICONS[d]   ?? '⭐';
 
   return (
@@ -464,8 +471,8 @@ export default function ObjectiveLibraryManager({ onClose }: Props) {
 // ─── Card singolo obiettivo ───────────────────────────────────────────────────
 interface ObjCardProps {
   obj: ObiettivoSegreto;
-  facColor: (f: ObjFazione) => string;
-  facFlag: (f: ObjFazione) => string;
+  facColor: (f: string) => string;
+  facFlag: (f: string) => string;
   diffColor: (d: ObjDifficolta) => string;
   diffIcon: (d: ObjDifficolta) => string;
 }

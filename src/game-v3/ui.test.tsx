@@ -8,6 +8,7 @@ import { uiFixture } from './test-ui-store';
 import { createGame, reduce } from './engine';
 import { TabletopBoard } from './Boards';
 import { PlayerAid } from './PlayerAid';
+import GameReadabilityPreview from './GameReadabilityPreview';
 import { Materials } from './Materials';
 import { FactionCardFace } from './FactionCardFace';
 import CardVisual, { CARD_BACK, CARD_BACK_EVENTO } from '@/components/CardVisual';
@@ -21,6 +22,28 @@ import { getFactionCardBack, getFactionCardFront, FACTION_CARD_BACK, getObjectiv
 import { eventFrontArt, botFrontArt, botBackArt, factionBoardArt, unitFrontArt, unitBackArt, BOARD_ART, EVENT_BACK, RULEBOOK_URL, UNIT_REFERENCE_URL, PLAYER_BOARDS_URL, PLAYER_AID_URL, PLAYER_AID_WHITE_URL } from './art';
 
 const render = () => renderToStaticMarkup(<TabletopGamePage onBack={() => {}} />);
+test('game reading preview uses the real interface and only fictional local state', () => {
+  const html = renderToStaticMarkup(<GameReadabilityPreview onBack={() => {}} />);
+  assert.ok(html.includes('game-interface tabletop-view'));
+  assert.ok(html.includes('Anteprima leggibilità'));
+  assert.ok(html.includes('nessuna partita online viene letta o modificata'));
+  assert.ok(html.includes('La tua mano · Iran · 5 carte'));
+  assert.ok(html.includes('Registro pubblico'));
+});
+test('game typography raises labels to 16px and body to 18px with white text, isolated from light mode and artwork', () => {
+  const css = readFileSync('src/pages/game/game-readability.css', 'utf8');
+  assert.ok(css.includes('font-size: 18px'));
+  assert.ok(css.includes('--text-xs: 1rem'));
+  assert.ok(css.includes('color: #ffffff'));
+  assert.ok(css.includes('font-size: 16px'));
+  assert.ok(!css.includes('!important'));
+  assert.ok(!css.includes('.lobby-ui'));
+  assert.ok(!css.includes('img {'));
+  const gameSource = readFileSync('src/pages/game/Index.tsx', 'utf8');
+  assert.ok(gameSource.includes('onMarkComplete={(id) => markObjectiveComplete(id, true)}'));
+  assert.ok(!gameSource.includes('setShowMarket'));
+  assert.ok(gameSource.includes('<OpsActionModal'));
+});
 beforeEach(() => {
   uiFixture.state = createGame({ bots: [] }, () => 0.3);
   uiFixture.state.order = [...FACTIONS]; uiFixture.state.turnIndex = 0;

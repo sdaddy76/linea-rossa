@@ -2,14 +2,8 @@
 // LINEA ROSSA — Game Store con Supabase Real-Time
 // =============================================
 import { sessionListener } from '@/integrations/supabase/session-listener';
-
-// ── Helper: wrappa una Promise con timeout ────────────────────────────────────
-async function withTimeout<T>(promise: Promise<T>, ms = 8000, label = ''): Promise<T> {
-  const timeout = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`Timeout ${label} dopo ${ms}ms`)), ms)
-  );
-  return Promise.race([promise, timeout]);
-}
+import { withTimeout } from '@/lib/with-timeout';
+import { normalizeFaction } from '@/lib/factions';
 
 // ── Helper: prossima fazione in base all'ordine corrente della carta evento ───
 // Se current_turn_order è disponibile, usa quello; altrimenti fallback fisso.
@@ -53,7 +47,7 @@ import {
 } from '@/lib/botEngine';
 import { getFullDeck, getUnifiedDeck, shuffleDeck, UNIFIED_HAND_SIZE, UNIFIED_DRAW_PER_TURN, CLASSIC_HAND_SIZE, CLASSIC_DRAW_PER_TURN, MAZZI_PER_FAZIONE, MAZZI_SPECIALI, MAZZO_NEUTRALE } from '@/data/mazzi';
 import { TERRITORIES } from '@/lib/territoriesData';
-import { assignObjectives, TUTTI_GLI_OBIETTIVI, type ObjFazione, type ObiettivoSegreto } from '@/data/obiettivi';
+import { assignObjectives, TUTTI_GLI_OBIETTIVI, type ObiettivoSegreto } from '@/data/obiettivi';
 import type { TerritoryRecord } from '@/types/game';
 
 // ─── Helper: applica meccaniche di fine turno (bonus + obiettivi territoriali) ─
@@ -474,7 +468,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
       const myPlayer = players.find(p => p.player_id === profile?.id);
       // forceFaction: usato quando il redirect avviene prima che i bot siano nel DB
       // evita che myFaction sia null per timing issue
-      const resolvedFaction = (myPlayer?.faction ?? forceFaction ?? null) as import('./onlineGameStore').Faction | null;
+      const resolvedFaction = normalizeFaction(myPlayer?.faction ?? forceFaction);
 
       set({
         game: gameRes.data as Game,
@@ -832,7 +826,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
       // Mappa: card_id → definizione completa (cerca prima nel mazzo fazione, poi in quello unificato)
       const availableWithDef = available
-        .map(dc => allCards.find(c => c.card_id === dc.card_id) ?? unifiedCards.find(c => c.card_id === dc.card_id))
+        .map((dc: Pick<DeckCard, 'card_id'>) => allCards.find(c => c.card_id === dc.card_id) ?? unifiedCards.find(c => c.card_id === dc.card_id))
         .filter(Boolean) as typeof allCards;
 
       if (availableWithDef.length === 0) {
@@ -1576,7 +1570,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
         market_resources: quantita,
       }).then(({ error }) => {
         if (error) console.warn('[moves_log] acquisto non salvato:', error.message);
-      }).catch(() => {});
+      }, () => {});
 
       // Aggiorna stato locale
       set(s => ({
@@ -2141,17 +2135,9 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
 
   assignObjectivesToFaction: async (faction: string, numDraw = 3): Promise<ObiettivoSegreto[]> => {
     const { game } = get();
-    // 1) Mappa nomi corti Faction → nomi lunghi ObjFazione
-    const FACTION_TO_OBJ: Record<string, ObjFazione> = {
-      'Iran':                  'Iran',
-      'Coalizione':            'Coalizione Occidentale',
-      'Coalizione Occidentale':'Coalizione Occidentale',
-      'Russia':                'Russia',
-      'Cina':                  'Cina',
-      'Europa':                'Unione Europea',
-      'Unione Europea':        'Unione Europea',
-    };
-    const objFazione: ObjFazione = FACTION_TO_OBJ[faction] ?? (faction as ObjFazione);
+    // The local objective pool uses canonical short faction names.
+    const objFazione = normalizeFaction(faction);
+    if (!objFazione) throw new Error('Fazione non riconosciuta per gli obiettivi.');
     // 2) Estrai obiettivi dal pool locale (sempre disponibile offline)
     const localObs = assignObjectives(objFazione, numDraw);
 
@@ -2236,7 +2222,7 @@ export const useOnlineGameStore = create<OnlineGameStore>((set, get) => ({
     set({
       myObjectives: myObjectives.map(o =>
         o.obj_id === objId
-          ? { ...o, completato: true, data_completamento: new Date().toISOString() }
+          ? { ...o, completato: completed, data_completamento: completed ? new Date().toISOString() : undefined }
           : o
       )
     });

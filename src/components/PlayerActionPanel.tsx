@@ -18,7 +18,7 @@
 //                  (apre il mercato)
 // =============================================
 import { useState, useMemo } from 'react';
-import type { GameCard, GameState, Faction } from '@/types/game';
+import type { GameCard, GameState, Faction, NumericGameStateKey } from '@/types/game';
 import type { TerritoryId } from '@/lib/territoriesData';
 import { TERRITORIES, TERRITORY_MAP } from '@/lib/territoriesData';
 import { TRACK_TOOLTIPS } from '@/lib/tooltips';
@@ -46,7 +46,7 @@ export interface PlayerActionPayload {
   finalThreshold?: number;
   costPO?: number;            // PO spesi
   // tracciato
-  trackKey?: string;
+  trackKey?: NumericGameStateKey;
   trackDelta?: number;
 }
 
@@ -85,7 +85,11 @@ const FC: Record<Faction, string> = {
 };
 
 // ─── Tracciati incrementabili per fazione ────────────────────────────────────
-const TRACK_OPTIONS: Record<Faction, { key: string; label: string; icon: string }[]> = {
+const STABILITY_KEYS = {
+  Iran: 'stabilita_iran', Coalizione: 'stabilita_coalizione', Russia: 'stabilita_russia',
+  Cina: 'stabilita_cina', Europa: 'stabilita_europa',
+} as const;
+const TRACK_OPTIONS: Record<Faction, { key: NumericGameStateKey; label: string; icon: string }[]> = {
   Iran: [
     { key: 'nucleare',             label: 'Nucleare',          icon: '☢️' },
     { key: 'risorse_iran',         label: 'Risorse',           icon: '💰' },
@@ -134,7 +138,7 @@ export default function PlayerActionPanel({
   const [diceSuccess, setDiceSuccess]     = useState(false);
 
   // ── Stato tracciato ──────────────────────────────────────────────────────
-  const [trackKey, setTrackKey] = useState<string | null>(null);
+  const [trackKey, setTrackKey] = useState<NumericGameStateKey | null>(null);
 
   const fColor  = FC[myFaction] ?? '#888';
   const opTotal = card.op_points ?? 1;
@@ -164,7 +168,7 @@ export default function PlayerActionPanel({
     let thr = 6;
     const mods: string[] = [];
     // Stabilità propria alta aiuta
-    const myStab = (state as Record<string, number>)[`stabilita_${myFaction.toLowerCase()}`] ?? 5;
+    const myStab = state[STABILITY_KEYS[myFaction]] ?? 5;
     if (myStab >= 7) { thr -= 1; mods.push(`⚖️ Stabilità ${myFaction} ≥ 7: -1 soglia`); }
     // Opinione favorevole
     if (state.opinione > 2) { thr -= 1; mods.push(`📣 Opinione +${state.opinione}: -1 soglia`); }
@@ -188,7 +192,7 @@ export default function PlayerActionPanel({
   // ── Track scelto ─────────────────────────────────────────────────────────
   const trackOpts  = TRACK_OPTIONS[myFaction] ?? [];
   const selTrack   = trackOpts.find(t => t.key === trackKey);
-  const trackVal   = trackKey ? ((state as Record<string, number>)[trackKey] ?? 0) : 0;
+  const trackVal   = trackKey ? (state[trackKey] ?? 0) : 0;
   const trackDelta = opTotal; // 1 PO = +1 tracciato
 
   // ── Handlers ─────────────────────────────────────────────────────────────
@@ -494,7 +498,7 @@ export default function PlayerActionPanel({
 
           <div className="flex flex-col gap-1.5">
             {trackOpts.map(opt => {
-              const cur = (state as Record<string, number>)[opt.key] ?? 0;
+              const cur = state[opt.key] ?? 0;
               const isSelected = trackKey === opt.key;
               return (
                 <button key={opt.key}

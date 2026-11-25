@@ -179,7 +179,7 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
           onClick={onClose}
           className="absolute top-3 right-3 z-30 w-7 h-7 rounded-full flex items-center justify-center
             font-bold text-xs transition-colors"
-          style={{ backgroundColor: '#1e3a5f99', color: '#8899aa' }}
+          style={{ backgroundColor: '#1e3a5f99', color: '#ffffff' }}
         >✕</button>
 
         {/* ── ARTWORK HERO ── */}
@@ -214,7 +214,7 @@ export default function CardDetailModal({ card, onClose, onPlay }: CardDetailMod
           {/* ID */}
           <div
             className="absolute bottom-4 left-4 px-1.5 py-0.5 rounded font-mono text-xs"
-            style={{ backgroundColor: '#0a0e1acc', color: '#445566' }}
+            style={{ backgroundColor: '#0a0e1acc', color: '#ffffff' }}
           >
             {card.card_id}
           </div>

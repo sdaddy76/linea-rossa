@@ -143,6 +143,11 @@ export interface TerritoryRecord {
   updated_at: string;
 }
 
+/** State fields that really contain numbers; excludes IDs, JSON and arrays. */
+export type NumericGameStateKey = {
+  [K in keyof GameState]: GameState[K] extends number ? K : never
+}[keyof GameState];
+
 // Unità militare schierata
 export interface MilitaryUnitRecord {
   id: string;
@@ -250,7 +255,8 @@ export interface MoveLog {
   is_bot_move: boolean;
   card_id: string;
   card_name: string;
-  card_type: CardType;
+  card_type: CardType | 'Acquisto'; // historical purchase log entries, not deck cards
+  is_market_purchase?: boolean;
   delta_nucleare: number;
   delta_sanzioni: number;
   delta_opinione: number;

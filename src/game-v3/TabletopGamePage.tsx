@@ -4,7 +4,7 @@ import { useOnlineGameStore } from '@/store/onlineGameStore';
 import { getObjectiveCardFront } from '@/data/card-graphics';
 import { FACTIONS, TRACKS, type Faction, type GlobalTrack, type TrackChange } from './catalog-types';
 import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
-import { canDeploy, currentActor, deployCost, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, type Command } from './engine';
+import { canDeploy, currentActor, deployCost, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, reduce, type EngineState, type Command } from './engine';
 import { commitCommand, readTabletop, type SavedTabletop } from './online';
 import { objectiveStatus } from './objectives';
 import { COLORS, FactionBoard, TabletopBoard, UnitImage } from './Boards';
@@ -15,6 +15,7 @@ import { FactionCardFace } from './FactionCardFace';
 import { InfluenceAction } from './InfluenceAction';
 import { viewerFaction } from './player-visibility';
 import { botFrontArt, eventFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from './art';
+import '../pages/game/game-readability.css';
 
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
 const changeText = (c: TrackChange) => `${c.faction} · ${c.track} ${c.delta > 0 ? '+' : ''}${c.delta}`;
@@ -24,10 +25,13 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 }
 const button = 'rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-300';
 const selectStyle = 'bg-slate-800 border border-slate-600 rounded-lg p-2 w-full text-sm';
-export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
+export default function TabletopGamePage({ onBack, previewState }: {
+  onBack: () => void; previewState?: EngineState;
+}) {
   const { game, gameState, myFaction, profile, players } = useOnlineGameStore();
-  const gameId = game?.id;
-  const [saved, setSaved] = useState<SavedTabletop | null>(() => readTabletop(gameState));
+  const gameId = previewState ? 'readability-local-demo' : game?.id;
+  const [saved, setSaved] = useState<SavedTabletop | null>(() => previewState
+    ? { revision: 0, state: previewState } : readTabletop(gameState));
   const motion = useCardMotion(saved, gameId);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -52,25 +56,27 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => {
+    if (previewState) return;
     const next = readTabletop(gameState);
     if (next) setSaved(old => !old || next.revision > old.revision ? next : old);
-  }, [gameState]);
+  }, [gameState, previewState]);
   const refresh = useCallback(async () => {
-    if (!gameId) return;
+    if (previewState || !gameId) return;
     const result = await supabase.from('game_state').select('special_uses').eq('game_id', gameId).single();
     if (result.error) throw new Error(result.error.message);
     const next = readTabletop(result.data);
     if (!next) throw new Error('Stato della nuova edizione non disponibile.');
     if (mounted.current) setSaved(old => !old || next.revision >= old.revision ? next : old);
-  }, [gameId]);
+  }, [gameId, previewState]);
   useEffect(() => {
+    if (previewState) return;
     // Realtime remains the primary transport; polling also recovers missed reconnect events.
     const timer = window.setInterval(() => { void refresh().catch(() => {}); }, 10000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [refresh, previewState]);
   const s = saved?.state;
   const actor = s ? currentActor(s) : null;
-  const own = viewerFaction(profile?.id,players);
+  const own = previewState ? 'Iran' : viewerFaction(profile?.id,players);
   const member = own !== null;
   const isBot = !!s && !!actor && (s.players[actor].bot || !!s.players[actor].neutral);
   const needsManualResolution = !!isBot && s?.pending?.kind === 'bot-influence';
@@ -81,7 +87,11 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
     if (!member || (automatic ? !isBot || command.type!=='advance-bot' : !(actor === own && !saved.state.players[actor].bot) && !pendingChoice)) return;
     busyRef.current = true; setBusy(true); setError('');
     try {
-      const next = await commitCommand(gameId, saved, actor, command);
+      // Public preview runs only this local state, with the real rules.
+      // It never reads or writes games, profiles or hands from Supabase.
+      const next = previewState
+        ? { revision: saved.revision + 1, state: reduce(saved.state, actor, command) }
+        : await commitCommand(gameId, saved, actor, command);
       if (mounted.current) { setSaved(next); setMarked([]); setCardId(null); }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Operazione non riuscita.';
@@ -96,14 +106,14 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
       busyRef.current = false;
       if (mounted.current) setBusy(false);
     }
-  }, [saved, gameId, actor, own, member, isBot, refresh]);
+  }, [saved, gameId, actor, own, member, isBot, refresh, previewState]);
   useEffect(() => {
     if (!isBot || !member || busy || autoPaused || needsManualResolution || motion.active) return;
     const timer = window.setTimeout((): void => { void send({ type: 'advance-bot' }, true); }, 1400);
     return () => window.clearTimeout(timer);
   }, [saved?.revision, isBot, member, busy, autoPaused, needsManualResolution, send, motion.active]);
   useEffect(() => { setMarked([]); }, [s?.phase, actor]);
-  if (!s || !game) return <main className="p-8 bg-slate-950 text-white min-h-screen"><p>Caricamento partita…</p><button className={button} onClick={onBack}>Torna alla lobby</button></main>;
+  if (!s || (!previewState && !game)) return <main className="game-interface p-8 bg-slate-950 text-white min-h-screen"><p>Caricamento partita…</p><button className={button} onClick={onBack}>Torna alla lobby</button></main>;
   const p = own ? s.players[own] : null;
   const event = EVENTS.find(e => e.id === s.event);
   const lastBotId = [...s.log].reverse().map(line => line.match(/\[(BOT-[^\]]+)\]/)?.[1]).find(Boolean);
@@ -128,7 +138,8 @@ export default function TabletopGamePage({ onBack }: { onBack: () => void }) {
   const points = Object.fromEntries(FACTIONS.map(f => [f, s.players[f].points])) as Record<Faction, number>;
   const stage = { activation: 'Scelta carta', ops: 'Operazioni', veto: 'Decisione sul veto', support: 'Scelta del sostegno', casualty: 'Selezione perdite', discard: 'Scarto di fine round', control: 'Bonus controllo territorio', 'bot-influence': 'Influenza BOT · destinazione manuale', ended: 'Partita conclusa' }[s.phase];
   const mode = s.mode ?? 'media', threshold = MODE_THRESHOLDS[mode];
-  return <main className="tabletop-view min-h-screen bg-slate-950 text-slate-100 pb-12" data-reduced-motion={motion.reduced}>
+  return <main className="game-interface tabletop-view min-h-screen bg-slate-950 text-white pb-12" data-reduced-motion={motion.reduced}>
+    {previewState && <p className="game-preview-notice" role="status">Anteprima leggibilità · dati dimostrativi. Le scelte modificano solo questa simulazione locale; nessuna partita online viene letta o modificata.</p>}
     <header className="border-b border-slate-700 bg-slate-900 p-4">
       <div className="max-w-[1600px] mx-auto flex flex-wrap gap-4 items-center justify-between">
         <div><p className="text-xs uppercase tracking-[0.2em] text-red-400">Linea Rossa · Regolamento da tavolo {usesLatestRules(s) ? 'v3.11' : 'v3 · salvataggio precedente'}</p>

@@ -15,6 +15,7 @@ import {
 } from '@/data/obiettivi';
 import { getObjectiveCardBack, getObjectiveCardFront } from '@/data/card-graphics';
 import type { GameState } from '@/types/game';
+import { normalizeFaction } from '@/lib/factions';
 
 interface Props {
   myFaction: string;
@@ -248,12 +249,13 @@ export default function ObjectivesModal({ myFaction, gameState, myObjectives = [
 interface ObjGameCardProps {
   obj: ObiettivoSegreto;
   isMine: boolean;
-  evalResult: boolean | null;
+  evalResult: ReturnType<typeof evalObjectiveCondition>;
 }
 
 function ObjGameCard({ obj, isMine, evalResult }: ObjGameCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const fColor = OBJ_FACTION_COLORS[obj.faction] ?? '#8b5cf6';
+  const faction = normalizeFaction(obj.faction);
+  const fColor = faction ? OBJ_FACTION_COLORS[faction] : '#8b5cf6';
   const dColor = OBJ_DIFFICOLTA_COLORS[obj.difficolta] ?? '#f59e0b';
   const dIcon  = OBJ_DIFFICOLTA_ICONS[obj.difficolta]  ?? '⭐';
 
