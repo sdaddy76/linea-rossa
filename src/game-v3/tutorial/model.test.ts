@@ -29,7 +29,7 @@ test('all recommended choices match authoritative final fixture, computed by rea
     Russia: [6, 6, 6, 4, 0], Cina: [8, 4, 5, 4, 3], Europa: [6, 4, 8, 4, 2],
   };
   for (const f of FACTIONS) assert.deepEqual([...TRACKS.map(track => t.game.players[f].tracks[track]), t.game.players[f].points], expected[f], f);
-  assert.deepEqual(t.game.globals, { Nucleare: 5, Sanzioni: 6, 'Crisi Bellica': 7, Opinione: 2 });
+  assert.deepEqual(t.game.globals, { Nucleare: 5, Sanzioni: 5, 'Crisi Bellica': 8, Opinione: 2 });
   assert.equal(t.game.units.length, 0);
 });
 test('tutorial uses revised rules, exposes a 60-space marker and documents the two end-round gaps', () => {
@@ -43,11 +43,10 @@ test('tutorial uses revised rules, exposes a 60-space marker and documents the t
   assert.ok(currentLesson(t).id === 'control1' || currentLesson(t).id === 'event2');
   assert.equal(STORAGE_KEY, 'linea-rossa.guided-game.v5');
 });
-test('guided prompt locks E01 to its supplied +2 sanctions and -1 war-crisis effects', () => {
+test('guided E01 applies exactly the effects printed on the card', () => {
   assert.deepEqual(guidedEventGlobals('E01'), [
     { track: 'Nucleare', delta: 2 },
-    { track: 'Sanzioni', delta: 2 },
-    { track: 'Crisi Bellica', delta: -1 },
+    { track: 'Sanzioni', delta: 1 },
     { track: 'Opinione', delta: 1 },
   ]);
   assert.deepEqual(guidedEventChanges('E01'), [{ faction: 'Iran', track: 'Consenso', delta: -1 }]);
@@ -80,7 +79,7 @@ test('without strong Diplomacy no veto is fabricated and pressure uses affordabl
   const t = play({ europe: 'event:1' });
   assert.equal(t.game.players.Europa.tracks.Diplomazia, 7);
   assert.equal(t.game.players.Europa.tracks.Economia, 5);
-  assert.equal(t.game.globals.Sanzioni, 6);
+  assert.equal(t.game.globals.Sanzioni, 5);
   assert.equal(t.game.globals.Nucleare, 6, '2 OP cost leaves only one global pressure');
 });
 test('development alternatives apply authoritative correlations and track caps', () => {
@@ -91,7 +90,7 @@ test('development alternatives apply authoritative correlations and track caps',
 });
 test('mandatory deployments use catalog IDs, real costs, capacity and two-round expiry', () => {
   const t = until('iran-deploy'), preview = deploymentPreview(t)!;
-  assert.equal(preview.unit.id, 'IR-U02'); assert.equal(preview.cost, 4);
+  assert.equal(preview.unit.id, 'IR-U02'); assert.equal(preview.cost, 3);
   const secondRound = until('event2');
   assert.equal(secondRound.game.units.length, 3);
   assert.ok(secondRound.game.units.every(u => u.rotated));

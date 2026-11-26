@@ -52,9 +52,7 @@ export const LESSONS: Lesson[] = [
 
 /** Explicit scenario adapter: prescribed cards/events, one activation/faction,
  * fixed dice. Player actions/costs/combat/scoring go through reduce(); the two
- * event reveals use the guided-prompt effects below, which intentionally lock
- * the teaching scenario to the supplied script even where the live catalog
- * contains a different historical print of E01. */
+ * event reveals apply exactly the effects printed on the Event cards. */
 export function initialTutorial(): TutorialState {
   const s = createGame({ bots: [], rulesRevision: '2026-11-21' }, stableRng);
   s.phase = 'activation'; s.round = 1; s.actualRound = 1; s.lap = 1; s.turnIndex = 0;
@@ -84,27 +82,18 @@ function prepare(s: EngineState, actor: Faction, card: string) {
   return s;
 }
 function finishOps(s: EngineState) { return s.phase === 'ops' ? command(s, { type: 'finish-ops' }) : s; }
-const GUIDED_EVENT_GLOBALS: Record<string, { track: GlobalTrack; delta: number }[]> = {
-  E01: [
-    { track: 'Nucleare', delta: 2 },
-    { track: 'Sanzioni', delta: 2 },
-    { track: 'Crisi Bellica', delta: -1 },
-    { track: 'Opinione', delta: 1 },
-  ],
-};
-const eventGlobalsFor = (id: string, fallback: { track: GlobalTrack; delta: number }[]) =>
-  GUIDED_EVENT_GLOBALS[id] ?? fallback;
 export const guidedEventChanges = (id: string) => EVENTS.find(e => e.id === id)?.changes ?? [];
+/** Effetti globali dell'Evento, identici alla carta stampata. */
 export const guidedEventGlobals = (id: string) => {
   const event = EVENTS.find(e => e.id === id);
-  return eventGlobalsFor(id, event?.globals ?? []);
+  return event?.globals ?? [];
 };
 function startEvent(s: EngineState, id: string) {
   // startRound is private. This narrow scenario adapter reveals prescribed
   // events separately from endRound; effects come from the live catalog.
   const e = EVENTS.find(x => x.id === id)!;
   for (const c of e.changes) s.players[c.faction].tracks[c.track] = Math.max(1, Math.min(10, s.players[c.faction].tracks[c.track] + c.delta));
-  for (const c of eventGlobalsFor(id, e.globals)) s.globals[c.track] = Math.max(c.track === 'Opinione' ? -10 : 1, Math.min(c.track === 'Nucleare' ? 15 : 10, s.globals[c.track] + c.delta));
+  for (const c of e.globals) s.globals[c.track] = Math.max(c.track === 'Opinione' ? -10 : 1, Math.min(c.track === 'Nucleare' ? 15 : 10, s.globals[c.track] + c.delta));
   s.order = [...e.order]; s.advancers = [...e.advancers]; s.event = id; s.turnIndex = 0; s.lap = 1; s.eventDeck = id === 'E01' ? ['E37', 'E01'] : ['E01'];
   s.log.push(`[${id}] ${e.name}: ${e.order.join(' → ')}. Avanza: ${e.advancers.join(', ')}`);
   return s;
