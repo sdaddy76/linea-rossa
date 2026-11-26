@@ -51,3 +51,47 @@
 @media (max-width: 640px) {
   .game-interface { font-size: 17px; --text-sm: 1.0625rem; --text-base: 1.0625rem; }
 }
+
+/* ── Alta leggibilità in partita: tema chiaro, stessa preferenza della lobby ──
+   Le immagini originali (tabellone, plance, carte) non cambiano. */
+.game-interface[data-readability="high"] {
+  --hr-bg: #f3f6fb; --hr-surface: #ffffff; --hr-inset: #edf2f8; --hr-text: #162437;
+  --hr-muted: #425466; --hr-border: #8190a3; --hr-primary: #006747; --hr-danger: #a51c30; --hr-warning: #784400;
+  background-color: var(--hr-bg);
+  color: var(--hr-text);
+  color-scheme: light;
+  font-size: 19px;
+}
+.game-interface[data-readability="high"] .bg-slate-950 { background-color: var(--hr-bg); }
+.game-interface[data-readability="high"] :is(.bg-slate-900, .bg-slate-900\/80) { background-color: var(--hr-surface); }
+.game-interface[data-readability="high"] :is(.bg-slate-800, .bg-slate-700) { background-color: var(--hr-inset); }
+.game-interface[data-readability="high"] :is(.text-white, .text-slate-100, .text-slate-200, .text-slate-300, .text-gray-300,
+  .text-\[\#8899aa\], .text-\[\#778899\], .text-\[\#aaa\]) { color: var(--hr-text); }
+.game-interface[data-readability="high"] :is(.text-slate-400, .text-slate-500, .text-gray-400, .text-gray-500, .text-muted-foreground,
+  .text-\[\#667788\], .text-\[\#556677\], .text-\[\#445566\], .text-\[\#334455\], .text-\[\#888\]) { color: var(--hr-muted); }
+.game-interface[data-readability="high"] :is(.border-slate-500, .border-slate-600, .border-slate-700, .border-slate-800) { border-color: var(--hr-border); }
+.game-interface[data-readability="high"] :is(.text-amber-100, .text-amber-200, .text-amber-300) { color: var(--hr-warning); }
+.game-interface[data-readability="high"] :is(.text-emerald-200, .text-emerald-300, .text-emerald-400) { color: var(--hr-primary); }
+.game-interface[data-readability="high"] :is(.text-red-200, .text-red-300, .text-red-400) { color: var(--hr-danger); }
+.game-interface[data-readability="high"] .bg-emerald-950 { background-color: #e6f4ed; }
+.game-interface[data-readability="high"] :is(.bg-red-950, .bg-red-950\/30) { background-color: #fff1f2; }
+.game-interface[data-readability="high"] :is(.bg-amber-950, .bg-amber-950\/30, .bg-amber-950\/20) { background-color: #fff3d6; }
+.game-interface[data-readability="high"] :is(.border-amber-500, .border-amber-600, .border-amber-900) { border-color: #b45309; }
+.game-interface[data-readability="high"] :is(.border-red-500, .border-red-800) { border-color: var(--hr-danger); }
+.game-interface[data-readability="high"] .border-emerald-400 { border-color: var(--hr-primary); }
+.game-interface[data-readability="high"] .hover\:border-slate-300:hover { border-color: var(--hr-text); }
+.game-interface[data-readability="high"] :is(input, select, textarea) { background-color: var(--hr-surface); color: var(--hr-text); border-color: var(--hr-border); }
+.game-interface[data-readability="high"] :focus-visible { outline: 3px solid var(--hr-primary); outline-offset: 2px; }
+.game-interface[data-readability="high"] .game-readability-toggle { background-color: var(--hr-primary); border-color: var(--hr-primary); color: #ffffff; font-weight: 700; }
+.game-interface[data-readability="high"] .game-preview-notice { background: #e4f4f8; border-color: #075a70; color: var(--hr-text); }
+/* Le finestre a tutto schermo con le carte ingrandite restano scure, per far risaltare le immagini. */
+.game-interface[data-readability="high"] :is(.bg-black\/90, .bg-black\/95) { color: #ffffff; }
+.game-interface[data-readability="high"] :is(.bg-black\/90, .bg-black\/95) :is(.text-white, .text-slate-200, .text-slate-300, .text-slate-400) { color: #ffffff; }
+/* Legenda dei colori sotto il tabellone (ordine: Iran, Coalizione, Russia, Cina, Europa). */
+.game-interface .faction-legend-item { color: var(--faction-color-high, var(--faction-color)); }
+.game-interface[data-readability="high"] .faction-legend-item { font-weight: 700; }
+.game-interface[data-readability="high"] .faction-legend-item:nth-child(1) { --faction-color-high: #15803d; }
+.game-interface[data-readability="high"] .faction-legend-item:nth-child(2) { --faction-color-high: #1d4ed8; }
+.game-interface[data-readability="high"] .faction-legend-item:nth-child(3) { --faction-color-high: #b91c1c; }
+.game-interface[data-readability="high"] .faction-legend-item:nth-child(4) { --faction-color-high: #92400e; }
+.game-interface[data-readability="high"] .faction-legend-item:nth-child(5) { --faction-color-high: #6d28d9; }

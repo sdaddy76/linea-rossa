@@ -436,3 +436,14 @@ test('the four uploaded decks bind all 337 exact front and back files by source 
   ];
   for(const url of urls) assert.ok(manifest.assets[url.split('?')[0]],url);
 });
+test('in-game high readability toggle shares the homepage preference and switches the game to the light theme', () => {
+  const store: Record<string, string> = { linea_rossa_readability: 'high' };
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => { store[k] = v; } }, matchMedia: () => ({ matches: false }) } });
+  try {
+    const high = renderToStaticMarkup(<GameReadabilityPreview onBack={() => {}} />);
+    assert.ok(high.includes('data-readability="high"') && high.includes('Alta leggibilità: attiva') && high.includes('aria-pressed="true"'));
+    store.linea_rossa_readability = 'standard';
+    const standard = renderToStaticMarkup(<GameReadabilityPreview onBack={() => {}} />);
+    assert.ok(standard.includes('data-readability="standard"') && standard.includes('>Alta leggibilità</button>'));
+  } finally { Reflect.deleteProperty(globalThis, 'window'); }
+});

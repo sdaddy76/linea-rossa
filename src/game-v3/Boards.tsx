@@ -1,4 +1,4 @@
-import {useEffect, useState, type ReactNode} from 'react';
+import {useEffect, useState, type CSSProperties, type ReactNode} from 'react';
 import {TERRITORIES, UNITS} from './catalog';
 import {FACTIONS, TRACKS, type Faction, type GlobalTrack, type Track} from './catalog-types';
 import {BOARD_ART, factionBoardArt, unitFrontArt} from './art';
@@ -87,7 +87,7 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
         }))}
       </div>
     </div>
-    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Colori delle fazioni">{FACTIONS.map(f=><span key={f} style={{color:COLORS[f]}}>{SHORT[f]} · {f} · {units.filter(u=>u.faction===f).length} unità</span>)}</div>
+    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Colori delle fazioni">{FACTIONS.map(f=><span key={f} className="faction-legend-item" style={{'--faction-color':COLORS[f]} as CSSProperties}>{SHORT[f]} · {f} · {units.filter(u=>u.faction===f).length} unità</span>)}</div>
     <p className="my-2 text-xs text-slate-400">{latest ? 'I riquadri sono riservati all’Influenza. Le unità sono raggruppate per fazione accanto allo Stato: il numero indica quante sono; seleziona per vedere ogni unità.' : 'Unità e Influenza condividono i riquadri in questo salvataggio precedente.'} L’Influenza è permanente. Le unità ruotate rientrano a fine round, salvo Mantenimento: giocatori 1 OP per unità nelle Operazioni; BOT gratis, 1 unità ruotata per attivazione.</p>
     <div data-board-territories className="flex flex-wrap gap-2">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs rounded-lg border px-3 py-2 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length} unità · {influence.filter(i=>i.territory===t.id).length}/{t.capacity} Influenza</button>)}</div>
   </section>;

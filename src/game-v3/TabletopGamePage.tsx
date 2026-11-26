@@ -16,6 +16,11 @@ import { InfluenceAction } from './InfluenceAction';
 import { viewerFaction } from './player-visibility';
 import { botFrontArt, eventFrontArt, RULEBOOK_URL, RULEBOOK_FILENAME } from './art';
 import '../pages/game/game-readability.css';
+import { useReadability } from '@/pages/lobby/Readability';
+import { Sun } from 'lucide-react';
+
+/** Colori delle fazioni leggibili su fondo chiaro (alta leggibilità). */
+const DARK_COLORS: Record<Faction, string> = { Iran: '#15803d', Coalizione: '#1d4ed8', Russia: '#b91c1c', Cina: '#92400e', Europa: '#6d28d9' };
 
 const GLOBALS: GlobalTrack[] = ['Nucleare', 'Sanzioni', 'Crisi Bellica', 'Opinione'];
 const changeText = (c: TrackChange) => `${c.faction} · ${c.track} ${c.delta > 0 ? '+' : ''}${c.delta}`;
@@ -33,6 +38,9 @@ export default function TabletopGamePage({ onBack, previewState }: {
   const [saved, setSaved] = useState<SavedTabletop | null>(() => previewState
     ? { revision: 0, state: previewState } : readTabletop(gameState));
   const motion = useCardMotion(saved, gameId);
+  // Stessa preferenza della pagina principale: attivarla qui la attiva anche nella lobby, e viceversa.
+  const readability = useReadability();
+  const tone = readability.high ? DARK_COLORS : COLORS;
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   const [error, setError] = useState('');
@@ -144,7 +152,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
   const points = Object.fromEntries(FACTIONS.map(f => [f, s.players[f].points])) as Record<Faction, number>;
   const stage = { activation: 'Scelta carta', ops: 'Operazioni', veto: 'Decisione sul veto', support: 'Scelta del sostegno', casualty: 'Selezione perdite', discard: 'Scarto di fine round', control: 'Bonus controllo territorio', 'bot-influence': 'Influenza BOT · destinazione manuale', ended: 'Partita conclusa' }[s.phase];
   const mode = s.mode ?? 'media', threshold = MODE_THRESHOLDS[mode];
-  return <main className="game-interface tabletop-view min-h-screen bg-slate-950 text-white pb-12" data-reduced-motion={motion.reduced}>
+  return <main className="game-interface tabletop-view min-h-screen bg-slate-950 text-white pb-12" data-reduced-motion={motion.reduced} data-readability={readability.high ? 'high' : 'standard'}>
     {previewState && <p className="game-preview-notice" role="status">Anteprima leggibilità · dati dimostrativi. Le scelte modificano solo questa simulazione locale; nessuna partita online viene letta o modificata.</p>}
     <header className="border-b border-slate-700 bg-slate-900 p-4">
       <div className="max-w-[1600px] mx-auto flex flex-wrap gap-4 items-center justify-between">
@@ -162,6 +170,9 @@ export default function TabletopGamePage({ onBack, previewState }: {
           <label className={button + ' flex items-center gap-2 cursor-pointer'}><input type="checkbox"
             checked={motion.reduced} disabled={motion.systemReduced} onChange={e => motion.setReduced(e.target.checked)}/>
             Riduci animazioni</label>
+          <button className={button + ' game-readability-toggle inline-flex items-center gap-2'} aria-pressed={readability.high} onClick={readability.toggle}
+            title={readability.high ? 'Torna al tema scuro' : 'Tema chiaro, caratteri grandi e contrasto elevato'}>
+            <Sun size={18} aria-hidden="true"/>{readability.high ? 'Alta leggibilità: attiva' : 'Alta leggibilità'}</button>
           <button className={button} onClick={() => setMaterials(true)}>Materiali</button><button className={button} onClick={onBack}>Lobby</button></div>
       </div>
     </header>
@@ -178,7 +189,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
         {hormuzBlocked(s) && <p className="self-center text-amber-300">Blocco di Hormuz attivo · Coalizione +1 OP per schierare</p>}
       </div>
       <div role="status" className="p-4 rounded-xl border border-red-800 bg-red-950/30">
-        <strong>{stage}</strong>{actor && <span> · <span style={{ color: COLORS[actor] }}>{actor}</span>{s.players[actor].neutral ? ' · neutrale' : isBot ? ' · BOT' : actor === own ? ' · tocca a te' : ' · in attesa del giocatore'}</span>}
+        <strong>{stage}</strong>{actor && <span> · <span style={{ color: tone[actor] }}>{actor}</span>{s.players[actor].neutral ? ' · neutrale' : isBot ? ' · BOT' : actor === own ? ' · tocca a te' : ' · in attesa del giocatore'}</span>}
         <p className="text-sm text-slate-300 mt-1">Ordine del round: {s.order.join(' → ')}.{official ? ` Avanza il segna-turni: ${s.advancers.join(', ') || 'nessuna fazione'}; valgono gli OP della carta giocata.` : ` Pesca extra legacy: ${s.advancers.join(', ') || 'nessuna'}.`}{s.roundBlocked ? ' Questo evento blocca l’avanzamento del segna-turni.' : ''}</p>
         {canAct && <a href="#azioni-partita" className="inline-block underline text-red-200 mt-2 text-sm">Vai alle tue scelte ↓</a>}
         {busy && <p className="text-sm mt-1">Salvataggio della mossa…</p>}
@@ -192,7 +203,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
           const unitPoints = official ? (s.influence ?? []).filter(u => u.faction === f).reduce((n, u) => n + 1 + TERRITORIES.find(t => t.id === u.territory)!.alignment[f], 0)
             : s.units.filter(u => u.faction === f).reduce((n, u) => n + 1 + TERRITORIES.find(t => t.id === u.territory)!.alignment[f], 0);
           const maximums = TRACKS.filter(t => s.players[f].tracks[t] === 10).length * 2;
-          return <div key={f} className="border border-slate-700 p-3 rounded-lg"><strong style={{ color: COLORS[f] }}>{f}: {s.result!.scores[f]} PV</strong>
+          return <div key={f} className="border border-slate-700 p-3 rounded-lg"><strong style={{ color: tone[f] }}>{f}: {s.result!.scores[f]} PV</strong>
             {s.result!.reason === 'points' && <p className="text-xs mt-2 text-slate-300">Round/dividendi: {s.players[f].points - unitPoints - objectivePoints - maximums}<br />{official ? 'Influenza' : 'Unità'}: {unitPoints} · Obiettivi: {objectivePoints} · Tracciati 10: {maximums}</p>}</div>;
         })}</div>
       </Panel>}
@@ -205,14 +216,14 @@ export default function TabletopGamePage({ onBack, previewState }: {
             {!localUnits.length && <p className="text-slate-400 text-sm">Nessuna unità schierata.</p>}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{localUnits.map(u => {
               const definition = UNITS.find(d => d.id === u.type)!;
-              return <div key={u.id} className="rounded-lg border p-2 space-y-2" style={{ borderColor: COLORS[u.faction] }}><UnitImage id={u.type} name={definition.name} />
+              return <div key={u.id} className="rounded-lg border p-2 space-y-2" style={{ borderColor: tone[u.faction] }}><UnitImage id={u.type} name={definition.name} />
                 <p className="text-xs">{u.faction} · {u.rotated ? s.players[u.faction].bot ? 'Ruotata: rientra a fine round, salvo Mantenimento automatico BOT (gratis, 1 unità per attivazione)' : 'Ruotata: rientra a fine round, salvo Mantenimento (1 OP)' : 'Attiva: rientra a fine round successivo'}</p></div>;
             })}</div>
-            {localInfluence.length > 0 && <p className="text-sm">Influenza permanente: {localInfluence.map(i => <span key={i.id} className="mr-3" style={{color:COLORS[i.faction]}}>{i.faction} · riquadro {i.slot + 1}</span>)}</p>}
+            {localInfluence.length > 0 && <p className="text-sm">Influenza permanente: {localInfluence.map(i => <span key={i.id} className="mr-3" style={{color:tone[i.faction]}}>{i.faction} · riquadro {i.slot + 1}</span>)}</p>}
             <p className="text-xs text-slate-400">Presenza: {FACTIONS.map(f => `${f} ${territoryPresence(s, f, selected)}`).join(' · ')}</p>
           </Panel>
           <Panel title="Plance dei giocatori">
-            <div className="flex flex-wrap gap-2">{FACTIONS.map(f => <button key={f} className={button} aria-pressed={boardFaction === f} style={{ borderColor: boardFaction === f ? COLORS[f] : undefined }} onClick={() => setBoardFaction(f)}>{f} · {s.players[f].points} PV {s.players[f].neutral ? 'Neutrale' : s.players[f].bot ? 'BOT' : ''}</button>)}</div>
+            <div className="flex flex-wrap gap-2">{FACTIONS.map(f => <button key={f} className={button} aria-pressed={boardFaction === f} style={{ borderColor: boardFaction === f ? tone[f] : undefined }} onClick={() => setBoardFaction(f)}>{f} · {s.players[f].points} PV {s.players[f].neutral ? 'Neutrale' : s.players[f].bot ? 'BOT' : ''}</button>)}</div>
             <div className="flex gap-4 flex-wrap text-sm">{TRACKS.map(t => <span key={`${t}-${motion.active?.key ?? 'idle'}`}
               className={motion.active?.changes.some(c => c.target === `${boardFaction} · ${t}`) ? 'tabletop-track-changed' : undefined}>{t}: <strong>{s.players[boardFaction].tracks[t]}</strong></span>)}<span>Carte in mano: {s.players[boardFaction].hand.length}</span></div>
             <FactionBoard faction={boardFaction} tracks={s.players[boardFaction].tracks} pv={s.players[boardFaction].points} />
