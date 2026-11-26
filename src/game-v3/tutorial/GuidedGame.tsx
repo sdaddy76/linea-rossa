@@ -9,6 +9,7 @@ import { FactionCardFace } from '../FactionCardFace';
 import { LESSONS, STORAGE_KEY, back, cardFor, changeLabel, choose, choicesFor, currentLesson, deploymentPreview, freshSession, guidedEventChanges, guidedEventGlobals, parseSession, recommendedChoice, replaySession, type Session, type Speed } from './model';
 import ComponentsIntro, { INTRO_SEEN_KEY } from './ComponentsIntro';
 import RoundIntro, { ROUND_SEEN_KEY } from './RoundIntro';
+import CombatIntro, { COMBAT_SEEN_KEY } from './CombatIntro';
 import './guided-game.css';
 
 const TRACK_HELP: Record<Track, string> = {
@@ -56,7 +57,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
   const [systemReduced, setSystemReduced] = useState(() => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [zoom, setZoom] = useState<{ src: string; name: string } | null>(null);
-  const [showIntro, setShowIntro] = useState<'components' | 'round' | null>(() => {
+  const [showIntro, setShowIntro] = useState<'components' | 'round' | 'combat' | null>(() => {
     if (typeof window === 'undefined' || session.cursor !== 0) return null;
     try {
       if (!window.localStorage.getItem(INTRO_SEEN_KEY)) return 'components';
@@ -102,6 +103,10 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
   }, []);
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
   useEffect(() => {
+    if (l.id !== 'declare') return;
+    try { if (!window.localStorage.getItem(COMBAT_SEEN_KEY)) setShowIntro('combat'); } catch { /* nessun salvataggio */ }
+  }, [l.id]);
+  useEffect(() => {
     if (!zoom) return;
     previousFocus.current = document.activeElement as HTMLElement | null;
     closeZoomButton.current?.focus();
@@ -132,6 +137,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
   function remember(key: string) { try { window.localStorage.setItem(key, '1'); } catch { /* salvataggio non disponibile */ } }
   function closeIntro() { setShowIntro(null); remember(INTRO_SEEN_KEY); }
   function closeRound() { setShowIntro(null); remember(INTRO_SEEN_KEY); remember(ROUND_SEEN_KEY); }
+  function closeCombat() { setShowIntro(null); remember(COMBAT_SEEN_KEY); }
   function componentsDone() { remember(INTRO_SEEN_KEY); setShowIntro('round'); }
   function goBack() { release(); setError(''); setSession(back(session)); }
   function restart() { release(); setError(''); setSession({ ...freshSession(), speed: session.speed }); setExpandedFaction(null); }
@@ -144,7 +150,7 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
     <div className="guide-shell">
       <header className="guide-header">
         <button className="guide-backlink" onClick={onExit}><ArrowLeft size={16} /> Torna a Linea Rossa</button>
-        <span className="guide-intro-buttons"><button className="guide-components-button" onClick={() => setShowIntro('components')}><BookOpen size={16} /> I componenti del gioco</button><button className="guide-components-button" onClick={() => setShowIntro('round')}><Play size={16} /> Come si gioca un round</button></span>
+        <span className="guide-intro-buttons"><button className="guide-components-button" onClick={() => setShowIntro('components')}><BookOpen size={16} /> I componenti del gioco</button><button className="guide-components-button" onClick={() => setShowIntro('round')}><Play size={16} /> Come si gioca un round</button><button className="guide-components-button" onClick={() => setShowIntro('combat')}><Swords size={16} /> Il combattimento</button></span>
         <span className="guide-offline"><span /> Simulazione locale · nessuna partita online modificata</span>
       </header>
       <div className="guide-title-row">
@@ -259,5 +265,6 @@ export default function GuidedGame({ onExit, onPlay }: { onExit: () => void; onP
     {zoom && <div className="guide-zoom" role="dialog" aria-modal="true" aria-label={zoom.name} onClick={() => setZoom(null)}><button ref={closeZoomButton} onClick={() => setZoom(null)}>Chiudi · {zoom.name}</button><img src={zoom.src} alt={zoom.name} onClick={e => e.stopPropagation()} /></div>}
     {showIntro === 'components' && <ComponentsIntro onClose={closeIntro} onFinish={componentsDone} finalLabel="Avanti: un round di gioco" reduced={reduced} />}
     {showIntro === 'round' && <RoundIntro onClose={closeRound} reduced={reduced} />}
+    {showIntro === 'combat' && <CombatIntro onClose={closeCombat} finalLabel="Torna alla partita guidata" reduced={reduced} />}
   </main>;
 }

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { existsSync } from 'node:fs';
 import GuidedGame from './GuidedGame';
+import CombatIntro, { ATTACK, BATTLE, COMBAT_SCENES, DEFENSE } from './CombatIntro';
 import RoundIntro, { ROUND_SCENES, ROUND_SEEN_KEY, valuesAt } from './RoundIntro';
 import ComponentsIntro, { INTRO_SEEN_KEY, MUSIC_SRC, SCENES, framing, stepMs } from './ComponentsIntro';
 import { STORAGE_KEY, choose, currentLesson, freshSession, recommendedChoice, replaySession, type Session } from './model';
@@ -114,4 +115,28 @@ test('round animation follows the printed event and card and runs after the comp
     store[ROUND_SEEN_KEY] = '1';
     assert.ok(!renderToStaticMarkup(<GuidedGame onExit={() => {}} onPlay={() => {}} />).includes('Si scopre l’Evento'));
   } finally { Reflect.deleteProperty(globalThis, 'window'); }
+});
+test('combat animation shows exactly the guided game battle computed by the engine', () => {
+  let session: Session = freshSession(), crisisBefore = 0, consensusBefore = 0;
+  while (currentLesson(replaySession(session)).id !== 'special') {
+    const t = replaySession(session);
+    if (currentLesson(t).id === 'declare') { crisisBefore = t.game.globals['Crisi Bellica']; consensusBefore = t.game.players.Iran.tracks.Consenso; }
+    session = choose(session, recommendedChoice(t)!.id);
+  }
+  const t = replaySession(session), c = t.game.combat!;
+  assert.deepEqual([c.attacker, c.defender, c.territory, c.support.Russia], ['Coalizione', 'Iran', 'iraq', 'defender']);
+  assert.deepEqual(c.dice, BATTLE.dice);
+  assert.equal(c.attack, ATTACK); assert.equal(c.defense, DEFENSE);
+  assert.deepEqual([crisisBefore, t.game.globals['Crisi Bellica']], BATTLE.crisis);
+  assert.equal(t.game.players.Coalizione.tracks.Militare, BATTLE.military.Coalizione);
+  assert.equal(t.game.players.Iran.tracks.Militare, BATTLE.military.Iran);
+  while (currentLesson(replaySession(session)).id !== 'oil') session = choose(session, recommendedChoice(replaySession(session))!.id);
+  assert.deepEqual([consensusBefore, replaySession(session).game.players.Iran.tracks.Consenso], BATTLE.consensus);
+  const seen = new Set<string>();
+  COMBAT_SCENES.forEach((scene, i) => scene.steps.forEach((_, j) => {
+    const html = renderToStaticMarkup(<CombatIntro onClose={() => {}} initialScene={i} initialStep={j} />);
+    assert.ok(html.includes(scene.title));
+    for (const [, src] of html.matchAll(/src="([^"]+)"/g)) seen.add(src.split('?')[0]);
+  }));
+  for (const src of seen) assert.ok(existsSync(`public${decodeURIComponent(src)}`), `missing ${src}`);
 });
