@@ -15,7 +15,7 @@ import { Materials } from '@/game-v3/Materials';
 import { PlayerAid } from '@/game-v3/PlayerAid';
 import { isLineaRossaAdmin } from '@/lib/admin';
 import SalaPartite from './SalaPartite';
-import { loadRoom, openedAt, type RoomGame } from './sala';
+import { loadArchived, loadRoom, openedAt, type RoomGame } from './sala';
 import { ReadabilityFrame, useReadability, READABLE_PALETTE as RP } from './Readability';
 
 interface LobbyPageProps {
@@ -85,45 +85,56 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
   // ── Elimina partita (solo creatore) ──────────────────────────────────────
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const deleteGame = async (game: GameWithPlayers) => {
-    const confirmed = window.confirm(
-      `Eliminare la partita "${game.code}"?\n\nTutti i dati (stato, carte, mosse) saranno cancellati definitivamente.`
-    );
-    if (!confirmed) return;
-    setDeletingId(game.id);
+  /** Archivia una o più partite: spariscono dalle liste dei giocatori. Solo il creatore o l'amministratore. */
+  const [archivedGames, setArchivedGames] = useState<RoomGame[]>([]);
+  const missingArchive = (code?: string) => code === 'PGRST202' || code === '42883' || code === '42703';
+  const archiveGames = async (games: { id: string; code: string; name?: string | null }[]): Promise<boolean> => {
+    if (!games.length) return false;
+    const confirmed = window.confirm(games.length === 1
+      ? `Archiviare la partita "${games[0].name || games[0].code}"?\n\nSparirà dalla Sala partite e dalle liste dei giocatori. Solo l'amministratore potrà ripristinarla.`
+      : `Archiviare ${games.length} partite?\n\nSpariranno dalla Sala partite e dalle liste dei giocatori. Solo l'amministratore potrà ripristinarle.`);
+    if (!confirmed) return false;
+    const ids = games.map(g => g.id);
+    setDeletingId(ids.length === 1 ? ids[0] : 'many');
     try {
-      // Un'unica cancellazione: le FK ON DELETE CASCADE mantengono l'atomicità.
-      // Non richiediamo `.select()` sulla DELETE: alcune installazioni Supabase
-      // non espongono il returning sotto RLS anche quando la riga è eliminata.
-      const {error: deleteError} = await supabase.from('games').delete()
-        .eq('id', game.id).eq('created_by', profile.id);
-      if (deleteError) throw deleteError;
-      const {data: remaining, error: verifyError} = await supabase.from('games')
-        .select('id').eq('id', game.id).maybeSingle();
-      if (verifyError) throw verifyError;
-      if (remaining) {
-        // Compatibilità con i database già pubblicati prima della policy DELETE:
-        // il proprietario può comunque chiudere e archiviare il tavolo, che viene
-        // nascosto per lui e non può più ricomparire nella lista personale.
-        const {error: archiveError} = await supabase.from('games').update({
-          status: 'finished',
-          winner_condition: 'archived_by_owner',
-          finished_at: new Date().toISOString(),
-        }).eq('id', game.id).eq('created_by', profile.id);
-        if (archiveError) throw archiveError;
-        hideGame(game.id);
+      const { data, error: rpcError } = await supabase.rpc('archive_games', { p_ids: ids });
+      if (rpcError) {
+        if (missingArchive(rpcError.code)) throw new Error('Il database non è ancora aggiornato per l’archivio delle partite (migrazione 20261126_archive_games).');
+        throw rpcError;
       }
-      // Rimuovi dalle liste locali
-      setOpenGames(prev => prev.filter(g => g.id !== game.id));
-      setRecentGames(prev => prev.filter(g => g.id !== game.id));
-      if (remaining) alert('Partita archiviata e rimossa dalla tua lista. Il database non ha ancora la policy DELETE; la migrazione è inclusa nel prossimo aggiornamento.');
+      const done = typeof data === 'number' ? data : 0;
+      setOpenGames(prev => prev.filter(g => !ids.includes(g.id)));
+      setRecentGames(prev => prev.filter(g => !ids.includes(g.id)));
+      void loadGames(); if (isAdmin) void refreshArchive();
+      if (done < ids.length) alert(done === 0 ? 'Nessuna partita archiviata: puoi archiviare solo i tavoli che hai creato tu.' : `Archiviate ${done} partite su ${ids.length}.`);
+      return done > 0;
     } catch (err) {
-      console.error('[deleteGame]', err);
-      alert(err instanceof Error ? err.message : 'Errore durante l\'eliminazione. Riprova.');
-    } finally {
-      setDeletingId(null);
-    }
+      console.error('[archiveGames]', err);
+      alert(err instanceof Error ? err.message : 'Errore durante l\'archiviazione. Riprova.');
+      return false;
+    } finally { setDeletingId(null); }
   };
+  const restoreGames = async (games: { id: string }[]): Promise<boolean> => {
+    if (!games.length) return false;
+    const ids = games.map(g => g.id);
+    setDeletingId('many');
+    try {
+      const { error: rpcError } = await supabase.rpc('restore_games', { p_ids: ids });
+      if (rpcError) throw rpcError;
+      setArchivedGames(prev => prev.filter(g => !ids.includes(g.id)));
+      void loadGames();
+      return true;
+    } catch (err) {
+      console.error('[restoreGames]', err);
+      alert(err instanceof Error ? err.message : 'Errore durante il ripristino. Riprova.');
+      return false;
+    } finally { setDeletingId(null); }
+  };
+  const refreshArchive = async () => {
+    try { setArchivedGames(await loadArchived(supabase)); } catch (err) { console.error('[loadArchived]', err); }
+  };
+  const deleteGame = (game: GameWithPlayers) => archiveGames([game]);
+
 
   // ── Partite nascoste (localStorage) ─────────────────────────────────────
   const HIDDEN_KEY = `linea_rossa_hidden_games_${profile.id}`;
@@ -169,6 +180,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       setIsAdmin(isLineaRossaAdmin(data?.user?.email));
     });
   }, []);
+  useEffect(() => { if (isAdmin) void refreshArchive(); }, [isAdmin]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Carica statistiche personali
   const loadPlayerStats = async () => {
@@ -550,18 +562,18 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
             </button>
           )}
 
-          {/* Pulsante elimina — solo per il creatore della partita */}
+          {/* Pulsante archivia — solo per il creatore della partita */}
           {isMine && (
             <button
               onClick={(e) => { e.stopPropagation(); deleteGame(game); }}
               disabled={deletingId === game.id}
-              title="Elimina partita (solo tu puoi farlo)"
+              title="Archivia partita: sparisce dalle liste dei giocatori"
               className="lobby-icon-button px-2 py-1.5 rounded-lg font-mono text-xs transition-all
                 border border-[#ff444430] text-[#ff444488]
                 hover:border-[#ff4444] hover:text-[#ff4444] hover:bg-[#ff444412]
                 disabled:opacity-40 disabled:cursor-not-allowed
                 opacity-0 group-hover/row:opacity-100">
-              {deletingId === game.id ? '⏳' : '🗑️'}
+              {deletingId === game.id ? '⏳' : '🗄️'}
             </button>
           )}
         </div>
@@ -674,7 +686,9 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
           </nav>
           {tab === 'room' && <SalaPartite games={openGames} userId={profile.id} loading={roomLoading}
             error={roomError} updatedAt={roomUpdatedAt} onRefresh={() => void loadGames()}
-            onEnter={joinOpen} onCreate={() => setTab('create')} onCode={() => setTab('join')}/>}
+            onEnter={joinOpen} onCreate={() => setTab('create')} onCode={() => setTab('join')}
+            canArchive={game => isAdmin || game.created_by === profile.id} onArchive={archiveGames} busy={deletingId !== null}
+            {...(isAdmin ? { archived: archivedGames, onRestore: restoreGames } : {})}/>}
 
           {/* ── TAB: CREA ── */}
           {tab === 'create' && (

@@ -205,6 +205,9 @@ export interface Game {
   /** true = tavolo aperto (chiunque può unirsi senza codice)
    *  false/undefined = riservato (serve il codice) */
   is_public?: boolean;
+  /** Archiviata dal creatore o dall'amministratore: nascosta ai giocatori, ripristinabile solo dall'amministratore. */
+  archived_at?: string | null;
+  archived_by?: string | null;
   /** 'classic' = mazzo separato per fazione (default legacy)
    *  'unified' = mazzo unico con tutte le carte, distribuzione mano */
   game_mode?: 'classic' | 'unified';

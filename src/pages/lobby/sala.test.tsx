@@ -60,6 +60,7 @@ function fakeClient(fail = false) {
   const calls: { table: string; selected: string; filters: [string, unknown][]; range?: [number, number] }[] = [];
   const publicGames = Array.from({ length: 103 }, (_, i) => game(String(i)));
   const privateGame = game('private', { is_public: false, created_by: 'guest' });
+  const archivedGame = game('archived', { created_by: 'guest', archived_at: '2026-11-20T10:00:00Z' });
   const client = {
     from(table: string) {
       const call = { table, selected: '', filters: [] as [string, unknown][], range: undefined as [number, number] | undefined };
@@ -69,15 +70,17 @@ function fakeClient(fail = false) {
         select(columns: string) { call.selected = columns; return q; },
         eq(key: string, value: unknown) { call.filters.push([key, value]); return q; },
         in(key: string, value: unknown) { call.filters.push([key, value]); return q; },
+        is(key: string, value: unknown) { call.filters.push([`is:${key}`, value]); return q; },
         order() { return q; }, range(a: number, b: number) { call.range = [a, b]; return q; },
         limit(n: number) { cap = n; return q; },
         then(resolve: (value: unknown) => unknown) {
           if (fail) return Promise.resolve(resolve({ data: null, error: { message: 'Network failed' } }));
           let rows: Record<string, unknown>[] = table === 'games'
-            ? [...publicGames, privateGame] as unknown as Record<string, unknown>[]
+            ? [...publicGames, privateGame, archivedGame] as unknown as Record<string, unknown>[]
             : call.selected === 'game_id' ? [{ game_id: '3', player_id: 'guest' }]
               : publicGames.map(g => ({ ...g._players[0], game_id: g.id }));
-          for (const [key, value] of call.filters) rows = rows.filter(row => Array.isArray(value) ? value.includes(row[key]) : row[key] === value);
+          for (const [key, value] of call.filters) rows = rows.filter(row => key.startsWith('is:') ? (row[key.slice(3)] ?? null) === value
+            : Array.isArray(value) ? value.includes(row[key]) : row[key] === value);
           if (call.range) rows = rows.slice(call.range[0], call.range[1] + 1);
           return Promise.resolve(resolve({ data: rows.slice(0, cap), error: null }));
         },
@@ -94,6 +97,7 @@ test('loader pages all public tables, loads names for every batch, and keeps per
   assert.ok(result.open.every(g => g._players[0]?.profile?.username === 'Stefano'));
   assert.deepEqual(result.recent.map(g => g.id).sort(), ['3', 'private']);
   assert.ok(!result.open.some(g => g.id === 'private'));
+  assert.ok(![...result.open, ...result.recent].some(g => g.id === 'archived'), 'archived tables are hidden from players');
   assert.equal(calls.filter(c => c.range).length, 2);
   assert.ok(calls.filter(c => c.selected.includes('profile:')).every(c => !c.selected.includes('*')));
   assert.ok(calls.filter(c => c.table === 'game_players' && c.selected.includes('profile:'))
@@ -171,4 +175,22 @@ test('public example renders the same room, marks fixture data and never queries
   const source = readFileSync('src/pages/lobby/ReadabilityPreview.tsx', 'utf8');
   assert.ok(!source.includes('supabase'));
   assert.ok(source.includes('<SalaPartite'));
+});
+test('archive controls appear only for tables the user may archive; only the admin sees and restores archived tables', () => {
+  const mine = game('mine', { created_by: 'host' }), other = game('other', { created_by: 'someone' });
+  const props = { loading: false, error: '', updatedAt: null, onRefresh: () => {}, onEnter: () => {}, onCreate: () => {}, onCode: () => {}, onArchive: async () => true };
+  const host = renderToStaticMarkup(<SalaPartite {...props} games={[mine, other]} userId="host" canArchive={g => g.created_by === 'host'} />);
+  assert.equal((host.match(/> Archivia<\/button>/g) ?? []).length, 1);
+  assert.ok(host.includes('Seleziona tutte (1)') && host.includes('Archivia selezionate (0)'));
+  assert.ok(!host.includes('Archiviate (') && !host.includes('Elimina'));
+  const admin = renderToStaticMarkup(<SalaPartite {...props} games={[mine, other]} userId="admin" canArchive={() => true}
+    archived={[game('old', { archived_at: '2026-11-20T10:00:00Z' })]} onRestore={async () => true} />);
+  assert.equal((admin.match(/> Archivia<\/button>/g) ?? []).length, 2);
+  assert.ok(admin.includes('Archiviate (1)'));
+  const guest = renderToStaticMarkup(<SalaPartite {...props} games={[mine, other]} userId="guest" canArchive={() => false} />);
+  assert.ok(!guest.includes('Archivia') && !guest.includes('Seleziona tutte'));
+  const sql = readFileSync('supabase/migrations/20261126_archive_games.sql', 'utf8');
+  assert.match(sql, /created_by = auth\.uid\(\) OR public\.is_linea_rossa_admin\(\)/);
+  assert.match(sql, /IF NOT public\.is_linea_rossa_admin\(\) THEN RAISE EXCEPTION/);
+  assert.ok(!/DELETE FROM/i.test(sql), 'games are never deleted');
 });

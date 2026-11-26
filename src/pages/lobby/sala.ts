@@ -36,14 +36,23 @@ export function openedAt(value: string) {
   }).format(date);
 }
 
-/** Only public table metadata and usernames; no hands, objectives or emails. */
+/** Missing column on databases without the archive migration: fall back to showing every table. */
+const missingColumn = (error: { code?: string } | null) => error?.code === '42703' || error?.code === 'PGRST204';
+
+/** Only public table metadata and usernames; no hands, objectives or emails. Archived tables are hidden. */
 export async function loadRoom(client: Client, userId: string): Promise<{ open: RoomGame[]; recent: RoomGame[] }> {
   const open: Game[] = [];
+  let archive = true;
   // Page the server result instead of silently dropping all but eight tables.
   for (let offset = 0; ; offset += 100) {
-    const result = await client.from('games').select('*').eq('is_public', true)
-      .in('status', ['lobby', 'active']).order('created_at', { ascending: false })
-      .order('id').range(offset, offset + 99);
+    let query = client.from('games').select('*').eq('is_public', true).in('status', ['lobby', 'active']);
+    if (archive) query = query.is('archived_at', null);
+    let result = await query.order('created_at', { ascending: false }).order('id').range(offset, offset + 99);
+    if (archive && missingColumn(result.error)) {
+      archive = false;
+      result = await client.from('games').select('*').eq('is_public', true).in('status', ['lobby', 'active'])
+        .order('created_at', { ascending: false }).order('id').range(offset, offset + 99);
+    }
     if (result.error) throw result.error;
     open.push(...(result.data ?? []) as Game[]);
     if ((result.data ?? []).length < 100) break;
@@ -77,7 +86,32 @@ export async function loadRoom(client: Client, userId: string): Promise<{ open: 
     }
   }
   const enrich = (games: Game[]) => games
-    .filter(g => String(g.winner_condition) !== 'archived_by_owner')
+    .filter(g => String(g.winner_condition) !== 'archived_by_owner' && !g.archived_at)
     .map(g => ({ ...g, _players: players.get(g.id) ?? [] }));
   return { open: enrich(open), recent: enrich(recent) };
+}
+
+async function withPlayers(client: Client, games: Game[]): Promise<RoomGame[]> {
+  const players = new Map<string, RoomPlayer[]>();
+  for (let i = 0; i < games.length; i += 10) {
+    const result = await client.from('game_players')
+      .select('game_id,faction,is_bot,player_id,profile:profiles(username)')
+      .in('game_id', games.slice(i, i + 10).map(g => g.id)).order('turn_order');
+    if (result.error) throw result.error;
+    for (const p of result.data ?? []) {
+      const list = players.get(p.game_id) ?? [];
+      list.push(p as unknown as RoomPlayer);
+      players.set(p.game_id, list);
+    }
+  }
+  return games.map(g => ({ ...g, _players: players.get(g.id) ?? [] }));
+}
+
+/** Archived tables, most recent first: shown only to the administrator, who can restore them. */
+export async function loadArchived(client: Client): Promise<RoomGame[]> {
+  const result = await client.from('games').select('*').not('archived_at', 'is', null)
+    .order('archived_at', { ascending: false }).limit(300);
+  if (missingColumn(result.error)) return [];
+  if (result.error) throw result.error;
+  return withPlayers(client, (result.data ?? []) as Game[]);
 }

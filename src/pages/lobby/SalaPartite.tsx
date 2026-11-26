@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock3, Users, RefreshCw } from 'lucide-react';
+import { Archive, ArchiveRestore, Clock3, Users, RefreshCw } from 'lucide-react';
 import { FACTIONS } from '@/game-v3/catalog-types';
 import { openedAt, tableSeats, type RoomGame } from './sala';
 
@@ -7,13 +7,33 @@ interface Props {
   games: RoomGame[]; userId: string; loading: boolean; error: string;
   updatedAt: string | null; onRefresh: () => void; onEnter: (game: RoomGame) => void;
   onCreate: () => void; onCode: () => void;
+  /** Chi può archiviare il tavolo: il creatore oppure l'amministratore. */
+  canArchive?: (game: RoomGame) => boolean;
+  onArchive?: (games: RoomGame[]) => Promise<boolean>;
+  /** Solo amministratore: tavoli archiviati e ripristino. */
+  archived?: RoomGame[];
+  onRestore?: (games: RoomGame[]) => Promise<boolean>;
+  busy?: boolean;
 }
-export default function SalaPartite({ games, userId, loading, error, updatedAt, onRefresh, onEnter, onCreate, onCode }: Props) {
-  const [filter, setFilter] = useState<'all' | 'waiting' | 'active'>('all');
+export default function SalaPartite({ games, userId, loading, error, updatedAt, onRefresh, onEnter, onCreate, onCode, canArchive = () => false, onArchive, archived, onRestore, busy = false }: Props) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<'all' | 'waiting' | 'active' | 'archived'>('all');
+  const showingArchive = filter === 'archived' && !!onRestore;
   const [search, setSearch] = useState('');
   const waiting = games.filter(g => g.status === 'lobby');
-  const visible = games.filter(g => (filter === 'all' || g.status === (filter === 'waiting' ? 'lobby' : 'active')))
+  const source = showingArchive ? archived ?? [] : games;
+  const visible = source.filter(g => showingArchive || filter === 'all' || g.status === (filter === 'waiting' ? 'lobby' : 'active'))
     .filter(g => `${g.code} ${g.name ?? ''} ${g._players.map(p => p.profile?.username ?? '').join(' ')}`.toLocaleLowerCase('it').includes(search.trim().toLocaleLowerCase('it')));
+  const action = showingArchive ? onRestore : onArchive;
+  const selectable = action ? (showingArchive ? visible : visible.filter(canArchive)) : [];
+  const chosen = selectable.filter(g => selected.has(g.id));
+  const allChosen = selectable.length > 0 && chosen.length === selectable.length;
+  const toggle = (id: string) => setSelected(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
+  const run = async (list: RoomGame[]) => {
+    if (!action || !list.length) return;
+    if (await action(list)) setSelected(prev => { const next = new Set(prev); list.forEach(g => next.delete(g.id)); return next; });
+  };
+  const ActionIcon = showingArchive ? ArchiveRestore : Archive, verb = showingArchive ? 'Ripristina' : 'Archivia';
   return <section aria-labelledby="sala-title" className="space-y-4">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div><p className="text-xs uppercase tracking-widest text-cyan-300">Tavoli pubblici</p>
@@ -28,14 +48,26 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
         <div key={label} className="rounded-xl border border-slate-700 bg-[#0d1424] p-3"><strong className="text-xl text-white block">{count}</strong><span className="text-xs text-slate-300">{label}</span></div>)}
     </div>
     <div className="flex flex-wrap gap-2">
-      {([['all', 'Tutte'], ['waiting', 'In attesa'], ['active', 'In corso']] as const).map(([value, label]) =>
-        <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}
+      {([['all', 'Tutte'], ['waiting', 'In attesa'], ['active', 'In corso'], ...(onRestore ? [['archived', `Archiviate (${archived?.length ?? 0})`]] : [])] as [typeof filter, string][]).map(([value, label]) =>
+        <button key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setSelected(new Set()); }}
           className={`min-h-10 rounded-lg px-4 text-sm border ${filter === value ? 'border-cyan-400 bg-cyan-950 text-cyan-100' : 'border-slate-600 text-slate-300'}`}>{label}</button>)}
     </div>
     <label className="block text-sm text-slate-300">Cerca tavolo o giocatore
       <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Codice, nome del tavolo o giocatore"
         className="mt-1 block w-full min-h-11 rounded-lg border border-slate-600 bg-[#060d18] px-3 text-white focus:outline-cyan-300"/>
     </label>
+    {showingArchive && <p className="text-sm text-slate-300">Tavoli archiviati: nessun giocatore li vede più. Solo tu puoi ripristinarli e tornano com’erano.</p>}
+    {selectable.length > 0 && <div className="sala-delete-bar flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-700 bg-red-950 px-3 py-2">
+      <label className="flex items-center gap-2 text-sm text-red-200">
+        <input type="checkbox" className="h-5 w-5 accent-red-500" checked={allChosen}
+          onChange={() => setSelected(allChosen ? new Set() : new Set(selectable.map(g => g.id)))} />
+        Seleziona tutte ({selectable.length})
+      </label>
+      <button onClick={() => void run(chosen)} disabled={!chosen.length || busy}
+        className={`inline-flex items-center gap-2 min-h-10 px-3 rounded-lg text-sm font-bold disabled:opacity-40 ${showingArchive ? 'bg-emerald-400 text-slate-950' : 'bg-red-600 text-white'}`}>
+        <ActionIcon size={16} aria-hidden="true"/> {busy ? 'Attendi…' : `${verb} selezionate (${chosen.length})`}
+      </button>
+    </div>}
     {error && <div role="alert" className="rounded-lg border border-red-600 bg-red-950 p-3 text-sm text-red-200">{error} <button onClick={onRefresh} className="underline">Riprova</button></div>}
     <p role="status" className="text-xs text-slate-400">{loading ? 'Aggiornamento dei tavoli…' : updatedAt ? `Ultimo aggiornamento ${new Date(updatedAt).toLocaleTimeString('it-IT')}. Aggiornamento automatico attivo.` : 'Sala pronta.'}</p>
     <div className="space-y-3">
@@ -45,8 +77,10 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
           : seats.enrolled || host ? 'Rientra al tavolo' : seats.canJoin ? 'Iscriviti al tavolo' : 'Vedi tavolo';
         return <article key={game.id} className="rounded-xl border border-slate-700 bg-[#0d1424] p-4 space-y-3">
           <div className="flex flex-wrap justify-between gap-2">
-            <div className="min-w-0"><h3 className="font-bold text-lg text-emerald-300 break-words">{game.name || game.code}</h3>
-              <p className="text-xs text-slate-400 font-mono">{game.code}{host && ' · Il tuo tavolo'}{seats.enrolled && ' · Sei iscritto'}</p></div>
+            {action && (showingArchive || canArchive(game)) && <input type="checkbox" aria-label={`Seleziona il tavolo ${game.name || game.code}`} checked={selected.has(game.id)}
+              onChange={() => toggle(game.id)} className="mt-1 h-5 w-5 shrink-0 accent-red-500" />}
+            <div className="min-w-0 flex-1"><h3 className="font-bold text-lg text-emerald-300 break-words">{game.name || game.code}</h3>
+              <p className="text-xs text-slate-400 font-mono">{game.code}{host && ' · Il tuo tavolo'}{seats.enrolled && ' · Sei iscritto'}{game.archived_at && ` · archiviata il ${openedAt(game.archived_at)}`}</p></div>
             <span className={`self-start rounded px-2 py-1 text-xs ${game.status === 'lobby' ? 'bg-amber-950 text-amber-200' : 'bg-emerald-950 text-emerald-200'}`}>
               {game.status === 'active' ? 'In corso · iscrizioni chiuse' : seats.canJoin ? 'In attesa di giocatori' : 'In attesa dell’avvio'}
             </span>
@@ -69,11 +103,18 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
           </ul>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-slate-400">{game.status === 'lobby' ? 'I posti non scelti saranno completati con BOT all’avvio.' : 'Puoi assistere senza entrare come giocatore.'}</p>
-            <button onClick={() => onEnter(game)} className="min-h-11 px-4 rounded-lg bg-emerald-400 text-slate-950 text-sm font-bold hover:bg-emerald-300">{label}</button>
+            <div className="flex flex-wrap gap-2">
+              {action && (showingArchive || canArchive(game)) && <button onClick={() => void run([game])} disabled={busy}
+                title={showingArchive ? 'Rimetti il tavolo nella Sala partite' : 'Archivia: il tavolo sparisce dalle liste dei giocatori'}
+                className={`inline-flex items-center gap-2 min-h-11 px-3 rounded-lg border text-sm font-bold disabled:opacity-40 ${showingArchive ? 'border-emerald-500 text-emerald-300' : 'border-red-600 text-red-300'}`}>
+                <ActionIcon size={16} aria-hidden="true"/> {verb}</button>}
+              {!showingArchive && <button onClick={() => onEnter(game)} className="min-h-11 px-4 rounded-lg bg-emerald-400 text-slate-950 text-sm font-bold hover:bg-emerald-300">{label}</button>}
+            </div>
           </div>
         </article>;
       })}
-      {!loading && !error && visible.length === 0 && <div className="rounded-xl border border-dashed border-slate-600 p-6 text-center space-y-3">
+      {showingArchive && visible.length === 0 && <p className="rounded-xl border border-dashed border-slate-600 p-6 text-center text-sm text-slate-300">Nessuna partita archiviata.</p>}
+      {!showingArchive && !loading && !error && visible.length === 0 && <div className="rounded-xl border border-dashed border-slate-600 p-6 text-center space-y-3">
         <h3 className="font-bold text-white">{games.length ? 'Nessun tavolo corrisponde alla ricerca' : 'Nessun tavolo pubblico aperto'}</h3>
         <p className="text-sm text-slate-300">Puoi aprire un nuovo tavolo o raggiungere una partita riservata con il codice invito.</p>
         <div className="flex flex-wrap justify-center gap-2"><button onClick={onCreate} className="min-h-11 px-4 rounded-lg bg-emerald-400 text-slate-950 font-bold">Apri un tavolo</button>
