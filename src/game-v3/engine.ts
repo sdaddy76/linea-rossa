@@ -31,6 +31,9 @@ export interface EngineState {
   /** Absent on persisted games from the previous rulebook: never migrate them implicitly. */
   rulesRevision?: '2026-11-16' | '2026-11-21'; mode?: GameMode; turnMarker?: number;
   coalitionIranRounds?: number;
+  /** Regole del 2026-11-26: Blocco di Hormuz attivo (per riconoscere l'attivazione), scudi economici usati
+   *  (round) e Rete informativa già usata (attivazione). Assenti nei salvataggi precedenti. */
+  hormuzBlockade?: boolean; economyShield?: Partial<Record<Faction, number>>; peeked?: Partial<Record<Faction, number>>;
   /** New BOT artwork supplies printed destinations; old saves keep their manual closure. */
   botInfluenceEdition?: '2026-11-22';
   influence?: PlacedInfluence[]; nextInfluence?: number;
@@ -60,6 +63,7 @@ export type Command =
   | { type: 'influence'; territoryId: string }
   | { type: 'destabilize'; influenceId: string }
   | { type: 'maintain'; unitId: string }
+  | { type: 'peek'; target: Faction }
   | { type: 'control-bonus'; track: ControlChoice }
   | { type: 'bot-influence'; territoryId: string }
   | { type: 'attack'; territoryId: string }
@@ -100,6 +104,67 @@ export function territoryPresence(s: EngineState, faction: Faction, territoryId:
   return s.units.filter(u => u.faction === faction && u.territory === territoryId).length +
     (usesOfficialRules(s) ? (s.influence ?? []).filter(i => i.faction === faction && i.territory === territoryId).length : 0);
 }
+// ── Bonus persistenti delle unità (regola del 2026-11-26, solo regolamento attuale) ──────────────
+const unitNamed = (u: PlacedUnit, name: string) => (UNITS.find(d => d.id === u.type)?.name ?? '').toLowerCase() === name.toLowerCase();
+const hasUnitIn = (s: Pick<EngineState, 'units'>, faction: Faction, name: string, territoryId?: string) =>
+  s.units.some(u => u.faction === faction && unitNamed(u, name) && (!territoryId || u.territory === territoryId));
+/** Interferenza: una Cyber Russia, Cyber Unit cinese o europea avversaria nello Stato. */
+export function interference(s: EngineState, faction: Faction, territoryId: string): boolean {
+  return usesLatestRules(s) && s.units.some(u => u.territory === territoryId && u.faction !== faction &&
+    (unitNamed(u, 'Cyber Russia') || (unitNamed(u, 'Cyber Unit') && (u.faction === 'Cina' || u.faction === 'Europa'))));
+}
+/** Sconto Influenza: Proxy (Iran), BRI (Cina), Aiuti umanitari (Europa) nello Stato; Flotta nel Mediterraneo
+ *  (Russia) in Siria e Libano. Non cumulabile. */
+export function influenceDiscount(s: EngineState, faction: Faction, territoryId: string): boolean {
+  if (!usesLatestRules(s)) return false;
+  if (faction === 'Iran') return hasUnitIn(s, 'Iran', 'Proxy regionali', territoryId);
+  if (faction === 'Cina') return hasUnitIn(s, 'Cina', 'Investimenti BRI', territoryId);
+  if (faction === 'Europa') return hasUnitIn(s, 'Europa', 'Aiuti umanitari', territoryId);
+  if (faction === 'Russia') return ['siria', 'libano'].includes(territoryId) && hasUnitIn(s, 'Russia', 'Flotta nel Mediterraneo');
+  return false;
+}
+/** Presidio: Forze convenzionali in Iran, Convenzionale (Coalizione) e Infrastrutture (Cina) nello Stato. */
+export function presidio(s: EngineState, faction: Faction, territoryId: string): boolean {
+  if (!usesLatestRules(s)) return false;
+  if (faction === 'Iran') return territoryId === 'iran' && hasUnitIn(s, 'Iran', 'Forze convenzionali', 'iran');
+  if (faction === 'Coalizione') return hasUnitIn(s, 'Coalizione', 'Convenzionale', territoryId);
+  if (faction === 'Cina') return hasUnitIn(s, 'Cina', 'Infrastrutture', territoryId);
+  return false;
+}
+/** Zona protetta: attaccare uno Stato con Caschi blu costa 2 OP in più. */
+export function attackCost(s: EngineState, territoryId: string): number {
+  return 2 + (usesLatestRules(s) && hasUnitIn(s, 'Europa', 'Caschi blu', territoryId) ? 2 : 0);
+}
+/** Rete informativa: Intelligence (Russia, Europa) o Satelliti / Spazio (Cina) nello stesso Stato del bersaglio. */
+export function canPeek(s: EngineState, actor: Faction, target: Faction): boolean {
+  return usesLatestRules(s) && target !== actor && s.peeked?.[actor] !== s.activation &&
+    s.units.some(u => u.faction === actor && (unitNamed(u, 'Intelligence') || unitNamed(u, 'Satelliti / Spazio')) && territoryPresence(s, target, u.territory) > 0);
+}
+const ECONOMY_SHIELD: Partial<Record<Faction, string>> = { Cina: 'Flotta commerciale', Europa: 'Missione navale UE' };
+/** Correlazioni, eventi e Blocco: Rotte protette / Rotte sicure assorbono una perdita di Economia per round. */
+function shieldAvailable(s: EngineState, c: TrackChange): boolean {
+  const unit = ECONOMY_SHIELD[c.faction];
+  return usesLatestRules(s) && !!unit && c.track === 'Economia' && c.delta < 0 && hasUnitIn(s, c.faction, unit) && s.economyShield?.[c.faction] !== s.actualRound;
+}
+function externalChange(s: EngineState, c: TrackChange): boolean {
+  const unit = ECONOMY_SHIELD[c.faction];
+  if (shieldAvailable(s, c)) {
+    (s.economyShield ??= {})[c.faction] = s.actualRound;
+    s.log.push(`${c.faction}: ${unit} — la perdita di Economia (${c.delta}) viene ignorata in questo round.`);
+    return true;
+  }
+  changeTrack(s, c); return false;
+}
+/** Blocco di Hormuz (2026-11-26): all'attivazione Crisi Bellica −1 e Opinione −1, a carico dell'Iran. */
+function updateBlockade(s: EngineState) {
+  if (!usesLatestRules(s) || s.phase === 'ended') return;
+  const active = hormuzBlocked(s);
+  if (active && !s.hormuzBlockade) {
+    s.hormuzBlockade = true;
+    s.log.push('Blocco di Hormuz attivato: Crisi Bellica −1, Opinione −1.');
+    globals(s, [{ track: 'Crisi Bellica', delta: -1 }, { track: 'Opinione', delta: -1 }], 'Iran');
+  } else if (!active && s.hormuzBlockade) { s.hormuzBlockade = false; s.log.push('Blocco di Hormuz revocato.'); }
+}
 export function territoryController(s: EngineState, territoryId: string): Faction | null {
   const counts = FACTIONS.map(f => ({ faction: f, count: territoryPresence(s, f, territoryId) })).sort((a, b) => b.count - a.count);
   return counts[0].count > 0 && counts[0].count > counts[1].count ? counts[0].faction : null;
@@ -110,7 +175,7 @@ export function influenceCost(s: EngineState, faction: Faction, territoryId: str
   const military = s.players[faction].tracks.Militare;
   const strength = !['Iran', 'Coalizione'].includes(faction) && alignment > 0 ? (military >= 8 ? -1 : military <= 3 ? 1 : 0) : 0;
   const opinion = faction === 'Iran' && s.globals.Opinione <= -4 || faction === 'Coalizione' && s.globals.Opinione >= 4 ? -1 : 0;
-  return Math.max(1, 1 + alignment + strength + opinion);
+  return Math.max(1, 1 + alignment + strength + opinion - (influenceDiscount(s, faction, territoryId) ? 1 : 0) + (interference(s, faction, territoryId) ? 1 : 0));
 }
 export function canInfluence(s: EngineState, territoryId: string): boolean {
   const t = TERRITORIES.find(t => t.id === territoryId);
@@ -150,7 +215,8 @@ export function hormuzBlocked(s: EngineState): boolean {
 export function deployCost(s: EngineState, faction: Faction, unitId: string, territoryId: string): number {
   const u = unitDef(unitId), t = territoryDef(territoryId), eco = s.players[faction].tracks.Economia, crisis = s.globals['Crisi Bellica'];
   return Math.max(1, u.cost + (crisis <= 4 ? 2 : crisis <= 7 ? 1 : 0) +
-    (eco <= 3 ? 1 : eco >= 8 ? -1 : 0) + t.alignment[faction] + (faction === 'Coalizione' && hormuzBlocked(s) ? 1 : 0));
+    (eco <= 3 ? 1 : eco >= 8 ? -1 : 0) + t.alignment[faction] + (faction === 'Coalizione' && hormuzBlocked(s) ? 1 : 0) +
+    (interference(s, faction, territoryId) ? 1 : 0));
 }
 function changeTrack(s: EngineState, c: TrackChange) {
   const before = s.players[c.faction].tracks[c.track];
@@ -207,7 +273,7 @@ function startRound(s: EngineState, rng: RNG) {
   const e = EVENTS.find(c => c.id === id); assert(e, 'Evento sconosciuto'); s.event = id; s.roundBlocked = e.blocksRound;
   s.order = [...new Set([...e.order, ...FACTIONS])]; s.advancers = [...e.advancers];
   s.log.push(`Round ${s.round} (${s.actualRound}): [${e.id}] ${e.name}`);
-  e.changes.forEach(c => changeTrack(s, c)); globals(s, e.globals);
+  e.changes.forEach(c => externalChange(s, c)); globals(s, e.globals);
 }
 export function createGame(options: { bots: Faction[]; neutrals?: Faction[]; mode?: GameMode; rulesRevision?: EngineState['rulesRevision']; botInfluenceEdition?: EngineState['botInfluenceEdition'] }, rng: RNG = Math.random): EngineState {
   assert(options.bots.every(f => FACTIONS.includes(f)), 'Fazione BOT sconosciuta');
@@ -285,6 +351,7 @@ function rotateUnits(s: EngineState) {
   const expired = s.units.filter(u => u.rotated);
   expired.forEach(u => s.log.push(`${u.faction}: ${unitDef(u.type).name} torna in riserva da ${territoryDef(u.territory).name}.`));
   s.units = s.units.filter(u => !u.rotated); s.units.forEach(u => { u.rotated = true; });
+  updateBlockade(s);
 }
 function refill(s: EngineState, rng: RNG) {
   FACTIONS.forEach(f => {
@@ -306,6 +373,14 @@ function endRound(s: EngineState, rng: RNG) {
       changeTrack(s, { faction: 'Iran', track: 'Consenso', delta: 1 });
       changeTrack(s, { faction: 'Coalizione', track: 'Consenso', delta: -1 });
       for (const faction of ['Russia', 'Cina'] as const) changeTrack(s, { faction, track: 'Diplomazia', delta: 1 });
+    }
+    if (hormuzBlocked(s)) {
+      s.log.push('Blocco di Hormuz attivo: effetti di fine round.');
+      externalChange(s, { faction: 'Europa', track: 'Economia', delta: -1 });
+      externalChange(s, { faction: 'Cina', track: 'Economia', delta: -1 });
+      changeTrack(s, { faction: 'Russia', track: 'Economia', delta: 1 });
+      changeTrack(s, { faction: 'Iran', track: 'Consenso', delta: 1 });
+      changeTrack(s, { faction: 'Iran', track: 'Economia', delta: -1 });
     }
   }
   if (usesOfficialRules(s)) {
@@ -402,7 +477,8 @@ function drain(s: EngineState, rng: RNG) {
   while (s.queue.length && s.phase !== 'ended') {
     const effect = s.queue.shift()!;
     if (effect.kind === 'correlation') {
-      if (canVeto(s, effect.change)) {
+      if (shieldAvailable(s, effect.change)) externalChange(s, effect.change);   // Rotte protette / Rotte sicure
+      else if (canVeto(s, effect.change)) {
         const p = s.players[effect.change.faction];
         if (p.bot) { if (p.tracks[effect.change.track] <= 3) applyVeto(s, effect.change); else changeTrack(s, effect.change); }
         else { s.phase = 'veto'; s.pending = { kind: 'veto', actor: effect.change.faction, change: effect.change }; return; }
@@ -471,8 +547,8 @@ function deployment(s: EngineState, actor: Faction, unitId: string, territoryId:
   const d = unitDef(unitId), name = d.name.toLowerCase();
   const intelligence = /intelligence|satelliti/.test(name), cyber = name === 'cyber russia' || name === 'cyber unit';
   if (intelligence) assert(target && FACTIONS.includes(target), 'Scegli esplicitamente la fazione di cui vedere la mano');
-  if (cyber) assert(target && target !== actor && (usesLatestRules(s) ? territoryPresence(s, target, territoryId) > 0 : s.units.some(u => u.territory === territoryId && u.faction === target)), 'Cyber: scegli un avversario presente nello stesso territorio');
-  if (name === 'diplomazia ue') assert(diplomacyEffect === 'sanctions' || diplomacyEffect === 'opinion', 'Scegli l’effetto diplomatico');
+  if (cyber && !usesLatestRules(s)) assert(target && target !== actor && (usesLatestRules(s) ? territoryPresence(s, target, territoryId) > 0 : s.units.some(u => u.territory === territoryId && u.faction === target)), 'Cyber: scegli un avversario presente nello stesso territorio');
+  if (name === 'diplomazia ue' && !usesLatestRules(s)) assert(diplomacyEffect === 'sanctions' || diplomacyEffect === 'opinion', 'Scegli l’effetto diplomatico');
   s.log.push(`${actor}: schiera ${d.name} in ${territoryDef(territoryId).name}.`);
   s.units.push({ id: `u${s.nextUnit++}`, type: unitId, faction: actor, territory: territoryId, placedRound: s.actualRound, rotated: false,
     ...(usesOfficialRules(s) && !usesLatestRules(s) ? { slot: firstFreeSlot(s, territoryId) } : {}) });
@@ -481,6 +557,7 @@ function deployment(s: EngineState, actor: Faction, unitId: string, territoryId:
     if (s.result) return;
   }
   if (intelligence) s.intel[actor].push({ target: target!, hand: [...s.players[target!].hand], activation: s.activation });
+  if (usesLatestRules(s)) { updateBlockade(s); return; }   // bonus persistenti: nessun effetto una tantum
   if (cyber) changeTrack(s, { faction: target!, track: 'Economia', delta: -1 });
   if (name === 'investimenti bri') changeTrack(s, { faction: 'Cina', track: 'Diplomazia', delta: 1 });
   if (name === 'tecnologia duale') changeTrack(s, { faction: 'Cina', track: 'Militare', delta: 1 });
@@ -527,6 +604,8 @@ function resolveCombat(s: EngineState, rng: RNG) {
     (usesOfficialRules(s) && !usesLatestRules(s) && controllingFaction === u.faction ? 1 : 0), 0) +
     modifier(c.defender) + c.dice[1] - attacking.filter(u => named(u, 'IRGC Cyber Unit')).length +
     (usesLatestRules(s) && defending.some(u => u.faction === controllingFaction) ? 1 : 0);
+  // Tecnologia duale (Cina): +1 alla difesa se difendono unità di Iran o Russia.
+  if (usesLatestRules(s) && hasUnitIn(s, 'Cina', 'Tecnologia duale', c.territory) && defending.some(u => u.faction === 'Iran' || u.faction === 'Russia')) c.defense++;
   // IRGC's printed D+5 already includes its homeland defense; do not count it twice.
   if (usesLatestRules(s) && c.territory === 'iran' && c.defender === 'Iran' && !defending.some(u => named(u, 'IRGC'))) c.defense++;
   c.winner = c.attack > c.defense ? c.attacker : c.defender; c.loser = c.winner === c.attacker ? c.defender : c.attacker;
@@ -542,6 +621,11 @@ function applyCasualties(s: EngineState, ids: string[], rng: RNG, resume = true)
   const c = s.combat!, p = s.pending; assert(p?.kind === 'casualty', 'Nessuna perdita da scegliere');
   assert(new Set(ids).size === ids.length && ids.length === p.count && ids.every(id => p.unitIds.includes(id)), 'Scegli esattamente le unità da rimuovere');
   s.log.push(`${c.loser}: rimuove ${ids.map(id => unitDef(s.units.find(u => u.id === id)!.type).name).join(', ')} da ${territoryDef(c.territory).name}.`);
+  const defeatedSpecialForces = usesLatestRules(s) && c.loser === 'Coalizione' ?
+    ids.filter(id => {
+      const u = s.units.find(candidate => candidate.id === id);
+      return u?.faction === 'Coalizione' && named(u, 'Forze Speciali');
+    }).length : 0;
   s.units = s.units.filter(u => !ids.includes(u.id)); changeTrack(s, { faction: c.loser!, track: 'Consenso', delta: -1 });
   if (usesOfficialRules(s)) {
     const lost = (s.influence ?? []).filter(i => i.territory === c.territory && i.faction === c.loser).sort((a, b) => a.slot - b.slot)[0];
@@ -552,10 +636,12 @@ function applyCasualties(s: EngineState, ids: string[], rng: RNG, resume = true)
   if (bonus) changeTrack(s, { faction: c.loser!, track: 'Consenso', delta: -bonus });
   const specialForces = winnerUnits.filter(u => named(u, 'Forze Speciali')).length;
   if (specialForces) changeTrack(s, { faction: 'Coalizione', track: 'Diplomazia', delta: specialForces });
+  if (defeatedSpecialForces) changeTrack(s, { faction: 'Coalizione', track: 'Consenso', delta: -defeatedSpecialForces });
   const cruise = winnerUnits.filter(u => named(u, 'Missili da crociera') && inNamed(u, 'Iran')).length;
   if (cruise) globals(s, [{ track: 'Nucleare', delta: -cruise }]);
   if (usesLatestRules(s) && c.territory === 'iran') globals(s, [{ track: c.winner === 'Coalizione' ? 'Nucleare' : 'Opinione', delta: -1 }], c.winner);
   s.log.push(`Combattimento: ${c.attacker} ${c.attack} / ${c.defender} ${c.defense} (dadi ${c.dice?.join(' / ')}); vince ${c.winner}`);
+  updateBlockade(s);
   s.combat = null; s.pending = null;
   if (s.phase !== 'ended') {
     s.phase = s.continuation === 'ops' ? 'ops' : 'activation';
@@ -677,7 +763,7 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
   if (command.type === 'veto') {
     const p = s.pending; assert(s.phase === 'veto' && p?.kind === 'veto', 'Nessun veto pendente');
     if (command.use) { assert(canVeto(s, p.change), 'Veto non disponibile'); applyVeto(s, p.change); }
-    else { s.log.push(`${actor}: rinuncia al Veto.`); changeTrack(s, p.change); }
+    else { s.log.push(`${actor}: rinuncia al Veto.`); externalChange(s, p.change); }
     s.pending = null; s.phase = s.continuation === 'ops' ? 'ops' : 'activation'; drain(s, rng); return s;
   }
   if (command.type === 'support') {
@@ -694,6 +780,12 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
     s.log.push(`${actor}: scarta ${p.count} ${p.count === 1 ? 'carta' : 'carte'} per il limite di mano ${p.limit}.`);
     command.cardIds.forEach(id => { s.players[actor].hand.splice(s.players[actor].hand.indexOf(id), 1); if (usesLatestRules(s)) s.discard.push(id); else dispose(s, id); });
     s.pending = null; promptDiscard(s, rng); return s;
+  }
+  if (command.type === 'peek') {
+    assert((s.phase === 'activation' || s.phase === 'ops') && canPeek(s, actor, command.target), 'Rete informativa non disponibile');
+    (s.peeked ??= {})[actor] = s.activation;
+    s.intel[actor].push({ target: command.target, hand: [...s.players[command.target].hand], activation: s.activation });
+    s.log.push(`${actor}: Rete informativa sulla mano di ${command.target}.`); return s;
   }
   if (command.type === 'skip') { assert(s.phase === 'activation' && !s.players[actor].hand.length, 'Puoi saltare solo senza carte'); s.log.push(`${actor}: salta l’attivazione, mano vuota.`); finish(s, rng); return s; }
   if (command.type === 'play-event') {
@@ -723,7 +815,8 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
     assert(!s.ops.pressured.includes(track), 'Massimo un passo per tracciato globale per attivazione');
     assert(track !== 'Nucleare' || (delta === 1 ? actor === 'Iran' : actor === 'Coalizione' || actor === 'Europa'), 'Pressione sul Nucleare non consentita');
     assert(track !== 'Sanzioni' || (delta === 1 ? actor === 'Coalizione' || actor === 'Europa' : actor === 'Iran' || actor === 'Russia' || actor === 'Cina'), 'Pressione sulle Sanzioni non consentita');
-    const dip = s.players[actor].tracks.Diplomazia, cost = dip <= 3 ? 3 : dip >= 8 ? 1 : 2;
+    const dip = s.players[actor].tracks.Diplomazia, base = dip <= 3 ? 3 : dip >= 8 ? 1 : 2;
+    const cost = Math.max(1, base - (usesLatestRules(s) && actor === 'Europa' && hasUnitIn(s, 'Europa', 'Diplomazia UE') ? 1 : 0));
     assert(s.ops.remaining >= cost, 'OP insufficienti'); s.ops.remaining -= cost; s.ops.pressured.push(track);
     s.log.push(`${actor}: Pressione ${track} ${delta > 0 ? '+' : ''}${delta}, costo ${cost} OP; restano ${s.ops.remaining} OP.`);
     globals(s, [{ track, delta }], actor);
@@ -742,6 +835,7 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
     const marker = (s.influence ?? []).find(i => i.id === command.influenceId);
     assert(marker && marker.faction !== actor, 'Scegli un segnalino Influenza avversario');
     assert(usesLatestRules(s) || territoryPresence(s, actor, marker.territory) > 0, 'Destabilizzare richiede presenza nello stesso Stato');
+    assert(!presidio(s, marker.faction, marker.territory), 'Presidio: questa Influenza non può essere Destabilizzata');
     s.influence = s.influence!.filter(i => i.id !== marker.id); s.ops.remaining -= 2;
     s.log.push(`${actor}: Destabilizzare rimuove Influenza ${marker.faction} da ${territoryDef(marker.territory).name}, costo 2 OP; restano ${s.ops.remaining} OP.`);
   } else if (command.type === 'maintain') {
@@ -751,8 +845,9 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
     s.ops.remaining -= MAINTENANCE_COST;
     s.log.push(`${actor}: Mantenimento di ${unitDef(u.type).name} in ${territoryDef(u.territory).name}, costo 1 OP; restano ${s.ops.remaining} OP.`);
   } else if (command.type === 'attack') {
-    assert(s.ops.remaining >= 2, 'Servono 2 OP'); s.ops.remaining -= 2;
-    s.log.push(`${actor}: spende 2 OP per Attacco; restano ${s.ops.remaining} OP.`);
+    const cost = attackCost(s, command.territoryId);
+    assert(s.ops.remaining >= cost, `Servono ${cost} OP`); s.ops.remaining -= cost;
+    s.log.push(`${actor}: spende ${cost} OP per Attacco${cost > 2 ? ' (Caschi blu: zona protetta)' : ''}; restano ${s.ops.remaining} OP.`);
     beginAttack(s, actor, command.territoryId, rng);
   } else throw new Error('Comando sconosciuto');
   return s;

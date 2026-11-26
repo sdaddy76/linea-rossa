@@ -4,7 +4,7 @@ import { useOnlineGameStore } from '@/store/onlineGameStore';
 import { getObjectiveCardFront } from '@/data/card-graphics';
 import { FACTIONS, TRACKS, type Faction, type GlobalTrack, type TrackChange } from './catalog-types';
 import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
-import { canDeploy, currentActor, deployCost, maintainableUnits, MAINTENANCE_COST, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, reduce, type EngineState, type Command } from './engine';
+import { canDeploy, canPeek, attackCost, currentActor, deployCost, maintainableUnits, MAINTENANCE_COST, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, reduce, type EngineState, type Command } from './engine';
 import { commitCommand, readTabletop, type SavedTabletop } from './online';
 import { objectiveStatus } from './objectives';
 import { COLORS, FactionBoard, TabletopBoard, UnitImage } from './Boards';
@@ -129,12 +129,17 @@ export default function TabletopGamePage({ onBack, previewState }: {
   const deployable = UNITS.filter(u => u.faction === opsActor);
   const chosenUnit = deployable.find(u => u.id === unitId) ?? deployable[0];
   const intelligence = !!chosenUnit && /intelligence|satelliti/i.test(chosenUnit.name);
-  const placementCyber = !!chosenUnit && /^(cyber russia|cyber unit)$/i.test(chosenUnit.name);
+  const placementCyber = !!chosenUnit && !usesLatestRules(s) && /^(cyber russia|cyber unit)$/i.test(chosenUnit.name);
   const targetOptions = intelligence ? [...FACTIONS] : FACTIONS.filter(f => f !== opsActor && (usesLatestRules(s) ? territoryPresence(s,f,selected)>0 : localUnits.some(u => u.faction === f)));
   const deploymentTarget = targetOptions.includes(target) ? target : targetOptions[0];
   const budget = s.ops?.remaining ?? 0;
   const expiringUnits = opsActor ? maintainableUnits(s, opsActor) : [];
-  const pressureCost = opsActor ? (s.players[opsActor].tracks.Diplomazia <= 3 ? 3 : s.players[opsActor].tracks.Diplomazia >= 8 ? 1 : 2) : 0;
+  const pressureBase = opsActor ? (s.players[opsActor].tracks.Diplomazia <= 3 ? 3 : s.players[opsActor].tracks.Diplomazia >= 8 ? 1 : 2) : 0;
+  // Diplomazia UE sul tabellone: Pressione globale dell'Europa −1 OP (regolamento attuale).
+  const pressureCost = opsActor === 'Europa' && usesLatestRules(s) && s.units.some(u => u.faction === 'Europa' && UNITS.find(d => d.id === u.type)?.name === 'Diplomazia UE') ? Math.max(1, pressureBase - 1) : pressureBase;
+  const latest = usesLatestRules(s);
+  const peekTargets = own && canAct && (s.phase === 'activation' || s.phase === 'ops') ? FACTIONS.filter(f => canPeek(s, own, f)) : [];
+  const myIntel = own && latest ? [...s.intel[own]].slice(-3).reverse() : [];
   const toggle = (id: string) => setMarked(old => old.includes(id) ? old.filter(x => x !== id) : [...old, id]);
   const points = Object.fromEntries(FACTIONS.map(f => [f, s.players[f].points])) as Record<Faction, number>;
   const stage = { activation: 'Scelta carta', ops: 'Operazioni', veto: 'Decisione sul veto', support: 'Scelta del sostegno', casualty: 'Selezione perdite', discard: 'Scarto di fine round', control: 'Bonus controllo territorio', 'bot-influence': 'Influenza BOT · destinazione manuale', ended: 'Partita conclusa' }[s.phase];
@@ -251,8 +256,8 @@ export default function TabletopGamePage({ onBack, previewState }: {
               const allowed = track === 'Nucleare' ? (delta > 0 ? opsActor === 'Iran' : ['Coalizione', 'Europa'].includes(opsActor)) : track === 'Sanzioni' ? (delta > 0 ? ['Coalizione', 'Europa'].includes(opsActor) : ['Iran', 'Russia', 'Cina'].includes(opsActor)) : true;
               return <button key={delta} disabled={!allowed || budget < pressureCost || s.ops!.pressured.includes(track)} className={button} onClick={() => send({ type: 'pressure', track, delta })}>{delta > 0 ? '+1' : '−1'}</button>;
             })}</div></div>)}
-            <h3 className="font-semibold mt-5 mb-2">Attacco · 2 OP</h3><p className="text-xs text-slate-400 mb-2">Nel territorio selezionato devono esserci unità di Iran e Coalizione. Crisi Bellica −1 immediato.</p>
-            <button className={button} disabled={budget < 2 || !['Iran', 'Coalizione'].includes(opsActor) || !localUnits.some(u => u.faction === 'Iran') || !localUnits.some(u => u.faction === 'Coalizione')} onClick={() => send({ type: 'attack', territoryId: selected })}>Attacca in {territory.name}</button>
+            <h3 className="font-semibold mt-5 mb-2">Attacco · {attackCost(s, selected)} OP</h3><p className="text-xs text-slate-400 mb-2">Nel territorio selezionato devono esserci unità di Iran e Coalizione. Crisi Bellica −1 immediato.</p>
+            <button className={button} disabled={budget < attackCost(s, selected) || !['Iran', 'Coalizione'].includes(opsActor) || !localUnits.some(u => u.faction === 'Iran') || !localUnits.some(u => u.faction === 'Coalizione')} onClick={() => send({ type: 'attack', territoryId: selected })}>Attacca in {territory.name}</button>
             {official && <><h3 className="font-semibold mt-5 mb-2">Influenza · {influenceCost(s, opsActor, selected)} OP</h3><p className="text-xs text-slate-400 mb-2">Base: 1 OP amico, 2 neutrale, 3 nemico.{usesLatestRules(s) && ' Si applicano i modificatori Militare per Russia/Cina/Europa e Opinione per Iran/Coalizione; minimo 1 OP. Destabilizzare costa 2 OP, in qualsiasi Stato.'}</p>
               <InfluenceAction key={`${gameId}-${saved.revision}-${opsActor}-${selected}`} proposal={{revision:saved.revision,actor:opsActor,territoryId:selected,territoryName:territory.name,cost:influenceCost(s,opsActor,selected),budget}}
                 disabled={!canAct || !canInfluence(s,selected) || budget<influenceCost(s,opsActor,selected)} onConfirm={()=>{void send({type:'influence',territoryId:selected});}}/>
@@ -264,7 +269,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
             <label className="block text-sm mt-3">Territorio<select className={selectStyle} value={selected} onChange={e => setSelected(e.target.value)}>{TERRITORIES.map(t => <option key={t.id} value={t.id}>{t.name} ({occupiedSlots(s,t.id).length}/{t.capacity})</option>)}</select></label>
             {chosenUnit && <><p className="text-sm my-3">{chosenUnit.effect}</p>
               {(intelligence || placementCyber) && <label className="block text-sm">Fazione bersaglio<select className={selectStyle} value={deploymentTarget ?? ''} onChange={e => setTarget(e.target.value as Faction)}>{!targetOptions.length && <option value="">Nessun avversario presente nel territorio</option>}{targetOptions.map(f => <option key={f}>{f}</option>)}</select></label>}
-              {/diplomatic/i.test(chosenUnit.name) && <label className="block text-sm">Effetto diplomatico<select className={selectStyle} value={diplomacyEffect} onChange={e => setDiplomacyEffect(e.target.value as 'sanctions' | 'opinion')}><option value="sanctions">Sanzioni −1</option><option value="opinion">Opinione +1</option></select></label>}
+              {!latest && /diplomatic/i.test(chosenUnit.name) && <label className="block text-sm">Effetto diplomatico<select className={selectStyle} value={diplomacyEffect} onChange={e => setDiplomacyEffect(e.target.value as 'sanctions' | 'opinion')}><option value="sanctions">Sanzioni −1</option><option value="opinion">Opinione +1</option></select></label>}
               <button className={button + ' mt-3 w-full'} disabled={!canDeploy(s, opsActor, chosenUnit.id, selected) || deployCost(s, opsActor, chosenUnit.id, selected) > budget || ((intelligence || placementCyber) && !deploymentTarget)}
                 onClick={() => send({ type: 'deploy', unitId: chosenUnit.id, territoryId: selected, target: deploymentTarget, diplomacyEffect })}>Schiera · {deployCost(s, opsActor, chosenUnit.id, selected)} OP</button>
               <div className="max-w-48 mt-3"><UnitImage id={chosenUnit.id} name={chosenUnit.name} /></div></>}
@@ -275,6 +280,11 @@ export default function TabletopGamePage({ onBack, previewState }: {
           <div className="flex flex-wrap gap-2">{expiringUnits.map(u => <button key={u.id} data-maintain-unit={u.id} className={button} disabled={!canAct || budget < MAINTENANCE_COST}
             onClick={() => send({ type: 'maintain', unitId: u.id })}>Mantieni {UNITS.find(d => d.id === u.type)?.name} · {TERRITORIES.find(t => t.id === u.territory)?.name} · {u.id} · {MAINTENANCE_COST} OP</button>)}</div></div>}
         <button className={button + ' border-red-500'} onClick={() => send({ type: 'finish-ops' })}>Termina attivazione{budget ? ` · rinuncia a ${budget} OP` : ''}</button>
+      </Panel>}
+      {own && latest && (peekTargets.length > 0 || myIntel.length > 0) && <Panel title="Rete informativa · solo per te">
+        <p className="text-xs text-slate-400">Intelligence e Satelliti: a ogni tua attivazione puoi guardare la mano di una fazione presente in uno Stato dove hai una di queste unità.</p>
+        {peekTargets.length > 0 && <div className="flex flex-wrap gap-2 my-2">{peekTargets.map(f => <button key={f} className={button} onClick={() => send({ type: 'peek', target: f })}>Guarda la mano di {f}</button>)}</div>}
+        {myIntel.map((entry, i) => <p key={i} className="text-sm mt-1"><strong>{entry.target}</strong> (attivazione {entry.activation}): {entry.hand.length ? entry.hand.map(id => FACTION_CARDS.find(c => c.id === id)?.name ?? id).join(' · ') : 'mano vuota'}</p>)}
       </Panel>}
       {p && own && <Panel title={`La tua mano · ${own} · ${p.hand.length} carte`}>
         {s.pending?.kind === 'discard' && actor === own && <div className="text-amber-200"><p>Seleziona {s.pending.count} carte da scartare. Limite mano: {s.pending.limit}.</p>

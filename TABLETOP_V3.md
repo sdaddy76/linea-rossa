@@ -69,6 +69,13 @@ backup delle partite.
   Priorità: unità decisiva per il controllo, Stato conteso, altro Stato controllato;
   poi il costo stampato più alto; a parità completa l'ordine delle unità nel salvataggio.
   Le unità non scelte scadono normalmente. Nessun mantenimento extra a fine round.
+- Bonus persistenti delle unità e Blocco di Hormuz (regole del 2026-11-26, solo
+  regolamento attuale): gli effetti "al piazzamento" diventano bonus che valgono
+  finché l'unità è sul tabellone (Presidio, sconti Influenza, Interferenza, Rete
+  informativa, Rotte protette/sicure, Tecnologia duale, Zona protetta, Diplomazia
+  UE); Forze Speciali sconfitte −1 Consenso. Il Blocco all'attivazione dà Crisi
+  Bellica −1 e Opinione −1; a ogni fine round Europa e Cina Economia −1, Russia
+  Economia +1, Iran Consenso +1 ed Economia −1.
 - Presenza minima BOT (regola del 2026-11-25, per salvataggi con regole 2026-11-21):
   quando un BOT gioca una carta BOT e non ha unità sul tabellone, il primo
   Sviluppo diventa Schiera della sua unità base (Forze convenzionali, Convenzionale,

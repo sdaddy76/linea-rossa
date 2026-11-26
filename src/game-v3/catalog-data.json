@@ -22643,7 +22643,7 @@
       "attack": 0,
       "defense": 1,
       "naval": false,
-      "effect": "Esercito regolare. Controllo del territorio e difesa."
+      "effect": "Esercito regolare. Presidio: in Iran l'Influenza iraniana non può essere Destabilizzata."
     },
     {
       "id": "IR-U02",
@@ -22663,7 +22663,7 @@
       "attack": 1,
       "defense": 2,
       "naval": false,
-      "effect": "In caso di vittoria: −1 Consenso della fazione sconfitta."
+      "effect": "In caso di vittoria: −1 Consenso della fazione sconfitta. Influenza dell'Iran in questo Stato −1 OP."
     },
     {
       "id": "IR-U04",
@@ -22684,7 +22684,7 @@
       "attack": 2,
       "defense": 2,
       "naval": true,
-      "effect": "Solo navale; 2 nello Stretto di Hormuz attivano il Blocco."
+      "effect": "Solo navale; 2 nello Stretto di Hormuz attivano il Blocco di Hormuz."
     },
     {
       "id": "IR-U06",
@@ -22714,7 +22714,7 @@
       "attack": 0,
       "defense": 1,
       "naval": false,
-      "effect": "Difesa standard; nessun effetto speciale."
+      "effect": "Difesa standard. Presidio: l'Influenza della Coalizione in questo Stato non può essere Destabilizzata."
     },
     {
       "id": "CO-U02",
@@ -22724,7 +22724,7 @@
       "attack": 3,
       "defense": 1,
       "naval": false,
-      "effect": "In caso di vittoria: +1 Diplomazia Coalizione."
+      "effect": "In caso di vittoria: +1 Diplomazia Coalizione. In caso di sconfitta: −1 Consenso Coalizione."
     },
     {
       "id": "CO-U03",
@@ -22804,7 +22804,7 @@
       "attack": 2,
       "defense": 2,
       "naval": true,
-      "effect": "Solo navale. Presenza nel Mediterraneo orientale."
+      "effect": "Solo navale. Proiezione: Influenza russa −1 OP in Siria e Libano."
     },
     {
       "id": "RU-U05",
@@ -22814,7 +22814,7 @@
       "attack": 1,
       "defense": 0,
       "naval": false,
-      "effect": "Al piazzamento: guarda la mano di una fazione."
+      "effect": "Al piazzamento: guarda la mano di una fazione. Rete informativa: a ogni tua attivazione guarda la mano di una fazione presente in questo Stato."
     },
     {
       "id": "RU-U06",
@@ -22824,7 +22824,7 @@
       "attack": 1,
       "defense": 1,
       "naval": false,
-      "effect": "Al piazzamento: −1 Economia di una fazione nello stesso territorio."
+      "effect": "Interferenza: gli avversari pagano +1 OP per Influenza e schieramenti in questo Stato."
     },
     {
       "id": "CN-U01",
@@ -22834,7 +22834,7 @@
       "attack": 0,
       "defense": 1,
       "naval": false,
-      "effect": "Al piazzamento: +1 Diplomazia Cina."
+      "effect": "Influenza cinese in questo Stato −1 OP."
     },
     {
       "id": "CN-U02",
@@ -22844,7 +22844,7 @@
       "attack": 0,
       "defense": 1,
       "naval": true,
-      "effect": "Solo navale. Protegge le rotte."
+      "effect": "Solo navale. Rotte protette: una volta per round la Cina ignora una perdita di Economia da correlazioni, eventi o Blocco di Hormuz."
     },
     {
       "id": "CN-U03",
@@ -22854,7 +22854,7 @@
       "attack": 0,
       "defense": 1,
       "naval": false,
-      "effect": "Al piazzamento: +1 Militare Cina."
+      "effect": "Se difendono in questo Stato unità di Iran o Russia: +1 alla difesa."
     },
     {
       "id": "CN-U04",
@@ -22864,7 +22864,7 @@
       "attack": 0,
       "defense": 1,
       "naval": false,
-      "effect": "Al piazzamento: +1 Consenso Cina."
+      "effect": "Dipendenza: l'Influenza cinese in questo Stato non può essere Destabilizzata."
     },
     {
       "id": "CN-U05",
@@ -22874,7 +22874,7 @@
       "attack": 1,
       "defense": 0,
       "naval": false,
-      "effect": "Al piazzamento: guarda la mano di una fazione."
+      "effect": "Al piazzamento: guarda la mano di una fazione. Rete informativa: a ogni tua attivazione guarda la mano di una fazione presente in questo Stato."
     },
     {
       "id": "CN-U06",
@@ -22884,7 +22884,7 @@
       "attack": 1,
       "defense": 0,
       "naval": false,
-      "effect": "Al piazzamento: −1 Economia di una fazione nello stesso territorio."
+      "effect": "Interferenza: gli avversari pagano +1 OP per Influenza e schieramenti in questo Stato."
     },
     {
       "id": "EU-U01",
@@ -22894,7 +22894,7 @@
       "attack": 0,
       "defense": 2,
       "naval": false,
-      "effect": "Solo difesa; +1 Opinione Globale al piazzamento; max 3 per territorio.",
+      "effect": "Solo difesa; max 3 per territorio. Zona protetta: attaccare questo Stato costa 2 OP in più.",
       "maxPerTerritory": 3
     },
     {
@@ -22905,7 +22905,7 @@
       "attack": 1,
       "defense": 2,
       "naval": true,
-      "effect": "Solo navale. Protegge le rotte marittime."
+      "effect": "Solo navale. Rotte sicure: una volta per round l'Europa ignora una perdita di Economia da correlazioni, eventi o Blocco di Hormuz."
     },
     {
       "id": "EU-U03",
@@ -22915,7 +22915,7 @@
       "attack": 0,
       "defense": 1,
       "naval": false,
-      "effect": "Al piazzamento: +1 Consenso Europa."
+      "effect": "Influenza europea in questo Stato −1 OP."
     },
     {
       "id": "EU-U04",
@@ -22925,7 +22925,7 @@
       "attack": 0,
       "defense": 0,
       "naval": false,
-      "effect": "Al piazzamento: −1 Sanzioni oppure +1 Opinione Globale."
+      "effect": "Finché è sul tabellone: Pressione globale dell'Europa −1 OP (minimo 1)."
     },
     {
       "id": "EU-U05",
@@ -22935,7 +22935,7 @@
       "attack": 1,
       "defense": 1,
       "naval": false,
-      "effect": "Al piazzamento: guarda la mano di una fazione."
+      "effect": "Al piazzamento: guarda la mano di una fazione. Rete informativa: a ogni tua attivazione guarda la mano di una fazione presente in questo Stato."
     },
     {
       "id": "EU-U06",
@@ -22945,7 +22945,7 @@
       "attack": 1,
       "defense": 0,
       "naval": false,
-      "effect": "Al piazzamento: −1 Economia di una fazione nello stesso territorio."
+      "effect": "Interferenza: gli avversari pagano +1 OP per Influenza e schieramenti in questo Stato."
     }
   ],
   "territories": [
