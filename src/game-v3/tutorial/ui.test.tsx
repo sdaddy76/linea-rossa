@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { existsSync } from 'node:fs';
 import GuidedGame from './GuidedGame';
-import RuleIntro, { BOT_CARD, BOT_STATE, BOT_WEAKEST, DEVELOP, FINAL_INFLUENCE, FINAL_OBJECTIVES, FINAL_TOTAL, RULE_INTROS, SCORE_DELTA, type RuleIntroId } from './RulesIntros';
+import { UNITS } from '../catalog';
+import RuleIntro, { DEPLOY_COST, UNIT_GROUP_IDS, BOT_CARD, BOT_STATE, BOT_WEAKEST, DEVELOP, FINAL_INFLUENCE, FINAL_OBJECTIVES, FINAL_TOTAL, RULE_INTROS, SCORE_DELTA, type RuleIntroId } from './RulesIntros';
 import { weakestTrack } from '../bots';
 import { createGame } from '../engine';
 import CombatIntro, { ATTACK, BATTLE, COMBAT_SCENES, DEFENSE } from './CombatIntro';
@@ -149,6 +150,8 @@ test('rule animations render every step with real art and consistent numbers', (
   assert.equal(BOT_STATE, 'iraq'); assert.equal(BOT_CARD.track, BOT_WEAKEST);
   assert.equal(weakestTrack(createGame({ bots: ['Iran'], rulesRevision: '2026-11-21' }, () => 0.3), 'Iran'), BOT_WEAKEST);
   assert.deepEqual(DEVELOP.negative, { faction: 'Europa', track: 'Economia', delta: -1 });
+  assert.equal(DEPLOY_COST, 2, 'matches the guided Coalition deployment in Iraq');
+  for (const f of ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'] as const) assert.deepEqual(Object.values(UNIT_GROUP_IDS[f]).flatMap(g => g.ids).sort(), UNITS.filter(u => u.faction === f).map(u => u.id).sort(), f);
   const seen = new Set<string>();
   for (const id of Object.keys(RULE_INTROS) as RuleIntroId[]) RULE_INTROS[id].scenes.forEach((scene, i) => scene.steps.forEach((_, j) => {
     const html = renderToStaticMarkup(<RuleIntro id={id} onClose={() => {}} initialScene={i} initialStep={j} />);
@@ -157,5 +160,5 @@ test('rule animations render every step with real art and consistent numbers', (
   }));
   for (const src of seen) assert.ok(existsSync(`public${decodeURIComponent(src)}`), `missing ${src}`);
   const html = renderToStaticMarkup(<GuidedGame onExit={() => {}} onPlay={() => {}} />);
-  for (const label of ['Animazioni delle regole', 'Sviluppo e Veto', 'La fine del round', 'Il turno di un BOT', 'Il Blocco di Hormuz', 'Il punteggio finale']) assert.ok(html.includes(label), label);
+  for (const label of ['Animazioni delle regole', 'La preparazione della partita', 'Le azioni con gli OP', 'Le unità e i loro bonus', 'Sviluppo e Veto', 'La fine del round', 'Il turno di un BOT', 'Il Blocco di Hormuz', 'Il punteggio finale']) assert.ok(html.includes(label), label);
 });

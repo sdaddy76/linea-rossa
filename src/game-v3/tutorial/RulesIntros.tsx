@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, FACTION_CARDS, INITIAL_TRACKS, OBJECTIVES, TERRITORIES, UNITS, type Faction, type Track } from '../catalog';
+import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, FACTION_CARDS, FACTIONS, INITIAL_TRACKS, OBJECTIVES, TERRITORIES, TRACKS, UNITS, type Faction, type Track } from '../catalog';
 import { BOARD_ART, EVENT_BACK, botBackArt, botFrontArt, factionBoardArt, unitBackArt, unitFrontArt } from '../art';
-import { FACTION_CARD_BACK, getFactionCardFront, getObjectiveCardFront } from '../../data/card-graphics';
+import { FACTION_CARD_BACK, getFactionCardFront, getObjectiveCardBack, getObjectiveCardFront } from '../../data/card-graphics';
 import { Framed, IntroPlayer, type Focus, type IntroScene, type PlayerProps } from './IntroPlayer';
 import { emblemArt } from './ComponentsIntro';
 import { Meter } from './RoundIntro';
@@ -218,7 +218,124 @@ export const DEVELOP_SCENES: RuleScene[] = [
   </div> },
 ];
 
+/* ---------------- Preparazione della partita ---------------- */
+export const START_GLOBALS = { Nucleare: 4, Sanzioni: 3, 'Crisi Bellica': 7, Opinione: 0 };
+export const SETUP_SCENES: RuleScene[] = [
+  { id: 'mode', kicker: 'Preparazione', title: 'Scegliete la durata', steps: [
+    { text: 'Si sceglie la modalità: Breve, Media o Lunga. La partita finisce alla fine del round in cui il segna-turni raggiunge 30, 60 oppure 80.' },
+  ], view: () => <Rows step={9} items={[['Breve', 'segna-turni 30'], ['Media', 'segna-turni 60'], ['Lunga', 'segna-turni 80']]} /> },
+  { id: 'powers', kicker: 'Preparazione', title: 'Giocatori e BOT', steps: [
+    { text: 'Ogni giocatore sceglie una potenza e prende la sua plancia. Le potenze rimaste senza giocatore sono BOT.' },
+    { text: 'Ogni potenza parte con i suoi valori iniziali: per esempio l’Iran ha Economia 4, Militare 7, Diplomazia 4 e Consenso 5.' },
+  ], view: step => step === 0 ? <div className="rules-badges">{FACTIONS.map((f, i) => <Badge key={f} faction={f} note={i >= 3 ? 'BOT' : undefined} />)}</div> :
+    <div className="rules-start">{FACTIONS.map(f => <div key={f}><Badge faction={f} />{TRACKS.map(t => <span key={t}>{t.slice(0, 3)} <b>{INITIAL_TRACKS[f][t]}</b></span>)}</div>)}</div> },
+  { id: 'cards', kicker: 'Preparazione', title: 'Carte e obiettivi', steps: [
+    { text: 'Si mescola il Mazzo Fazioni e ogni giocatore riceve 5 carte.' },
+    { text: 'Ogni giocatore pesca 3 obiettivi segreti dal mazzo della sua potenza e li tiene coperti fino alla fine.' },
+    { text: 'Ogni BOT riceve invece i suoi 4 mazzi BOT mescolati, uno per tracciato. I BOT non hanno mano né obiettivi.' },
+  ], view: step => <div className="rules-setup-cards">
+    <figure className={step >= 0 ? 'is-on' : ''}><span className="rules-cards">{Array.from({ length: 5 }, (_, k) => <img key={k} src={FACTION_CARD_BACK} alt="" style={{ '--k': k } as CSSProperties} />)}</span><figcaption>5 carte</figcaption></figure>
+    <figure className={step >= 1 ? 'is-on' : ''}><span className="rules-cards">{Array.from({ length: 3 }, (_, k) => <img key={k} src={getObjectiveCardBack('Iran') ?? ''} alt="" style={{ '--k': k } as CSSProperties} />)}</span><figcaption>3 obiettivi</figcaption></figure>
+    <figure className={step >= 2 ? 'is-on' : ''}><span className="rules-cards">{TRACKS.map((t, k) => <img key={t} src={botBackArt('Cina', t)} alt="" style={{ '--k': k } as CSSProperties} />)}</span><figcaption>4 mazzi BOT</figcaption></figure>
+  </div> },
+  { id: 'board', kicker: 'Preparazione', title: 'Il tabellone', steps: [
+    { text: `I segnalini globali partono da Nucleare ${START_GLOBALS.Nucleare}, Sanzioni ${START_GLOBALS.Sanzioni}, Crisi Bellica ${START_GLOBALS['Crisi Bellica']} e Opinione ${START_GLOBALS.Opinione}. Il segna-turni parte da 0.` },
+    { text: 'Si mescola il mazzo Eventi. Il primo round comincia scoprendo la prima carta Evento.' },
+  ], view: step => step === 0 ? <div className="round-meters rules-wide">
+    <Meter label="Nucleare" min={1} max={15} value={START_GLOBALS.Nucleare} before={START_GLOBALS.Nucleare} />
+    <Meter label="Sanzioni" min={1} max={10} value={START_GLOBALS.Sanzioni} before={START_GLOBALS.Sanzioni} />
+    <Meter label="Crisi Bellica" min={1} max={10} value={START_GLOBALS['Crisi Bellica']} before={START_GLOBALS['Crisi Bellica']} danger="low" />
+    <Meter label="Opinione" min={-10} max={10} value={START_GLOBALS.Opinione} before={START_GLOBALS.Opinione} />
+  </div> : <div className="intro-card-row"><img className="intro-card intro-card-main" src={EVENT_BACK} alt="Mazzo Eventi" /></div> },
+];
+
+/* ---------------- Le azioni con gli OP ---------------- */
+function Cost({ rows, total, title }: { rows: [string, string][]; total?: string; title?: string }) {
+  return <div className="rules-tally rules-cost">{title && <header>{title}</header>}{rows.map(([a, b]) => <div key={a} className="is-on"><span>{a}</span><b>{b}</b></div>)}
+    {total && <div className="rules-tally-total is-on"><span>Costo</span><b>{total}</b></div>}</div>;
+}
+export const DEPLOY_EXAMPLE = { unit: unit('CO-U01'), crisis: 8, economy: INITIAL_TRACKS.Coalizione.Economia, territory: 'iraq' };
+export const DEPLOY_COST = DEPLOY_EXAMPLE.unit.cost + (DEPLOY_EXAMPLE.crisis <= 4 ? 2 : DEPLOY_EXAMPLE.crisis <= 7 ? 1 : 0) +
+  (DEPLOY_EXAMPLE.economy <= 3 ? 1 : DEPLOY_EXAMPLE.economy >= 8 ? -1 : 0) + alignment(DEPLOY_EXAMPLE.territory, 'Coalizione');
+export const ACTIONS_SCENES: RuleScene[] = [
+  { id: 'menu', kicker: 'Azioni OP', title: 'Spendere gli OP', steps: [
+    { text: 'Una carta giocata per gli OP dà un budget da spendere in una o più azioni, nell’ordine che preferisci. Gli OP non spesi si perdono.' },
+  ], view: () => <Rows step={9} items={[['Sviluppo', '2 OP'], ['Pressione globale', '1–3 OP'], ['Influenza', '1–3 OP'], ['Destabilizzare', '2 OP'], ['Schieramento', 'costo dell’unità'], ['Mantenimento', '1 OP'], ['Attacco', '2 OP · solo Iran e Coalizione']]} /> },
+  { id: 'influence', kicker: 'Azioni OP', title: 'Influenza', steps: [
+    { text: 'Un segnalino Influenza costa 1 OP in uno Stato amico, 2 in uno neutrale, 3 in uno nemico, e serve un riquadro libero. Di norma resta fino a fine partita.' },
+    { text: 'Per Russia, Cina ed Europa negli Stati non amici conta il Militare: Forte −1 OP, Crisi +1 OP. L’Iran paga −1 con l’Opinione a −4 o meno, la Coalizione con l’Opinione a +4 o più.' },
+    { text: 'Alcune unità nello Stato rendono l’Influenza più economica di 1, le unità Cyber avversarie la rendono più cara di 1. Il costo minimo è sempre 1 OP.' },
+  ], view: step => <Split left={<Cost title="Influenza della Cina · OP" rows={[['Arabia Saudita · amico', '1'], ['Siria · neutrale', '2'], ['Israele · nemico', '3']]} />}
+    right={<Rows step={step === 0 ? -1 : step} items={[['Militare Forte · Crisi', '−1 · +1 OP'], ['Opinione', 'Iran ≤ −4 · Coalizione ≥ +4: −1'], ['Unità amiche · Cyber avversaria', '−1 · +1 OP']]} />} /> },
+  { id: 'destabilize', kicker: 'Azioni OP', title: 'Destabilizzare', steps: [
+    { text: 'Con 2 OP togli un segnalino Influenza avversario da uno Stato qualsiasi.' },
+    { text: 'Non si può se l’Influenza è protetta da un Presidio: Convenzionale della Coalizione, Infrastrutture cinesi o Forze convenzionali iraniane in Iran.' },
+  ], view: step => <div className="rules-presence"><Tile id="CO-U01" label="Presidio" className={step >= 1 ? '' : 'is-dim'} /><Tile id="CN-U04" label="Dipendenza" className={step >= 1 ? '' : 'is-dim'} /><Tile id="IR-U01" label="Presidio in Iran" className={step >= 1 ? '' : 'is-dim'} /></div> },
+  { id: 'pressure', kicker: 'Azioni OP', title: 'Pressione globale', steps: [
+    { text: 'La Pressione sposta di 1 un tracciato globale. Costa 1 OP con la Diplomazia Forte, 2 se Stabile, 3 se in Crisi. Un solo passo per tracciato a ogni attivazione.' },
+    { text: 'Solo l’Iran alza il Nucleare; Coalizione ed Europa lo abbassano. Coalizione ed Europa alzano le Sanzioni; Iran, Russia e Cina le abbassano. Crisi Bellica e Opinione le muovono tutti.' },
+  ], view: step => <Rows step={step === 0 ? 0 : 9} items={[['Diplomazia Forte · Stabile · Crisi', '1 · 2 · 3 OP'], ['Nucleare', '+ Iran · − Coalizione, Europa'], ['Sanzioni', '+ Coalizione, Europa · − Iran, Russia, Cina'], ['Crisi Bellica · Opinione', 'tutti, nei due sensi']]} /> },
+  { id: 'deploy', kicker: 'Azioni OP', title: 'Schieramento', steps: [
+    { text: 'Schierare costa il valore stampato sull’unità, più la Crisi Bellica: +2 se è a 4 o meno, +1 da 5 a 7, nulla da 8 in su.' },
+    { text: 'Poi l’Economia (in Crisi +1, Forte −1) e l’allineamento dello Stato (+0, +1, +2). Per la Coalizione +1 durante il Blocco di Hormuz, e +1 con una Cyber avversaria nello Stato.' },
+    { text: `Esempio: la Coalizione schiera un ${DEPLOY_EXAMPLE.unit.name} in Iraq con la Crisi Bellica a ${DEPLOY_EXAMPLE.crisis}: ${DEPLOY_EXAMPLE.unit.cost} + 0 + 0 + 1 (Iraq neutrale) = ${DEPLOY_COST} OP. Le unità schierate non si muovono più.` },
+  ], view: step => <Split left={<Tile id={DEPLOY_EXAMPLE.unit.id} label={`${DEPLOY_EXAMPLE.unit.name} · costo ${DEPLOY_EXAMPLE.unit.cost}`} />}
+    right={step < 2 ? <Rows step={step === 0 ? 1 : 9} items={[['Costo dell’unità', 'stampato'], ['Crisi Bellica', '≤4 +2 · 5–7 +1 · ≥8 +0'], ['Economia', 'Crisi +1 · Forte −1'], ['Allineamento', '+0 · +1 · +2'], ['Blocco · Cyber', '+1 · +1']]} />
+      : <Cost rows={[['Convenzionale', String(DEPLOY_EXAMPLE.unit.cost)], [`Crisi Bellica ${DEPLOY_EXAMPLE.crisis}`, '+0'], [`Economia ${DEPLOY_EXAMPLE.economy}`, '+0'], ['Iraq neutrale', '+1']]} total={`${DEPLOY_COST} OP`} />} /> },
+  { id: 'keep', kicker: 'Azioni OP', title: 'Mantenimento e Attacco', steps: [
+    { text: 'Mantenimento: 1 OP per una tua unità ruotata, che torna dritta e resta un altro round.' },
+    { text: 'Attacco: 2 OP, solo per Iran e Coalizione, in uno Stato dove ci sono unità di tutte e due. Diventano 4 se nello Stato ci sono i Caschi blu europei.' },
+  ], view: step => <div className="intro-units"><div className="intro-unit-row">
+    <img src={unitFrontArt('CO-U02')} alt="" className={step === 0 ? 'is-rotated is-kept' : ''} />
+    <img src={unitFrontArt('EU-U01')} alt="" className={step === 1 ? 'is-picked' : ''} /></div>
+    <p className="intro-unit-caption">{step === 0 ? 'Mantenimento · 1 OP' : 'Attacco · 2 OP, 4 con i Caschi blu'}</p></div> },
+];
+
+/* ---------------- Le unità e i loro bonus ---------------- */
+interface UnitStep { ids: string[]; text: string }
+const UNIT_GROUPS: Record<Faction, UnitStep[]> = {
+  Iran: [
+    { ids: ['IR-U01', 'IR-U02'], text: 'Forze convenzionali: in Iran l’Influenza iraniana non può essere Destabilizzata. IRGC: l’élite, in Iran difende a 5.' },
+    { ids: ['IR-U03', 'IR-U07'], text: 'Proxy regionali e Droni Shahed: se vincono, il vinto perde 1 Consenso in più. I Proxy rendono l’Influenza iraniana nel loro Stato più economica di 1 OP.' },
+    { ids: ['IR-U04', 'IR-U06', 'IR-U05'], text: 'Missili balistici: attacco 4, al massimo 2 per Stato, annullati dallo Scudo. Cyber Unit: −1 alla difesa avversaria. Flotta veloce: con 2 a Hormuz scatta il Blocco.' },
+  ],
+  Coalizione: [
+    { ids: ['CO-U01', 'CO-U02'], text: 'Convenzionale: Presidio, la tua Influenza in quello Stato non si può Destabilizzare. Forze Speciali: se vincono +1 Diplomazia, se perdono −1 Consenso.' },
+    { ids: ['CO-U03', 'CO-U05'], text: 'Aviazione Tattica e Missili da crociera: attacco 3. L’S-400 russo annulla l’Aviazione; i Missili, se vincono in Iran, tolgono 1 al Nucleare.' },
+    { ids: ['CO-U06', 'CO-U04'], text: 'Scudo Missilistico: difesa 4 e annulla i Missili balistici iraniani. Carrier Strike Group: a Hormuz annulla il Blocco.' },
+  ],
+  Russia: [
+    { ids: ['RU-U01', 'RU-U03'], text: 'Consiglieri militari e Forniture armi servono a sostenere gli altri: aggiungono forza alla parte che la Russia sceglie di aiutare.' },
+    { ids: ['RU-U02', 'RU-U04'], text: 'Difesa aerea S-400: annulla l’Aviazione Tattica. Flotta nel Mediterraneo: l’Influenza russa costa 1 OP in meno in Siria e Libano.' },
+    { ids: ['RU-U05', 'RU-U06'], text: 'Intelligence: a ogni attivazione guardi la mano di una potenza presente nel suo Stato. Cyber Russia: lì gli avversari pagano +1 OP per Influenza e Schieramento.' },
+  ],
+  Cina: [
+    { ids: ['CN-U01', 'CN-U04'], text: 'Investimenti BRI: Influenza cinese −1 OP nello Stato. Infrastrutture: lì l’Influenza cinese non può essere Destabilizzata.' },
+    { ids: ['CN-U02', 'CN-U03'], text: 'Flotta commerciale: una volta per round ignori una perdita di Economia. Tecnologia duale: +1 alla difesa se nello Stato difendono Iran o Russia.' },
+    { ids: ['CN-U05', 'CN-U06'], text: 'Satelliti: guardi la mano di una potenza presente nel loro Stato. Cyber Unit: lì gli avversari pagano +1 OP per Influenza e Schieramento.' },
+  ],
+  Europa: [
+    { ids: ['EU-U01', 'EU-U04'], text: 'Caschi blu: solo difesa, massimo 3 per Stato, e attaccare lì costa 2 OP in più. Diplomazia UE: la tua Pressione globale costa 1 OP in meno.' },
+    { ids: ['EU-U03', 'EU-U02'], text: 'Aiuti umanitari: Influenza europea −1 OP nello Stato. Missione navale UE: una volta per round ignori una perdita di Economia.' },
+    { ids: ['EU-U05', 'EU-U06'], text: 'Intelligence: guardi la mano di una potenza presente nel suo Stato. Cyber Unit: lì gli avversari pagano +1 OP per Influenza e Schieramento.' },
+  ],
+};
+export const UNIT_GROUP_IDS = UNIT_GROUPS;
+export const UNITS_SCENES: RuleScene[] = [
+  { id: 'intro', kicker: 'Le unità', title: 'Costo, attacco, difesa, bonus', steps: [
+    { text: 'Ogni unità ha stampati il costo, l’attacco e la difesa. Il bonus scritto sotto vale finché l’unità resta sul tabellone.' },
+    { text: 'Il bonus vale nello Stato dove l’unità è schierata, salvo dove è scritto altrimenti. Vediamo le unità di ogni potenza.' },
+  ], view: () => <div className="intro-card-row"><Tile id="IR-U03" label="Proxy regionali · costo 1 · A1 · D2" /></div> },
+  ...FACTIONS.map((f): RuleScene => ({ id: `units-${f}`, kicker: `Le unità · ${f}`, title: `Le unità ${f === 'Europa' || f === 'Iran' ? 'dell’' : 'della '}${f}`,
+    steps: UNIT_GROUPS[f].map(g => ({ text: g.text })),
+    view: step => <div className="rules-units"><Badge faction={f} /><div>{UNITS.filter(u => u.faction === f).map((u, i) =>
+      <figure key={u.id} className={UNIT_GROUPS[f][step]?.ids.includes(u.id) ? 'is-picked' : ''} style={{ '--i': i } as CSSProperties}><img src={unitFrontArt(u.id)} alt="" /><figcaption>{u.name}</figcaption></figure>)}</div></div> })),
+];
+
 export const RULE_INTROS = {
+  setup: { scenes: SETUP_SCENES, label: 'Preparazione', seenKey: 'linea-rossa.guided-setup.v1' },
+  actions: { scenes: ACTIONS_SCENES, label: 'Azioni OP', seenKey: 'linea-rossa.guided-actions.v1' },
+  units: { scenes: UNITS_SCENES, label: 'Le unità', seenKey: 'linea-rossa.guided-units.v1' },
   endRound: { scenes: END_ROUND_SCENES, label: 'Fine del round', seenKey: 'linea-rossa.guided-end-round.v1' },
   bot: { scenes: BOT_SCENES, label: 'Turno di un BOT', seenKey: 'linea-rossa.guided-bot.v1' },
   scoring: { scenes: SCORING_SCENES, label: 'Punteggio finale', seenKey: 'linea-rossa.guided-scoring.v1' },

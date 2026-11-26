@@ -14,7 +14,8 @@ import RuleIntro, { RULE_INTROS, type RuleIntroId } from './RulesIntros';
 
 type IntroId = 'components' | 'round' | 'combat' | RuleIntroId;
 const ANIMATIONS: [IntroId, string][] = [
-  ['components', 'I componenti del gioco'], ['round', 'Come si gioca un round'], ['develop', 'Sviluppo e Veto'], ['combat', 'Il combattimento'],
+  ['setup', 'La preparazione della partita'], ['components', 'I componenti del gioco'], ['round', 'Come si gioca un round'],
+  ['actions', 'Le azioni con gli OP'], ['develop', 'Sviluppo e Veto'], ['units', 'Le unità e i loro bonus'], ['combat', 'Il combattimento'],
   ['endRound', 'La fine del round'], ['bot', 'Il turno di un BOT'], ['hormuz', 'Il Blocco di Hormuz'], ['scoring', 'Il punteggio finale'],
 ];
 /** Animazioni che si aprono da sole la prima volta che la partita guidata arriva a quella lezione. */
