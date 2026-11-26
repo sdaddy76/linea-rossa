@@ -11,13 +11,10 @@ import ComponentsIntro, { INTRO_SEEN_KEY } from './ComponentsIntro';
 import RoundIntro, { ROUND_SEEN_KEY } from './RoundIntro';
 import CombatIntro, { COMBAT_SEEN_KEY } from './CombatIntro';
 import RuleIntro, { RULE_INTROS, type RuleIntroId } from './RulesIntros';
+import { ANIMATION_LIST } from './animations';
 
 type IntroId = 'components' | 'round' | 'combat' | RuleIntroId;
-const ANIMATIONS: [IntroId, string][] = [
-  ['setup', 'La preparazione della partita'], ['components', 'I componenti del gioco'], ['round', 'Come si gioca un round'],
-  ['actions', 'Le azioni con gli OP'], ['develop', 'Sviluppo e Veto'], ['units', 'Le unità e i loro bonus'], ['combat', 'Il combattimento'],
-  ['endRound', 'La fine del round'], ['bot', 'Il turno di un BOT'], ['hormuz', 'Il Blocco di Hormuz'], ['scoring', 'Il punteggio finale'],
-];
+const ANIMATIONS: [IntroId, string][] = ANIMATION_LIST.map(a => [a.id, a.title]);
 /** Animazioni che si aprono da sole la prima volta che la partita guidata arriva a quella lezione. */
 const AUTO_OPEN: Record<string, IntroId> = { declare: 'combat', tension1: 'endRound', development: 'develop', summary: 'scoring' };
 const seenKey = (id: IntroId) => id === 'combat' ? COMBAT_SEEN_KEY : id === 'components' ? INTRO_SEEN_KEY : id === 'round' ? ROUND_SEEN_KEY : RULE_INTROS[id].seenKey;

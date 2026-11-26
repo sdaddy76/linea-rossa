@@ -43,14 +43,14 @@ export function FlipCard({ back, front, alt, flipped }: { back: string; front: s
   </div>;
 }
 
-export interface PlayerProps { onClose: () => void; reduced?: boolean; initialScene?: number; initialStep?: number }
+export interface PlayerProps { onClose: () => void; reduced?: boolean; initialScene?: number; initialStep?: number; closeLabel?: string }
 interface Props<S extends IntroScene> extends PlayerProps {
   scenes: S[]; label: string; render: (scene: S, step: number) => ReactNode;
   finalLabel?: string; onFinish?: () => void;
 }
 
 /** Lettore comune delle animazioni introduttive: scorre da solo, si sfoglia, ha musica e tempi di lettura. */
-export function IntroPlayer<S extends IntroScene>({ scenes: SCENES, label, render, finalLabel = 'Inizia la partita guidata', onFinish, onClose, reduced = false, initialScene = 0, initialStep = 0 }: Props<S>) {
+export function IntroPlayer<S extends IntroScene>({ scenes: SCENES, label, render, finalLabel = 'Inizia la partita guidata', onFinish, onClose, reduced = false, initialScene = 0, initialStep = 0, closeLabel = 'Salta l’introduzione' }: Props<S>) {
   const [scene, setScene] = useState(initialScene);
   const [step, setStep] = useState(initialStep);
   const [playing, setPlaying] = useState(!reduced);
@@ -111,7 +111,7 @@ export function IntroPlayer<S extends IntroScene>({ scenes: SCENES, label, rende
         <span className="intro-kicker">{current.kicker}</span>
         <audio ref={audio} src={MUSIC_SRC} loop preload="auto" />
         <button className="intro-music" onClick={toggleMusic} aria-pressed={music} title={music ? 'Disattiva la musica' : 'Attiva la musica'}>{music ? <Volume2 size={15} /> : <VolumeX size={15} />} Musica</button>
-        <button ref={closeButton} className="intro-skip" onClick={onClose}>Salta l’introduzione <X size={15} /></button>
+        <button ref={closeButton} className="intro-skip" onClick={onClose}>{closeLabel} <X size={15} /></button>
       </header>
       <div className="intro-stage" key={current.id}>
         {render(current, step)}

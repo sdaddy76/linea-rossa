@@ -12,6 +12,7 @@ import { RULEBOOK_URL } from '@/game-v3/art';
 interface Props {
   onPlay: () => void;
   onTutorial?: () => void;
+  onRules?: () => void;
 }
 
 interface LiveStats {
@@ -139,7 +140,7 @@ const FACTION_FLAGS = [
   { emoji: '🇪🇺', label: 'Europa',       color: '#10b981', sub: '' },
 ];
 
-export default function CoverPage({ onPlay, onTutorial }: Props) {
+export default function CoverPage({ onPlay, onTutorial, onRules }: Props) {
   const stats = useLiveStats();
   const [showAid,setShowAid] = useState(false);
   const [showMaterials,setShowMaterials] = useState(false);
@@ -261,7 +262,10 @@ export default function CoverPage({ onPlay, onTutorial }: Props) {
           }}>
           ▶ &nbsp;INIZIA LA PARTITA
         </button>
-        {onTutorial&&<button onClick={onTutorial} className="mt-4 px-6 py-3 rounded-xl border border-amber-600 text-amber-200 font-bold focus-visible:outline-white">Partita guidata · impara in 2 round</button>}
+        <div className="mt-4 flex flex-wrap justify-center gap-3">
+          {onRules&&<button onClick={onRules} className="px-6 py-3 rounded-xl border border-emerald-500 bg-emerald-500/10 text-emerald-200 font-bold focus-visible:outline-white">▶ Regole animate · impara in pochi minuti</button>}
+          {onTutorial&&<button onClick={onTutorial} className="px-6 py-3 rounded-xl border border-amber-600 text-amber-200 font-bold focus-visible:outline-white">Partita guidata · impara in 2 round</button>}
+        </div>
         <div className="flex flex-wrap justify-center gap-4 mt-4 text-sm text-slate-300">
           <button onClick={()=>setShowAid(true)} className="underline">Aiuto giocatore</button>
           <button onClick={()=>setShowMaterials(true)} className="underline">Carte e materiali</button>

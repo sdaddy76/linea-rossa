@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { existsSync } from 'node:fs';
 import GuidedGame from './GuidedGame';
 import { UNITS } from '../catalog';
+import RulesLibrary from './RulesLibrary';
+import { ANIMATION_LIST } from './animations';
 import RuleIntro, { DEPLOY_COST, UNIT_GROUP_IDS, BOT_CARD, BOT_STATE, BOT_WEAKEST, DEVELOP, FINAL_INFLUENCE, FINAL_OBJECTIVES, FINAL_TOTAL, RULE_INTROS, SCORE_DELTA, type RuleIntroId } from './RulesIntros';
 import { weakestTrack } from '../bots';
 import { createGame } from '../engine';
@@ -161,4 +163,13 @@ test('rule animations render every step with real art and consistent numbers', (
   for (const src of seen) assert.ok(existsSync(`public${decodeURIComponent(src)}`), `missing ${src}`);
   const html = renderToStaticMarkup(<GuidedGame onExit={() => {}} onPlay={() => {}} />);
   for (const label of ['Animazioni delle regole', 'La preparazione della partita', 'Le azioni con gli OP', 'Le unità e i loro bonus', 'Sviluppo e Veto', 'La fine del round', 'Il turno di un BOT', 'Il Blocco di Hormuz', 'Il punteggio finale']) assert.ok(html.includes(label), label);
+});
+test('Regole animate page lists every animation and opens them without the guided game', () => {
+  const html = renderToStaticMarkup(<RulesLibrary onExit={() => {}} onTutorial={() => {}} />);
+  assert.equal(ANIMATION_LIST.length, 11);
+  for (const a of ANIMATION_LIST) { assert.ok(html.includes(a.title), a.title); assert.ok(existsSync(`public${a.art.split('?')[0]}`), a.art); }
+  assert.ok(html.includes('Guarda dall’inizio') && html.includes('Partita guidata'));
+  assert.ok(!html.includes('role="dialog"'));
+  const opened = renderToStaticMarkup(<RulesLibrary onExit={() => {}} onTutorial={() => {}} initial="setup" />);
+  assert.ok(opened.includes('role="dialog"') && opened.includes('Scegliete la durata'));
 });
