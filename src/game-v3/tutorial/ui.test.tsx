@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { existsSync } from 'node:fs';
 import GuidedGame from './GuidedGame';
+import RuleIntro, { BOT_CARD, BOT_STATE, BOT_WEAKEST, DEVELOP, FINAL_INFLUENCE, FINAL_OBJECTIVES, FINAL_TOTAL, RULE_INTROS, SCORE_DELTA, type RuleIntroId } from './RulesIntros';
+import { weakestTrack } from '../bots';
+import { createGame } from '../engine';
 import CombatIntro, { ATTACK, BATTLE, COMBAT_SCENES, DEFENSE } from './CombatIntro';
 import RoundIntro, { ROUND_SCENES, ROUND_SEEN_KEY, valuesAt } from './RoundIntro';
 import ComponentsIntro, { INTRO_SEEN_KEY, MUSIC_SRC, SCENES, framing, stepMs } from './ComponentsIntro';
@@ -139,4 +142,20 @@ test('combat animation shows exactly the guided game battle computed by the engi
     for (const [, src] of html.matchAll(/src="([^"]+)"/g)) seen.add(src.split('?')[0]);
   }));
   for (const src of seen) assert.ok(existsSync(`public${decodeURIComponent(src)}`), `missing ${src}`);
+});
+test('rule animations render every step with real art and consistent numbers', () => {
+  assert.equal(SCORE_DELTA, 1);
+  assert.equal(FINAL_INFLUENCE, 7); assert.equal(FINAL_OBJECTIVES, 7); assert.equal(FINAL_TOTAL, 22);
+  assert.equal(BOT_STATE, 'iraq'); assert.equal(BOT_CARD.track, BOT_WEAKEST);
+  assert.equal(weakestTrack(createGame({ bots: ['Iran'], rulesRevision: '2026-11-21' }, () => 0.3), 'Iran'), BOT_WEAKEST);
+  assert.deepEqual(DEVELOP.negative, { faction: 'Europa', track: 'Economia', delta: -1 });
+  const seen = new Set<string>();
+  for (const id of Object.keys(RULE_INTROS) as RuleIntroId[]) RULE_INTROS[id].scenes.forEach((scene, i) => scene.steps.forEach((_, j) => {
+    const html = renderToStaticMarkup(<RuleIntro id={id} onClose={() => {}} initialScene={i} initialStep={j} />);
+    assert.ok(html.includes(scene.title), `${id}/${scene.id}`);
+    for (const [, src] of html.matchAll(/src="([^"]+)"/g)) seen.add(src.split('?')[0]);
+  }));
+  for (const src of seen) assert.ok(existsSync(`public${decodeURIComponent(src)}`), `missing ${src}`);
+  const html = renderToStaticMarkup(<GuidedGame onExit={() => {}} onPlay={() => {}} />);
+  for (const label of ['Animazioni delle regole', 'Sviluppo e Veto', 'La fine del round', 'Il turno di un BOT', 'Il Blocco di Hormuz', 'Il punteggio finale']) assert.ok(html.includes(label), label);
 });

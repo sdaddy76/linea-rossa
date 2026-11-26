@@ -224,3 +224,70 @@
 }
 .combat-units{display:flex;gap:12px;justify-content:center}
 .combat-calc{display:flex;align-items:center;gap:12px}
+
+/* Animazioni delle regole */
+.rules-rows{display:flex;flex-direction:column;gap:10px;width:min(720px,100%);margin:auto}
+.round-side .rules-rows{width:100%}
+.rules-rows>div{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 16px;border-radius:10px;border:1px solid #243246;background:#0f1a28;opacity:.3;transition:all .6s}
+.rules-rows>div.is-on{opacity:1;border-color:#6ee7b7;transform:translateX(6px)}
+.rules-rows strong{font-family:Oswald,sans-serif;font-weight:500;font-size:19px}
+.rules-rows span{font-size:17px;color:#c8d4e0;text-align:right}
+.rules-wide{max-width:640px;margin:auto;width:100%}
+.rules-score{display:flex;align-items:center;gap:12px}
+.rules-score .round-meter{flex:1}
+.rules-score>b{font-family:Oswald,sans-serif;font-size:24px;width:44px;text-align:center;color:#8fa0b4;animation:intro-pop .5s backwards}
+.rules-score>b.is-plus{color:#6ee7b7}.rules-score>b.is-minus{color:#f87171}
+.rules-badges{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;align-content:center;height:100%}
+.rules-badge{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 10px;border-radius:12px;background:#0f1a28;border:1px solid #2d3e53;font-family:Oswald,sans-serif;font-size:20px;text-transform:uppercase;animation:intro-pop .5s backwards}
+.rules-badge img{width:44px;height:44px;border-radius:50%}
+.rules-badge small{font-family:"Barlow Condensed",sans-serif;font-size:12px;letter-spacing:2px;background:#b91c1c;border-radius:5px;padding:1px 7px}
+.rules-refill{display:flex;gap:18px;justify-content:center;align-items:stretch;width:100%}
+.rules-refill>div{display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 18px;border:1px solid #2d3e53;border-radius:12px;background:#0f1a28;min-width:170px;animation:intro-pop .5s calc(var(--i)*.2s) backwards}
+.rules-refill strong{font-family:Oswald,sans-serif;font-weight:500;font-size:18px}
+.rules-cards{position:relative;height:130px;width:150px}
+.rules-cards img{position:absolute;left:calc(var(--k)*34px);height:100%;border-radius:8px;box-shadow:0 6px 16px #000a;animation:intro-deal .6s calc(var(--k)*.2s + .3s) backwards}
+.rules-refill small{font-size:16px;color:#c8d4e0}
+.rules-refill em{font-style:normal;font-size:15px;color:#fde047;animation:intro-text .5s backwards}
+.rules-decks{display:flex;gap:16px;justify-content:center;align-items:center;height:100%}
+.rules-decks figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .7s;animation:intro-pop .5s calc(var(--i)*.12s) backwards}
+.rules-decks img{height:min(30vh,250px);border-radius:10px;box-shadow:0 10px 24px #000b}
+.rules-decks figcaption{font-size:16px}.rules-decks b{font-family:Oswald,sans-serif;font-size:20px;margin-left:4px}
+.rules-decks figure.is-low img{box-shadow:0 0 0 3px #fca5a5,0 10px 24px #000b}
+.rules-decks figure.is-picked{transform:translateY(-12px) scale(1.08)}
+.rules-decks figure.is-picked img{box-shadow:0 0 0 3px #fde047,0 14px 30px #000c}
+.intro-card.rules-discarded{filter:grayscale(.8);opacity:.5;transform:rotate(-6deg) scale(.92);transition:all .8s}
+.rules-cross{position:absolute;display:flex;animation:intro-pop .5s backwards}
+.intro-card-row{position:relative}
+.rules-presence{display:flex;align-items:center;justify-content:center;gap:18px;height:100%}
+.rules-presence strong{font-family:Oswald,sans-serif;font-size:24px;color:#6ee7b7;animation:intro-text .5s .6s backwards}
+.combat-tile.is-dim{opacity:.35;filter:grayscale(.7)}
+.rules-note{font-size:18px;color:#c8d4e0;padding:14px;border:1px dashed #33465c;border-radius:10px}
+.rules-vs{font-size:40px;color:#f87171}
+.rules-tally{display:flex;flex-direction:column;gap:6px;min-width:280px;padding:14px 18px;border:1px solid #2d3e53;border-radius:12px;background:#0f1a28e6}
+.rules-tally header{display:flex;align-items:center;gap:10px;font-family:Oswald,sans-serif;font-size:22px;text-transform:uppercase;margin-bottom:4px}
+.rules-tally header img{width:38px;height:38px;border-radius:50%}
+.rules-tally>div{display:flex;justify-content:space-between;font-size:18px;opacity:.25;transition:opacity .6s}
+.rules-tally>div.is-on{opacity:1}
+.rules-tally b{font-family:Oswald,sans-serif;font-size:20px}
+.rules-tally-total{border-top:1px solid #2d3e53;padding-top:6px;margin-top:4px}
+.rules-tally-total b{font-size:30px!important;color:#6ee7b7}
+.intro-card-row>.rules-tally,.intro-stage>.rules-tally{margin:auto}
+.rules-objectives{display:flex;gap:18px;justify-content:center;align-items:center;height:100%}
+.rules-objectives figure{position:relative;margin:0;height:92%;transition:all .7s;animation:intro-deal .6s calc(var(--i)*.2s) backwards}
+.rules-objectives img{height:100%;border-radius:12px;box-shadow:0 12px 30px #000b}
+.rules-objectives figure.is-done img{box-shadow:0 0 0 3px #6ee7b7,0 12px 30px #000b}
+.rules-objectives figure.is-failed{filter:grayscale(.85);opacity:.55}
+.rules-objectives b{position:absolute;top:8px;right:8px;font-family:Oswald,sans-serif;font-size:26px;background:#065f46;border-radius:8px;padding:0 10px;animation:intro-pop .5s backwards}
+.rules-objectives figure.is-failed b{background:#7f1d1d}
+.rules-veto{display:flex;align-items:center;gap:14px;justify-content:center;padding:12px;border-radius:10px;border:1px dashed #33465c;font-size:20px;opacity:.6;transition:all .6s}
+.rules-veto b{font-family:Oswald,sans-serif;letter-spacing:3px;color:#fde047;opacity:0;transform:scale(1.6) rotate(-8deg);transition:all .6s .3s}
+.rules-veto.is-on{opacity:1;border-color:#fde047}
+.rules-veto.is-on b{opacity:1;transform:rotate(-8deg)}
+.rules-veto.is-on s{color:#8fa0b4}
+.intro-unit-row img.rules-gone{opacity:.15;transform:translateY(24px) scale(.8);filter:grayscale(1)}
+@media (max-width:720px){
+  .rules-refill{gap:6px}.rules-refill>div{min-width:0;padding:8px}.rules-cards{height:80px;width:100px}.rules-cards img{left:calc(var(--k)*22px)}
+  .rules-decks{gap:6px}.rules-decks img{height:20vh}
+  .rules-rows strong{font-size:15px}.rules-rows span{font-size:13px}
+  .rules-objectives figure{height:60%}
+}

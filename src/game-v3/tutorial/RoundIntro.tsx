@@ -75,7 +75,7 @@ export const ROUND_SCENES: Scene[] = [
 
 const FACTION_COLOR: Record<Faction, string> = { Iran: '#1f8a4c', Coalizione: '#2457b8', Russia: '#b3261e', Cina: '#d48a00', Europa: '#5a3fb5' };
 interface MeterDef { label: string; min: number; max: number; value: number; before: number; color?: string; zones?: boolean; danger?: 'low' | 'high' }
-function Meter({ label, min, max, value, before, color, zones, danger }: MeterDef) {
+export function Meter({ label, min, max, value, before, color, zones, danger }: MeterDef) {
   const cells = Array.from({ length: max - min + 1 }, (_, i) => min + i);
   const pos = (v: number) => (v - min + 0.5) / cells.length * 100;
   const zone = (v: number) => !zones ? '' : v <= 3 ? 'is-crisis' : v >= 8 ? 'is-strong' : '';
@@ -102,7 +102,7 @@ function Meters({ stage, rows }: { stage: number; rows: ('Nucleare' | 'Sanzioni'
   })}</div>;
 }
 
-function OrderBar({ active }: { active?: Faction }) {
+export function OrderBar({ active }: { active?: Faction }) {
   return <div className="round-order">{EVENT.order.map((f, i) =>
     <span key={f} className={`${f === active ? 'is-active' : ''} ${EVENT.advancers.includes(f) ? 'is-advancer' : ''}`}>
       <small>{i + 1}</small><img src={emblemArt(f)} alt="" /><b>{f}</b>
