@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { existsSync } from 'node:fs';
 import GuidedGame from './GuidedGame';
+import RoundIntro, { ROUND_SCENES, ROUND_SEEN_KEY, valuesAt } from './RoundIntro';
 import ComponentsIntro, { INTRO_SEEN_KEY, MUSIC_SRC, SCENES, framing, stepMs } from './ComponentsIntro';
 import { STORAGE_KEY, choose, currentLesson, freshSession, recommendedChoice, replaySession, type Session } from './model';
 
@@ -84,4 +85,33 @@ test('introduction gives enough reading time and offers themed background music'
   const html = renderToStaticMarkup(<ComponentsIntro onClose={() => {}} />);
   assert.ok(html.includes('<audio') && html.includes('loop'));
   assert.ok(html.includes('Musica'));
+});
+test('round animation follows the printed event and card and runs after the components', () => {
+  assert.deepEqual(valuesAt(1).globals, { Nucleare: 6, Sanzioni: 4, 'Crisi Bellica': 7, Opinione: 1 });
+  assert.equal(valuesAt(1).tracks.Iran.Consenso, 4);
+  const end = valuesAt(4);
+  assert.equal(end.tracks.Europa.Diplomazia, 8);
+  assert.equal(end.tracks.Cina.Diplomazia, 4);
+  assert.equal(end.globals['Crisi Bellica'], 8);
+  assert.equal(end.pv, 0);
+  const seen = new Set<string>();
+  ROUND_SCENES.forEach((scene, i) => scene.steps.forEach((_, j) => {
+    assert.equal(scene.stages.length, scene.steps.length, scene.id);
+    const html = renderToStaticMarkup(<RoundIntro onClose={() => {}} initialScene={i} initialStep={j} />);
+    assert.ok(html.includes(scene.title));
+    for (const [, src] of html.matchAll(/src="([^"]+)"/g)) seen.add(src.split('?')[0]);
+  }));
+  for (const src of seen) assert.ok(existsSync(`public${decodeURIComponent(src)}`), `missing ${src}`);
+  const store: Record<string, string> = { [INTRO_SEEN_KEY]: '1' };
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    localStorage: { getItem: (key: string) => store[key] ?? null, setItem: (key: string, value: string) => { store[key] = value; } },
+    matchMedia: () => ({ matches: false }),
+  } });
+  try {
+    const html = renderToStaticMarkup(<GuidedGame onExit={() => {}} onPlay={() => {}} />);
+    assert.ok(html.includes('Si scopre l’Evento'), 'round animation opens once the components were seen');
+    assert.ok(html.includes('Come si gioca un round'));
+    store[ROUND_SEEN_KEY] = '1';
+    assert.ok(!renderToStaticMarkup(<GuidedGame onExit={() => {}} onPlay={() => {}} />).includes('Si scopre l’Evento'));
+  } finally { Reflect.deleteProperty(globalThis, 'window'); }
 });

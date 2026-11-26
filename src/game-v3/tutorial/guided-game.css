@@ -221,3 +221,4 @@
 .guide-components-button{display:flex;align-items:center;gap:6px;background:#10241f;border:1px solid #2f6b58;border-radius:8px;color:#a7f3d0;padding:6px 11px;font:inherit;font-size:12px;cursor:pointer}
 .guide-components-button:hover{background:#163a30}
 @media(max-width:600px){.guide-components-button{font-size:10px;padding:5px 7px}}
+.guide-intro-buttons{display:flex;gap:8px;flex-wrap:wrap}
