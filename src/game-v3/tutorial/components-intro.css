@@ -310,3 +310,48 @@
 .rules-units figure.is-picked{opacity:1;filter:none;transform:translateY(-8px) scale(1.06)}
 .rules-units figure.is-picked img{box-shadow:0 0 0 3px #fde047,0 12px 26px #000c}
 @media (max-width:720px){.rules-units figure{width:64px}.rules-setup-cards .rules-cards{width:120px;height:100px}}
+
+/* ── Cellulari e tablet piccoli ──
+   Il pannello occupa tutto lo schermo; la scena usa lo spazio rimasto e, se il contenuto
+   è più alto, scorre al suo interno senza coprire testo e pulsanti. */
+@media (max-width: 720px), (max-height: 560px) {
+  .intro-overlay { padding: 0; }
+  .intro-panel { height: 100%; max-height: none; border-radius: 0; border: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 8px; }
+  .intro-stage { height: auto; min-height: 0; overflow-y: auto; overflow-x: hidden; align-items: flex-start; -webkit-overflow-scrolling: touch; }
+  .intro-stage > * { margin-top: auto; margin-bottom: auto; }
+  .intro-text h2 { font-size: 20px; }
+  .intro-text p { font-size: 15px; min-height: 0; margin-top: 4px; }
+  .intro-controls { gap: 6px; padding-top: 8px; }
+  .intro-controls > button { padding: 8px 10px; font-size: 14px; min-height: 40px; }
+  .intro-dots { order: -1; flex-basis: 100%; }
+  .intro-dots button { width: 9px; height: 9px; }
+  .intro-skip, .intro-music { padding: 6px 9px; font-size: 12px; }
+  .intro-kicker { font-size: 10px; letter-spacing: 1.6px; }
+  .round-split { flex-direction: column; gap: 10px; height: auto; }
+  .round-split > .round-card { height: calc(var(--stage-h) * .8); align-self: center; }
+  .round-side, .round-meters, .round-ops { max-width: none; width: 100%; }
+  .combat-arena { grid-template-columns: 1fr auto 1fr; gap: 4px; padding: 6px; min-height: 100%; }
+  .combat-side header { padding: 4px 8px 4px 4px; gap: 6px; }
+  .combat-side header img { width: 26px; height: 26px; }
+  .combat-side header strong { font-size: 13px; }
+  .combat-side header small { font-size: 10px; }
+  .combat-tile img { width: 58px; }
+  .combat-tile figcaption { font-size: 11px; padding: 1px 5px; }
+  .combat-units { gap: 6px; flex-wrap: wrap; }
+  .combat-calc { flex-direction: column; gap: 6px; }
+  .combat-vs > span { font-size: 22px; }
+  .combat-declare { position: relative; left: auto; top: auto; transform: none; grid-column: 1 / -1; order: -1; padding: 10px; gap: 10px; max-width: 100%; }
+  .combat-declare img { height: 22vh; }
+  .rules-rows > div { padding: 9px 12px; }
+}
+@media (max-width: 720px) and (orientation: portrait) { .intro-panel { --stage-h: 40vh; } }
+/* Telefono in orizzontale: scena a sinistra, testo e pulsanti a destra. */
+@media (max-height: 560px) and (orientation: landscape) {
+  .intro-panel { --stage-h: 62vh; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; column-gap: 14px; }
+  .intro-top { grid-column: 1 / -1; }
+  .intro-stage { grid-column: 1; grid-row: 2 / span 2; }
+  .intro-text { grid-column: 2; grid-row: 2; overflow-y: auto; }
+  .intro-controls { grid-column: 2; grid-row: 3; border-top: 0; }
+  .round-split { flex-direction: row; }
+  .round-split > .round-card { height: 100%; }
+}

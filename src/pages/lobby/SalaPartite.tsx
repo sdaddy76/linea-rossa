@@ -89,10 +89,10 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
           <p className="flex items-center gap-2 text-sm text-white"><Users size={16} aria-hidden="true"/>
             {seats.humans.length}/5 giocatori{seats.bots > 0 && ` · ${seats.bots} BOT`}{game.status === 'lobby' && ` · ${seats.free.length} posti liberi`}
           </p>
-          <ul aria-label={`Giocatori al tavolo ${game.code}`} className="grid sm:grid-cols-2 gap-2 text-sm">
+          <ul aria-label={`Giocatori al tavolo ${game.code}`} className="grid grid-cols-2 gap-2 text-sm">
             {FACTIONS.map(faction => {
               const p = game._players.find(p => p.faction === faction);
-              return <li key={faction} className="rounded-lg border border-slate-700 px-3 py-2 min-w-0">
+              return <li key={faction} className="rounded-lg border border-slate-700 px-2 py-1.5 sm:px-3 sm:py-2 min-w-0">
                 <span className="block text-xs text-slate-400">{faction}</span>
                 <span className={`block break-words ${p?.player_id && !p.is_bot ? 'text-white' : 'text-slate-400'}`}>
                   {p?.player_id && !p.is_bot ? (p.profile?.username || 'Giocatore') + (p.player_id === userId ? ' (tu)' : '') + (p.player_id === game.created_by ? ' · host' : '')

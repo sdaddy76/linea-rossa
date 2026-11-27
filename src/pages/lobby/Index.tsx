@@ -588,14 +588,14 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
       <div className="lobby-container max-w-2xl mx-auto space-y-6">
 
         {/* ── Header ── */}
-        <div className="lobby-header flex items-center justify-between">
+        <div className="lobby-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-black text-[#00ff88] font-mono tracking-widest">☢️ LINEA ROSSA</h1>
             <p className="text-[#8899aa] text-xs font-mono mt-0.5">
               Benvenuto, <span className="text-white font-bold">{profile.username}</span>
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap justify-end">
+          <div className="lobby-header-actions flex items-center gap-2 flex-wrap sm:justify-end">
             {/* ── Pulsanti visibili a tutti ── */}
             <button onClick={() => setShowMaterials(true)}
               className="px-3 py-1.5 border border-[#1e3a5f] text-slate-200 rounded-lg text-xs">

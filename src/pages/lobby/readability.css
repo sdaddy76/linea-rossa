@@ -125,3 +125,11 @@
   .lobby-ui[data-readability="high"] .readability-content .room-date time { flex-basis: 100%; }
   .lobby-ui[data-readability="high"] .readability-content .lobby-history-title { flex-basis: 100%; }
 }
+
+/* Cellulare: pulsanti dell'intestazione a griglia e abbastanza grandi da toccare. */
+@media (max-width: 640px) {
+  .lobby-ui .lobby-header-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .lobby-ui .lobby-header-actions > button { min-height: 44px; font-size: 14px; justify-content: center; }
+  .lobby-ui .lobby-header-actions > div { grid-column: span 2; }
+  .lobby-ui .lobby-header-actions > div > button { width: 100%; min-height: 44px; font-size: 14px; justify-content: center; }
+}

@@ -46,6 +46,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
   const [error, setError] = useState('');
   const [autoPaused, setAutoPaused] = useState(false);
   const [materials, setMaterials] = useState(false);
+  const [tools, setTools] = useState(false);   // menu dell'intestazione su cellulare
   const [aid, setAid] = useState(false);
   const [selected, setSelected] = useState('iran');
   const [boardFaction, setBoardFaction] = useState<Faction>((myFaction as Faction) || 'Iran');
@@ -158,7 +159,10 @@ export default function TabletopGamePage({ onBack, previewState }: {
       <div className="max-w-[1600px] mx-auto flex flex-wrap gap-4 items-center justify-between">
         <div><p className="text-xs uppercase tracking-[0.2em] text-red-400">Linea Rossa · Regolamento da tavolo {usesLatestRules(s) ? 'v3.11' : 'v3 · salvataggio precedente'}</p>
           <h1 className="text-xl font-bold mt-1">Round {s.round} <span className="text-slate-400 font-normal text-sm">· {official ? `modalità ${mode} · segna-turni ${s.turnMarker}/${threshold}` : `legacy · effettivo ${s.actualRound}/8`} · giro {s.lap}/2</span></h1></div>
-        <div className="flex flex-wrap gap-2"><a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className={button}>Apri regolamento PDF</a>
+        <div className="flex gap-2 md:hidden">
+          <button className={button} aria-expanded={tools} aria-controls="game-tools" onClick={() => setTools(!tools)}>{tools ? '✕ Chiudi menu' : '☰ Menu'}</button>
+          <button className={button} onClick={onBack}>Lobby</button></div>
+        <div id="game-tools" className={`${tools ? 'flex' : 'hidden'} md:flex flex-wrap gap-2 w-full md:w-auto`}><a href={RULEBOOK_URL} target="_blank" rel="noreferrer" className={button}>Apri regolamento PDF</a>
           <a href={RULEBOOK_URL} download={RULEBOOK_FILENAME} className={button}>Scarica manuale</a>
           <button className={button} onClick={() => setAid(true)}>Aiuto giocatore</button>
           <label className={button + ' flex items-center gap-2'}>Velocità animazioni
@@ -173,7 +177,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
           <button className={button + ' game-readability-toggle inline-flex items-center gap-2'} aria-pressed={readability.high} onClick={readability.toggle}
             title={readability.high ? 'Torna al tema scuro' : 'Tema chiaro, caratteri grandi e contrasto elevato'}>
             <Sun size={18} aria-hidden="true"/>{readability.high ? 'Alta leggibilità: attiva' : 'Alta leggibilità'}</button>
-          <button className={button} onClick={() => setMaterials(true)}>Materiali</button><button className={button} onClick={onBack}>Lobby</button></div>
+          <button className={button} onClick={() => setMaterials(true)}>Materiali</button><button className={button + ' hidden md:inline-block'} onClick={onBack}>Lobby</button></div>
       </div>
     </header>
     <div className="max-w-[1600px] mx-auto px-3 md:px-6 space-y-5 mt-5">
@@ -184,9 +188,9 @@ export default function TabletopGamePage({ onBack, previewState }: {
             : `Ultimo round: soglia ${threshold} raggiunta. Si completano entrambi i giri e tutte le fasi di fine round; poi punteggio finale, senza pescare un nuovo Evento. Il segna-turni può superare ${threshold}.`
           : `La soglia ${threshold} avvia la chiusura alla fine del round, non un arresto immediato. Il valore finale può essere superiore; gli Eventi di blocco possono allungare la durata (cap. 7).`}
       </p>}
-      <div className="flex flex-wrap gap-3">{GLOBALS.map(g => <div key={`${g}-${motion.active?.key ?? 'idle'}`}
-        className={'rounded-lg bg-slate-900 border border-slate-700 px-4 py-2' + (motion.active?.changes.some(c => c.target === g) ? ' tabletop-track-changed' : '')}><span className="text-slate-400 text-xs block">{g}</span><strong className="text-xl">{s.globals[g]}</strong></div>)}
-        {hormuzBlocked(s) && <p className="self-center text-amber-300">Blocco di Hormuz attivo · Coalizione +1 OP per schierare</p>}
+      <div className="grid grid-cols-4 gap-2 sm:flex sm:flex-wrap sm:gap-3">{GLOBALS.map(g => <div key={`${g}-${motion.active?.key ?? 'idle'}`}
+        className={'rounded-lg bg-slate-900 border border-slate-700 px-2 py-2 sm:px-4 min-w-0' + (motion.active?.changes.some(c => c.target === g) ? ' tabletop-track-changed' : '')}><span className="text-slate-400 text-xs block">{g}</span><strong className="text-xl">{s.globals[g]}</strong></div>)}
+        {hormuzBlocked(s) && <p className="col-span-4 self-center text-amber-300">Blocco di Hormuz attivo · Coalizione +1 OP per schierare</p>}
       </div>
       <div role="status" className="p-4 rounded-xl border border-red-800 bg-red-950/30">
         <strong>{stage}</strong>{actor && <span> · <span style={{ color: tone[actor] }}>{actor}</span>{s.players[actor].neutral ? ' · neutrale' : isBot ? ' · BOT' : actor === own ? ' · tocca a te' : ' · in attesa del giocatore'}</span>}
