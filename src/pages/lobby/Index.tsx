@@ -25,6 +25,7 @@ interface LobbyPageProps {
   onAdmin?: (section?: 'database' | 'areas' | 'player-stats') => void;
   onTutorial?: () => void;
   onRules?: () => void;
+  onTournaments?: () => void;
 }
 
 const ALL_FACTIONS: Faction[] = ['Iran', 'Coalizione', 'Russia', 'Cina', 'Europa'];
@@ -47,7 +48,7 @@ const makeCode = () => {
   return `${p}-${Math.floor(Math.random() * 900 + 10)}`;
 };
 
-export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTutorial, onRules }: LobbyPageProps) {
+export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTutorial, onRules, onTournaments }: LobbyPageProps) {
   const { high: highReadability, toggle: toggleReadability } = useReadability();
   // ── Stato form crea ──────────────────────────────────────────────────────
   const [isPublic, setIsPublic]     = useState(true);   // aperta vs riservata
@@ -602,6 +603,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
               Materiali ufficiali v3
             </button>
             <button onClick={() => setShowAid(true)} className="px-3 py-1.5 border border-[#1e3a5f] text-slate-200 rounded-lg text-xs">Aiuto giocatore</button>
+            {onTournaments&&<button onClick={onTournaments} className="px-3 py-1.5 border border-cyan-500 bg-cyan-950 text-cyan-100 rounded-lg text-xs font-bold">🏆 Tornei</button>}
             {onRules&&<button onClick={onRules} className="px-3 py-1.5 border border-emerald-500 bg-emerald-500/10 text-emerald-200 rounded-lg text-xs font-bold">▶ Regole animate</button>}
             {onTutorial&&<button onClick={onTutorial} className="px-3 py-1.5 border border-amber-600 text-amber-200 rounded-lg text-xs">Partita guidata</button>}
             <button onClick={() => { setShowStats(true); loadPlayerStats(); }}

@@ -18,6 +18,7 @@ import GamePage from "./pages/game/Index";
 import TabletopGamePage from "./game-v3/TabletopGamePage";
 import GuidedGame from "./game-v3/tutorial/GuidedGame";
 import RulesLibrary from "./game-v3/tutorial/RulesLibrary";
+import TournamentsPage from "./game-v3/TournamentsPage";
 import { readTabletop } from "./game-v3/online";
 import NotFound from "./pages/not-found/Index";
 import UserAnalytics from '@/pages/admin/UserAnalytics';
@@ -43,8 +44,8 @@ function AppRouter() {
     return params.get('type') === 'recovery' && !!params.get('access_token');
   };
 
-  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas' | 'admin-stats' | 'tutorial' | 'rules' | 'readability-preview' | 'game-readability-preview'>(
-    detectRecovery() ? 'auth' : window.location.hash === '#/leggibilita-gioco' ? 'game-readability-preview' : window.location.hash === '#/leggibilita' ? 'readability-preview' : window.location.hash === '#/partita-guidata' ? 'tutorial' : window.location.hash === '#/regole-animate' ? 'rules' : 'cover'
+  const [view, setView] = useState<'cover' | 'auth' | 'lobby' | 'game' | 'admin' | 'admin-areas' | 'admin-stats' | 'tutorial' | 'rules' | 'tournaments' | 'readability-preview' | 'game-readability-preview'>(
+    detectRecovery() ? 'auth' : window.location.hash === '#/leggibilita-gioco' ? 'game-readability-preview' : window.location.hash === '#/leggibilita' ? 'readability-preview' : window.location.hash === '#/partita-guidata' ? 'tutorial' : window.location.hash === '#/regole-animate' ? 'rules' : window.location.hash === '#/tornei' ? 'tournaments' : 'cover'
   );
   // Flag: siamo in flusso reset password (type=recovery) → non redirezionare a lobby automaticamente
   const isRecoveryFlow = useRef(detectRecovery());
@@ -160,6 +161,12 @@ function AppRouter() {
     // Reload the normal entry path so authentication is initialized normally.
     window.location.assign(window.location.pathname + window.location.search);
   }}/>;
+  if (view === 'tournaments') {
+    if (!session || !profile) return <AuthPage isRecovery={false} onPasswordSaved={() => setView('tournaments')} />;
+    return <TournamentsPage profile={profile} isAdmin={isLineaRossaAdmin(session.user.email)}
+      onBack={() => { window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}`); setView('lobby'); }}
+      onJoinGame={(gameId, faction) => { window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}`); void handleJoinGame(gameId, faction); }} />;
+  }
   if (view === 'rules') return <RulesLibrary onExit={() => leaveTutorial(false)} onTutorial={openTutorial}/>;
   if (view === 'tutorial') return <GuidedGame onExit={() => leaveTutorial(false)} onPlay={() => leaveTutorial(true)}/>;
   if (view === 'auth') return <AuthPage
@@ -190,6 +197,7 @@ function AppRouter() {
       )}
       onTutorial={openTutorial}
         onRules={openRules}
+      onTournaments={() => { window.history.replaceState({}, '', `${window.location.pathname}${window.location.search}#/tornei`); setView('tournaments'); }}
     />
   );
   if (view === 'game') return (
