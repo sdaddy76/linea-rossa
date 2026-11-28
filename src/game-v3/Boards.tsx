@@ -8,6 +8,9 @@ import {occupiedSlots, territoryController, usesOfficialRules, usesLatestRules, 
 export const COLORS: Record<Faction,string> = {Iran:'#4ade80',Coalizione:'#60a5fa',Russia:'#f87171',Cina:'#fbbf24',Europa:'#c4b5fd'};
 export const SHORT: Record<Faction,string> = {Iran:'IR',Coalizione:'CO',Russia:'RU',Cina:'CN',Europa:'EU'};
 export interface BoardUnit {id:string;faction:Faction;type:string;territory:string;deployedAt:number;slot?:number;rotated?:boolean}
+/** Diametro dei gettoni PV e del segna-turni, in % della larghezza del tabellone. */
+const MARKER_TOKEN=2.6;
+const markerTokenArt=(name:Faction|'Turno')=>`/assets/tabletop-v3/emblems/${name}.png?v=2026-11-28`;
 function Point({x,y,label,color,children}: {x:number;y:number;label:string;color:string;children:ReactNode}) {
   return <span data-track-point title={label} aria-label={label} style={{left:`${x}%`,top:`${y}%`,background:color,transform:'translate(-50%, -50%)',transition:'left var(--guide-duration, 400ms) ease, top var(--guide-duration, 400ms) ease'}}
     className="absolute rounded border border-white text-black font-black text-[clamp(7px,0.7vw,12px)] px-1 min-w-4 text-center leading-tight shadow-md pointer-events-none">{children}</span>;
@@ -22,8 +25,8 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
   useEffect(()=>{ if(!openStack) return; const close=(e:KeyboardEvent)=>{ if(e.key==='Escape') setOpenStack(null); }; window.addEventListener('keydown',close); return ()=>window.removeEventListener('keydown',close); },[openStack]);
   const latest = !!gameState && usesLatestRules(gameState);
   const territory=TERRITORIES.find(t=>t.id===selected);
-  const perimeterMarkers=FACTIONS.map(f=>({value:pv[f],label:`${f}: ${pv[f]} PV`,text:SHORT[f],color:COLORS[f]}));
-  if(gameState&&usesOfficialRules(gameState))perimeterMarkers.push({value:gameState.turnMarker??0,label:`Segna-turni ${gameState.turnMarker??0}`,text:'T',color:'#fef08a'});
+  const perimeterMarkers=FACTIONS.map(f=>({value:pv[f],label:`${f}: ${pv[f]} PV`,text:SHORT[f],color:COLORS[f],art:markerTokenArt(f)}));
+  if(gameState&&usesOfficialRules(gameState))perimeterMarkers.push({value:gameState.turnMarker??0,label:`Segna-turni ${gameState.turnMarker??0}`,text:'T',color:'#facc15',art:markerTokenArt('Turno')});
   const markerCells=[...new Set(perimeterMarkers.map(m=>Math.min(100,Math.max(0,Math.floor(m.value)))))];
   return <section aria-label="Mappa delle unità schierate" className="min-w-0 space-y-3">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -40,13 +43,17 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
         {(['Nucleare','Sanzioni','Crisi Bellica','Opinione'] as GlobalTrack[]).map((track,i)=><Point key={track}
           {...globalTrackPoint(track,globals[track])} label={`${track} ${globals[track]}`} color={['#facc15','#fb923c','#f87171','#f9a8d4'][i]}>{globals[track]}</Point>)}
         {markerCells.map(value=>{
+          // Gettoni tondi con il simbolo della fazione; più gettoni nella stessa casella si sovrappongono a ventaglio.
           const markers=perimeterMarkers.filter(m=>Math.min(100,Math.max(0,Math.floor(m.value)))===value),pos=perimeterPoint(value);
-          return <span key={value} data-track-cell={value} data-track-point
-            className="absolute grid place-items-center gap-px pointer-events-none"
-            style={{left:`${pos.x}%`,top:`${pos.y}%`,transform:'translate(-50%, -50%)',gridTemplateColumns:`repeat(${Math.min(3,markers.length)},auto)`}}>
-            {markers.map(m=><span key={m.label} title={m.label} aria-label={m.label}
-              className="rounded-sm border border-white px-0.5 text-center text-black font-black leading-tight shadow-sm"
-              style={{background:m.color,fontSize:'clamp(6px,0.65vw,11px)',minWidth:markers.length===1?'18px':'12px'}}>{m.text}</span>)}
+          const crowd=markers.length>2, fan=(markers.length-1)/2, cols=Math.min(3,markers.length), rows=Math.ceil(markers.length/3);
+          const place=(k:number)=>crowd
+            ? {width:'62%',height:'62%',left:`${19+((k%3)-(cols-1)/2)*58}%`,top:`${19+(Math.floor(k/3)-(rows-1)/2)*58}%`}
+            : {width:'100%',height:'100%',left:'0',top:'0',transform:`translate(${(k-fan)*40}%, ${(k-fan)*14}%)`};
+          return <span key={value} data-track-cell={value} data-track-point className="absolute pointer-events-none"
+            style={{left:`${pos.x}%`,top:`${pos.y}%`,width:`${MARKER_TOKEN}%`,aspectRatio:'1',transform:'translate(-50%, -50%)'}}>
+            {markers.map((m,k)=><img key={m.label} src={m.art} alt={m.label} title={m.label} data-marker-token={m.text}
+              className="absolute rounded-full"
+              style={{...place(k),zIndex:k+1,boxShadow:`0 0 0 2px ${m.color}, 0 2px 6px rgba(0,0,0,.8)`}}/>)}
           </span>;
         })}
         {TERRITORIES.flatMap(t=>{
