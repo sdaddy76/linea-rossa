@@ -5,7 +5,11 @@ import { getObjectiveCardFront } from '@/data/card-graphics';
 import { FACTIONS, TRACKS, type Faction, type GlobalTrack, type TrackChange } from './catalog-types';
 import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
 import { canDeploy, canPeek, attackCost, currentActor, deployCost, maintainableUnits, MAINTENANCE_COST, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, reduce, type EngineState, type Command } from './engine';
-import { commitCommand, readTabletop, type SavedTabletop } from './online';
+import { commitCommand, readTabletop, resumeSeat, substituteSeat, syncTabletop, type SavedTabletop } from './online';
+import { mergePrivate, TURN_LIMIT_MS, type PrivateView } from './server-core';
+import { GameChat } from './GameChat';
+import { PushToggle } from './PushToggle';
+import { isLineaRossaAdmin } from '@/lib/admin';
 import { objectiveStatus } from './objectives';
 import { COLORS, FactionBoard, TabletopBoard, UnitImage } from './Boards';
 import { Materials } from './Materials';
@@ -30,6 +34,23 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 }
 const button = 'rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm hover:border-slate-300 disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-300';
 const selectStyle = 'bg-slate-800 border border-slate-600 rounded-lg p-2 w-full text-sm';
+function TurnClock({ s, actor, own, startedAt, now, canSubstitute, busy, tone, onResume, onSubstitute }: {
+  s: EngineState; actor: Faction; own: Faction | null; startedAt?: string; now: number; canSubstitute: boolean; busy: boolean;
+  tone: Record<Faction, string>; onResume: () => void; onSubstitute: () => void;
+}) {
+  const mineStandIn = !!own && !!s.players[own].standIn;
+  const human = !s.players[actor].bot && !s.players[actor].neutral;
+  const left = startedAt ? Math.max(0, Date.parse(startedAt) + TURN_LIMIT_MS - now) : null;
+  const hours = left === null ? null : Math.floor(left / 3600000), minutes = left === null ? null : Math.floor(left % 3600000 / 60000);
+  return <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-3 text-sm flex flex-wrap items-center gap-3" role="status">
+    {mineStandIn ? <><span className="text-amber-200">Un BOT sta giocando al tuo posto (tempo scaduto o sostituzione). La tua mano e i tuoi obiettivi sono al sicuro.</span>
+      <button className={button + ' border-emerald-500'} disabled={busy} onClick={onResume}>Riprendi il controllo</button></>
+    : human && left !== null ? <span>Tempo per il turno di <strong style={{ color: tone[actor] }}>{actor}</strong>: {left > 0 ? `${hours} h ${minutes} min` : 'scaduto, il BOT subentra alla prossima apertura della partita'}. Dopo 24 ore senza mosse gioca un BOT al suo posto.</span>
+    : <span className="text-slate-400">Turno di una fazione automatica: il server la fa giocare da sola.</span>}
+    {canSubstitute && human && <button className={button} disabled={busy} onClick={onSubstitute}>Fai giocare un BOT al posto di {actor}</button>}
+    {Object.entries(s.players).filter(([, p]) => p.standIn).map(([f]) => f !== own && <span key={f} className="text-xs text-slate-400">{f}: BOT sostituto</span>)}
+  </div>;
+}
 export default function TabletopGamePage({ onBack, previewState }: {
   onBack: () => void; previewState?: EngineState;
 }) {
@@ -64,28 +85,45 @@ export default function TabletopGamePage({ onBack, previewState }: {
   }, [cardId]);
   const mounted = useRef(true);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
+  const own = previewState ? 'Iran' : viewerFaction(profile?.id,players);
+  /** Mano, obiettivi e Rete informativa del proprio posto: li vede solo il proprietario. */
+  const loadMine = useCallback(async (): Promise<(PrivateView & { revision: number }) | null> => {
+    if (previewState || !gameId || !own) return null;
+    const result = await supabase.from('tabletop_private').select('revision, hand, objectives, intel').eq('game_id', gameId).eq('faction', own).maybeSingle();
+    if (result.error) throw new Error(result.error.message);
+    return (result.data as (PrivateView & { revision: number }) | null) ?? null;
+  }, [gameId, own, previewState]);
+  const refresh = useCallback(async () => {
+    if (previewState || !gameId) return;
+    const next = await syncTabletop(gameId, own);
+    if (mounted.current) setSaved(old => !old || next.revision >= old.revision ? next : old);
+  }, [gameId, previewState, own]);
   useEffect(() => {
     if (previewState) return;
     const next = readTabletop(gameState);
-    if (next) setSaved(old => !old || next.revision > old.revision ? next : old);
-  }, [gameState, previewState]);
-  const refresh = useCallback(async () => {
+    if (!next) return;
+    let live = true;
+    // La copia pubblica arriva in tempo reale; la propria mano si rilegge alla stessa revisione.
+    loadMine().then(mine => {
+      if (!live || !mounted.current) return;
+      const merged = { ...next, state: mergePrivate(next.state, own, mine && mine.revision >= next.revision ? mine : null) };
+      setSaved(old => !old || next.revision > old.revision ? merged : old);
+    }).catch(() => { if (live && mounted.current) setSaved(old => !old || next.revision > old.revision ? next : old); });
+    return () => { live = false; };
+  }, [gameState, previewState, loadMine, own]);
+  useEffect(() => {
     if (previewState || !gameId) return;
-    const result = await supabase.from('game_state').select('special_uses').eq('game_id', gameId).single();
-    if (result.error) throw new Error(result.error.message);
-    const next = readTabletop(result.data);
-    if (!next) throw new Error('Stato della nuova edizione non disponibile.');
-    if (mounted.current) setSaved(old => !old || next.revision >= old.revision ? next : old);
-  }, [gameId, previewState]);
+    // All'apertura il server controlla il tempo limite, fa giocare i BOT e consegna la propria mano.
+    void refresh().catch(() => {});
+  }, [refresh, previewState, gameId]);
   useEffect(() => {
     if (previewState) return;
     // Realtime remains the primary transport; polling also recovers missed reconnect events.
-    const timer = window.setInterval(() => { void refresh().catch(() => {}); }, 10000);
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh().catch(() => {}); }, 60000);
     return () => window.clearInterval(timer);
   }, [refresh, previewState]);
   const s = saved?.state;
   const actor = s ? currentActor(s) : null;
-  const own = previewState ? 'Iran' : viewerFaction(profile?.id,players);
   const member = own !== null;
   const isBot = !!s && !!actor && (s.players[actor].bot || !!s.players[actor].neutral);
   const needsManualResolution = !!isBot && s?.pending?.kind === 'bot-influence';
@@ -100,7 +138,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
       // It never reads or writes games, profiles or hands from Supabase.
       const next = previewState
         ? { revision: saved.revision + 1, state: reduce(saved.state, actor, command) }
-        : await commitCommand(gameId, saved, actor, command);
+        : await commitCommand(gameId, saved, actor, command, own);
       if (mounted.current) { setSaved(next); setMarked([]); setCardId(null); }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Operazione non riuscita.';
@@ -116,11 +154,27 @@ export default function TabletopGamePage({ onBack, previewState }: {
       if (mounted.current) setBusy(false);
     }
   }, [saved, gameId, actor, own, member, isBot, refresh, previewState]);
+  const seatAction = useCallback(async (run: () => Promise<SavedTabletop>) => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true); setError('');
+    try { const next = await run(); if (mounted.current) setSaved(next); }
+    catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : 'Operazione non riuscita.'); }
+    finally { busyRef.current = false; if (mounted.current) setBusy(false); }
+  }, []);
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => {
+    if (previewState) return;
+    void supabase.auth?.getSession?.().then(r => setAdmin(isLineaRossaAdmin(r.data.session?.user?.email))).catch(() => {});
+  }, [previewState]);
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = window.setInterval(() => setNow(Date.now()), 60000); return () => window.clearInterval(t); }, []);
   useEffect(() => {
     if (!isBot || !member || busy || autoPaused || needsManualResolution || motion.active) return;
-    const timer = window.setTimeout((): void => { void send({ type: 'advance-bot' }, true); }, 1400);
+    // I BOT li fa giocare il server: qui si chiede solo di recuperare un turno BOT rimasto fermo.
+    const timer = window.setTimeout((): void => { if (previewState) { void send({ type: 'advance-bot' }, true); return; }
+      void refresh().catch(err => { if (mounted.current) { setError((err as Error).message); setAutoPaused(true); } }); }, previewState ? 1400 : 4000);
     return () => window.clearTimeout(timer);
-  }, [saved?.revision, isBot, member, busy, autoPaused, needsManualResolution, send, motion.active]);
+  }, [saved?.revision, isBot, member, busy, autoPaused, needsManualResolution, send, motion.active, refresh, previewState]);
   useEffect(() => { setMarked([]); }, [s?.phase, actor]);
   if (!s || (!previewState && !game)) return <main className="game-interface p-8 bg-slate-950 text-white min-h-screen"><p>Caricamento partita…</p><button className={button} onClick={onBack}>Torna alla lobby</button></main>;
   const p = own ? s.players[own] : null;
@@ -177,12 +231,16 @@ export default function TabletopGamePage({ onBack, previewState }: {
           <button className={button + ' game-readability-toggle inline-flex items-center gap-2'} aria-pressed={readability.high} onClick={readability.toggle}
             title={readability.high ? 'Torna al tema scuro' : 'Tema chiaro, caratteri grandi e contrasto elevato'}>
             <Sun size={18} aria-hidden="true"/>{readability.high ? 'Alta leggibilità: attiva' : 'Alta leggibilità'}</button>
+          {!previewState && <PushToggle className={button} />}
           <button className={button} onClick={() => setMaterials(true)}>Materiali</button><button className={button + ' hidden md:inline-block'} onClick={onBack}>Lobby</button></div>
       </div>
     </header>
     <div className="max-w-[1600px] mx-auto px-3 md:px-6 space-y-5 mt-5">
-      <p className="text-xs text-amber-200 border border-amber-900 bg-amber-950/20 p-3 rounded-lg">Modalità tavolo fidato: mani e obiettivi sono nascosti nell’interfaccia, ma lo stato condiviso non è ancora isolato sul server. Questa versione non offre protezione contro l’ispezione tecnica delle carte avversarie.</p>
-      {official && <p className={'rounded-lg border p-3 text-sm '+((s.turnMarker??0)>=threshold?'border-amber-500 bg-amber-950/30 text-amber-100':'border-slate-700 text-slate-300')}>
+      {!previewState && !s.result && actor && <TurnClock s={s} actor={actor} own={own} startedAt={saved?.turnStartedAt} now={now}
+        canSubstitute={(game?.created_by === profile?.id || admin) && !!actor && !s.players[actor].bot && !s.players[actor].neutral && actor !== own}
+        busy={busy} tone={tone}
+        onResume={() => own && gameId && seatAction(() => resumeSeat(gameId, own))}
+        onSubstitute={() => gameId && actor && window.confirm(`Un BOT giocherà al posto di ${actor} finché il giocatore non riprende il controllo. Confermi?`) && seatAction(() => substituteSeat(gameId, actor, own))} />}      {official && <p className={'rounded-lg border p-3 text-sm '+((s.turnMarker??0)>=threshold?'border-amber-500 bg-amber-950/30 text-amber-100':'border-slate-700 text-slate-300')}>
         {(s.turnMarker??0)>=threshold
           ? s.result ? `Soglia ${threshold} superata: partita conclusa dopo la chiusura del round, come da regolamento.`
             : `Ultimo round: soglia ${threshold} raggiunta. Si completano entrambi i giri e tutte le fasi di fine round; poi punteggio finale, senza pescare un nuovo Evento. Il segna-turni può superare ${threshold}.`
@@ -321,6 +379,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
       })}</div></Panel>}
       <p className="text-xs text-slate-500">BOT: nessuna mano né obiettivi. Mantenimento gratuito: 1 unità ruotata per attivazione.{usesLatestRules(s) && ' Presenza minima: senza unità, una carta BOT priva di Schieramento sostituisce il primo Sviluppo con l’unità base nello Stato stampato.'} Sostegno automatico: Russia/Cina per Iran, Europa per Coalizione; perdite meno costose per prime. Regolamento aggiornato: un solo Scudo difendente annulla tutti i Missili balistici attaccanti. La mano usa i fronti originali del mazzo base completo; gli effetti vengono applicati dalle opzioni strutturate del catalogo.</p>
     </div>
+    {!previewState && gameId && <GameChat gameId={gameId} own={own} tone={tone} players={players as { faction: string | null; player_id: string | null; is_bot: boolean }[]} />}
     {chosen && <div role="dialog" aria-modal="true" aria-label={chosen.name} className="fixed inset-0 z-40 overflow-y-auto bg-black/90 p-4 md:p-8">
       <div className="max-w-4xl mx-auto bg-slate-900 border border-slate-600 p-5 rounded-xl space-y-4">
         <button autoFocus className={button} onClick={() => setCardId(null)}>Chiudi carta</button>

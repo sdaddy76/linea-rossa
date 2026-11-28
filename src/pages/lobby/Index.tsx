@@ -16,6 +16,7 @@ import { PlayerAid } from '@/game-v3/PlayerAid';
 import { isLineaRossaAdmin } from '@/lib/admin';
 import SalaPartite from './SalaPartite';
 import { loadArchived, loadRoom, openedAt, type RoomGame } from './sala';
+import { PushToggle } from '@/game-v3/PushToggle';
 import { ReadabilityFrame, useReadability, READABLE_PALETTE as RP } from './Readability';
 
 interface LobbyPageProps {
@@ -603,6 +604,7 @@ export default function LobbyPage({ profile, onJoinGame, onLogout, onAdmin, onTu
               Materiali ufficiali v3
             </button>
             <button onClick={() => setShowAid(true)} className="px-3 py-1.5 border border-[#1e3a5f] text-slate-200 rounded-lg text-xs">Aiuto giocatore</button>
+            <PushToggle className="px-3 py-1.5 border border-amber-500 text-amber-200 rounded-lg text-xs" />
             {onTournaments&&<button onClick={onTournaments} className="px-3 py-1.5 border border-cyan-500 bg-cyan-950 text-cyan-100 rounded-lg text-xs font-bold">🏆 Tornei</button>}
             {onRules&&<button onClick={onRules} className="px-3 py-1.5 border border-emerald-500 bg-emerald-500/10 text-emerald-200 rounded-lg text-xs font-bold">▶ Regole animate</button>}
             {onTutorial&&<button onClick={onTutorial} className="px-3 py-1.5 border border-amber-600 text-amber-200 rounded-lg text-xs">Partita guidata</button>}

@@ -70,6 +70,10 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
     </div>}
     {error && <div role="alert" className="rounded-lg border border-red-600 bg-red-950 p-3 text-sm text-red-200">{error} <button onClick={onRefresh} className="underline">Riprova</button></div>}
     <p role="status" className="text-xs text-slate-400">{loading ? 'Aggiornamento dei tavoli…' : updatedAt ? `Ultimo aggiornamento ${new Date(updatedAt).toLocaleTimeString('it-IT')}. Aggiornamento automatico attivo.` : 'Sala pronta.'}</p>
+    {!showingArchive && (() => { const turns = games.filter(g => g._myTurn); return turns.length > 0 && <div role="status" className="sala-my-turn rounded-xl border border-amber-400 bg-amber-950/60 p-3 space-y-2">
+      <p className="font-bold text-amber-200">🔔 Tocca a te in {turns.length === 1 ? '1 partita' : `${turns.length} partite`}</p>
+      <div className="flex flex-wrap gap-2">{turns.map(g => <button key={g.id} onClick={() => onEnter(g)} className="min-h-10 rounded-lg bg-amber-400 px-3 text-sm font-bold text-slate-950">{g.name || g.code} · gioca ora</button>)}</div>
+    </div>; })()}
     <div className="space-y-3">
       {visible.map(game => {
         const seats = tableSeats(game, userId), host = game.created_by === userId;
@@ -81,6 +85,7 @@ export default function SalaPartite({ games, userId, loading, error, updatedAt, 
               onChange={() => toggle(game.id)} className="mt-1 h-5 w-5 shrink-0 accent-red-500" />}
             <div className="min-w-0 flex-1"><h3 className="font-bold text-lg text-emerald-300 break-words">{game.name || game.code}</h3>
               <p className="text-xs text-slate-400 font-mono">{game.code}{host && ' · Il tuo tavolo'}{seats.enrolled && ' · Sei iscritto'}{game.archived_at && ` · archiviata il ${openedAt(game.archived_at)}`}</p></div>
+            {game._myTurn && <span className="self-start rounded bg-amber-400 px-2 py-1 text-xs font-bold text-slate-950">Tocca a te</span>}
             <span className={`self-start rounded px-2 py-1 text-xs ${game.status === 'lobby' ? 'bg-amber-950 text-amber-200' : 'bg-emerald-950 text-emerald-200'}`}>
               {game.status === 'active' ? 'In corso · iscrizioni chiuse' : seats.canJoin ? 'In attesa di giocatori' : 'In attesa dell’avvio'}
             </span>

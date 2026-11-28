@@ -41,4 +41,37 @@ class Query implements PromiseLike<{ data: unknown; error: { message: string } |
     reject?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ): PromiseLike<TResult1 | TResult2> { return this.execute().then(resolve, reject); }
 }
-export const supabase = { from: (table: string) => new Query(table) };
+/** Server di gioco finto: stesse regole e permessi della funzione "tabletop", in memoria. */
+export const server = {
+  row: null as null | { revision: number; state: import('./engine').EngineState; turnStartedAt: string },
+  user: 'host', faction: 'Iran' as import('./catalog-types').Faction | null,
+  calls: [] as Record<string, unknown>[], fail: '' as string,
+};
+async function invoke(name: string, { body }: { body: Record<string, unknown> }) {
+  const core = await import('./server-core'); const engine = await import('./engine');
+  server.calls.push({ name, ...body });
+  const fail = (message: string) => ({ data: null, error: { message: 'Edge Function returned a non-2xx status code', context: { json: async () => ({ error: message }) } } });
+  if (server.fail) return fail(server.fail);
+  const caller = { userId: server.user, faction: server.faction, member: true, host: server.user === database.game.created_by, admin: false };
+  const view = () => ({ data: { revision: server.row!.revision, state: core.redact(server.row!.state), turnStartedAt: server.row!.turnStartedAt,
+    mine: caller.faction ? core.privateView(server.row!.state, caller.faction) : null }, error: null });
+  try {
+    if (body.action === 'start') {
+      if (!caller.host) return fail('Solo il creatore può avviare la partita.');
+      if (server.row) return view();
+      const plan = core.planStart(database.members, (body.neutrals as never) ?? [], body.mode as never, database.game.game_length);
+      server.row = { revision: 1, state: core.runBots(engine.createGame({ bots: plan.bots, neutrals: plan.neutrals, mode: plan.mode, rulesRevision: '2026-11-21', botInfluenceEdition: '2026-11-22' })), turnStartedAt: new Date(0).toISOString() };
+      database.game = { ...database.game, status: 'active', game_length: plan.mode, track_limit: plan.limit, max_turns: plan.limit };
+      return view();
+    }
+    if (!server.row) return fail('Stato della partita non disponibile.');
+    if (body.action === 'command') {
+      if (body.revision !== server.row.revision) return fail('Un altro giocatore ha aggiornato la partita. Stato ricaricato: ripeti la scelta.');
+      server.row = { ...server.row, revision: server.row.revision + 1, state: core.applyCommand(server.row.state, caller, body.actor as never, body.command as never) };
+      return view();
+    }
+    if (body.action === 'sync') return view();
+    return fail('Azione sconosciuta.');
+  } catch (e) { return fail((e as Error).message); }
+}
+export const supabase = { from: (table: string) => new Query(table), functions: { invoke } };

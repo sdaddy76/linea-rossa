@@ -8,7 +8,7 @@ const runtime = process.env.SKYWORK_INTERMEDIATE_ROOT
   ? resolve(process.env.SKYWORK_INTERMEDIATE_ROOT, 'tabletop-tests')
   : mkdtempSync(join(tmpdir(), 'linea-rossa-tests-'));
 mkdirSync(runtime, { recursive: true });
-for (const name of ['engine', 'latest-rules', 'auth-lifecycle', 'online', 'ui', 'card-motion', 'tutorial/model', 'tutorial/ui', 'tournament']) {
+for (const name of ['engine', 'latest-rules', 'auth-lifecycle', 'online', 'ui', 'card-motion', 'tutorial/model', 'tutorial/ui', 'tournament', 'server-core']) {
   const outfile = resolve(runtime, `${name.replace('/', '-')}.test.cjs`);
   const isUI = name === 'ui' || name === 'tutorial/ui' || name === 'card-motion';
   await build({

@@ -7,6 +7,8 @@ export type RNG = () => number;
 export interface PlayerState {
   bot: boolean; tracks: Record<Track, number>; points: number; hand: string[]; objectives: string[];
   vetoUsed: boolean; neutral?: boolean; dividendUsed?: boolean;
+  /** Posto umano giocato temporaneamente da un BOT (tempo scaduto o sostituzione): tiene mano e obiettivi. */
+  standIn?: boolean;
 }
 export interface PlacedUnit { id: string; type: string; faction: Faction; territory: string; placedRound: number; rotated: boolean; slot?: number }
 export interface PlacedInfluence { id: string; faction: Faction; territory: string; slot: number }
@@ -355,7 +357,7 @@ function rotateUnits(s: EngineState) {
 }
 function refill(s: EngineState, rng: RNG) {
   FACTIONS.forEach(f => {
-    if (s.players[f].bot || s.players[f].neutral) return;
+    if ((s.players[f].bot && !s.players[f].standIn) || s.players[f].neutral) return;
     const count = (s.players[f].tracks.Consenso <= 3 ? 1 : s.players[f].tracks.Consenso >= 8 ? 3 : 2) +
       (!usesOfficialRules(s) && s.advancers.includes(f) ? 1 : 0);
     for (let i = 0; i < count; i++) { const card = draw(s, rng); if (card) s.players[f].hand.push(card); }
@@ -713,6 +715,46 @@ function botActivation(s: EngineState, actor: Faction, rng: RNG) {
   s.log.push(`${actor}: [${card.id}] ${card.name} — ${p1 ? 'P1' : 'P2'} (${p1 ? card.priority1 : card.priority2})${presence}`);
   s.queue = actions.map(action => ({ kind: 'bot', actor, track, action })); drain(s, rng);
 }
+/** Sostituzione (2026-11-28): un BOT gioca al posto di un giocatore assente; il giocatore può riprendere il posto. */
+export function setStandIn(state: EngineState, faction: Faction, on: boolean, reason: string): EngineState {
+  const s: EngineState = structuredClone(state), p = s.players[faction];
+  assert(s.phase !== 'ended', 'Partita terminata');
+  assert(!p.neutral && (on ? !p.bot : !!p.standIn), on ? 'Il posto è già automatico' : 'Il posto non è in sostituzione');
+  p.bot = on; p.standIn = on;
+  s.log.push(on ? `${faction}: ${reason} Un BOT gioca al suo posto finché il giocatore non riprende il controllo.` : `${faction}: il giocatore riprende il controllo. ${reason}`.trim());
+  return s;
+}
+/** Scelte rimaste in sospeso a un posto passato al BOT. */
+function standInResolve(s: EngineState, actor: Faction, rng: RNG): boolean {
+  const p = s.pending;
+  if (p?.kind === 'discard' && p.actor === actor) {
+    const ids = s.players[actor].hand.slice(-p.count);
+    ids.forEach(id => { s.players[actor].hand.splice(s.players[actor].hand.indexOf(id), 1); if (usesLatestRules(s)) s.discard.push(id); else dispose(s, id); });
+    s.log.push(`${actor} BOT: scarta ${p.count} ${p.count === 1 ? 'carta' : 'carte'} per il limite di mano ${p.limit}.`);
+    s.pending = null; promptDiscard(s, rng); return true;
+  }
+  if (p?.kind === 'veto' && p.actor === actor) {
+    if (s.players[actor].tracks[p.change.track] <= 3) applyVeto(s, p.change); else externalChange(s, p.change);
+    s.pending = null; s.phase = s.continuation === 'ops' ? 'ops' : 'activation'; drain(s, rng); return true;
+  }
+  if (p?.kind === 'support' && p.actor === actor && s.combat) {
+    const c = s.combat;
+    c.support[actor] = actor === 'Europa' ? (c.attacker === 'Coalizione' ? 'attacker' : 'defender') : (c.attacker === 'Iran' ? 'attacker' : 'defender');
+    s.log.push(`${actor} BOT: sostiene ${c.support[actor] === 'attacker' ? c.attacker : c.defender} in ${territoryDef(c.territory).name}.`);
+    c.supportIndex++; s.pending = null; promptSupport(s, rng);
+    if (!s.pending && !s.result) drain(s, rng);
+    return true;
+  }
+  if (p?.kind === 'casualty' && p.actor === actor) {
+    const ids = [...p.unitIds].sort((a, b) => unitDef(s.units.find(u => u.id === a)!.type).cost - unitDef(s.units.find(u => u.id === b)!.type).cost).slice(0, p.count);
+    applyCasualties(s, ids, rng); return true;
+  }
+  if (s.phase === 'ops' && s.ops?.actor === actor) {
+    s.log.push(`${actor} BOT: conclude le Operazioni lasciate in sospeso; ${s.ops.remaining} OP non spesi si perdono.`);
+    finish(s, rng); return true;
+  }
+  return false;
+}
 export function reduce(state: EngineState, actor: Faction, command: Command, rng: RNG = Math.random): EngineState {
   // Copy first: thrown validation and interrupted effects never mutate the caller's JSON state.
   const s: EngineState = structuredClone(state);
@@ -757,6 +799,7 @@ export function reduce(state: EngineState, actor: Faction, command: Command, rng
       assert(s.phase === 'activation', 'Fazione neutrale fuori attivazione');
       moveTurnMarker(s, actor, 2); s.log.push(`${actor}: fazione neutrale, salta l’attivazione.`); finish(s, rng); return s;
     }
+    if (s.players[actor].bot && s.players[actor].standIn && standInResolve(s, actor, rng)) return s;
     assert(s.players[actor].bot && s.phase === 'activation', 'Il BOT non può avanzare in questa fase'); botActivation(s, actor, rng); return s;
   }
   assert(!s.players[actor].bot, 'Usa advance-bot per la fazione automatica');

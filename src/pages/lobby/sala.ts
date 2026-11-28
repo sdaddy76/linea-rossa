@@ -10,6 +10,8 @@ export interface RoomPlayer {
 export interface RoomGame extends Game {
   allow_join?: boolean;
   _players: RoomPlayer[];
+  /** Partita in corso in cui deve muovere proprio questo giocatore. */
+  _myTurn?: boolean;
 }
 type Client = typeof import('@/integrations/supabase/client').supabase;
 
@@ -85,9 +87,18 @@ export async function loadRoom(client: Client, userId: string): Promise<{ open: 
       players.set(p.game_id, list);
     }
   }
+  const mine = new Map<string, string>();
+  for (const [gameId, list] of players) { const seat = list.find(p => p.player_id === userId && !p.is_bot); if (seat) mine.set(gameId, seat.faction); }
+  const activeMine = [...new Set([...open, ...recent].filter(g => g.status === 'active' && mine.has(g.id)).map(g => g.id))];
+  const turns = new Set<string>();
+  for (let i = 0; i < activeMine.length; i += 10) {
+    const result = await client.from('game_state').select('game_id,active_faction').in('game_id', activeMine.slice(i, i + 10));
+    if (result.error) break;   // contatore "tocca a te" facoltativo: la sala resta utilizzabile
+    for (const row of (result.data ?? []) as { game_id: string; active_faction: string | null }[]) if (row.active_faction && row.active_faction === mine.get(row.game_id)) turns.add(row.game_id);
+  }
   const enrich = (games: Game[]) => games
     .filter(g => String(g.winner_condition) !== 'archived_by_owner' && !g.archived_at)
-    .map(g => ({ ...g, _players: players.get(g.id) ?? [] }));
+    .map(g => ({ ...g, _players: players.get(g.id) ?? [], _myTurn: turns.has(g.id) }));
   return { open: enrich(open), recent: enrich(recent) };
 }
 
