@@ -39,10 +39,8 @@ test('game typography raises labels to 16px and body to 18px with white text, is
   assert.ok(!css.includes('!important'));
   assert.ok(!css.includes('.lobby-ui'));
   assert.ok(!css.includes('img {'));
-  const gameSource = readFileSync('src/pages/game/Index.tsx', 'utf8');
-  assert.ok(gameSource.includes('onMarkComplete={(id) => markObjectiveComplete(id, true)}'));
-  assert.ok(!gameSource.includes('setShowMarket'));
-  assert.ok(gameSource.includes('<OpsActionModal'));
+  // La pagina del vecchio motore è stata rimossa (2026-11-28): le partite precedenti mostrano solo un avviso.
+  assert.ok(readFileSync('src/pages/game/LegacyGame.tsx', 'utf8').includes('versione precedente'));
 });
 beforeEach(() => {
   uiFixture.state = createGame({ bots: [] }, () => 0.3);

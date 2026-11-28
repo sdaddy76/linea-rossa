@@ -55,6 +55,12 @@ export interface EngineState {
   intel: Record<Faction, { target: Faction; hand: string[]; activation: number }[]>;
   result: { reason: 'war' | 'nuclear' | 'sanctions' | 'points'; winners: Faction[]; scores: Record<Faction, number>; responsible?: Faction } | null;
   log: string[];
+  /** Andamento della partita (2026-11-28): una fotografia per ogni fine round, per il riepilogo finale. */
+  history?: RoundSnapshot[];
+}
+export interface RoundSnapshot { round: number; final?: boolean; points: Record<Faction, number>; tracks: Record<Faction, Record<Track, number>>; globals: Record<GlobalTrack, number> }
+export function snapshot(s: Pick<EngineState, 'actualRound' | 'players' | 'globals'>, round = s.actualRound): RoundSnapshot {
+  return { round, points: record(f => s.players[f].points), tracks: record(f => ({ ...s.players[f].tracks })), globals: { ...s.globals } };
 }
 export type Command =
   | { type: 'play-event'; cardId: string; option: number }
@@ -238,6 +244,7 @@ function changeTrack(s: EngineState, c: TrackChange) {
 }
 function end(s: EngineState, reason: 'war' | 'nuclear' | 'sanctions', responsible?: Faction) {
   if (reason === 'war' && usesLatestRules(s)) {
+    s.log.push(responsible ? `Guerra totale provocata da ${responsible}: la partita si chiude ai punti e ${responsible} non può vincere.` : 'Guerra totale causata da un evento o dalla Tensione: tutte le fazioni −5 PV.');
     finalScore(s, { responsible }); s.queue = []; s.ops = null; s.combat = null;
     return;
   }
@@ -245,6 +252,7 @@ function end(s: EngineState, reason: 'war' | 'nuclear' | 'sanctions', responsibl
   if (usesOfficialRules(s)) s.roundClosure = false;
   s.result = { reason, winners: reason === 'war' ? [] : [reason === 'nuclear' ? 'Iran' : 'Coalizione'], scores: record(f => s.players[f].points) };
   s.log.push(reason === 'war' ? 'Guerra totale: nessun vincitore.' : `Partita terminata: vince ${s.result.winners.join(', ')} (${reason === 'nuclear' ? 'Nucleare 15' : 'Sanzioni 10'}).`);
+  if (usesLatestRules(s)) (s.history ??= []).push({ ...snapshot(s), final: true });
 }
 function globals(s: EngineState, changes: GlobalChange[], responsible?: Faction) {
   let war = false, nuclear = false, sanctions = false;
@@ -306,7 +314,7 @@ export function createGame(options: { bots: Faction[]; neutrals?: Faction[]; mod
     units: [], nextUnit: 1, ops: null, pending: null, combat: null, queue: [], continuation: 'finish', discardQueue: [],
     intel: record(() => []), result: null, log: [],
   };
-  if (usesLatestRules(s)) { s.deck = shuffle(FACTION_CARDS.map(c => c.id), rng); s.specialReserve = []; }
+  if (usesLatestRules(s)) { s.deck = shuffle(FACTION_CARDS.map(c => c.id), rng); s.specialReserve = []; s.history = [snapshot(s, 0)]; }
   FACTIONS.forEach(f => {
     if (!s.players[f].bot && !s.players[f].neutral) {
       for (let n = 0; n < 5; n++) { const card = draw(s, rng); if (card) s.players[f].hand.push(card); }
@@ -332,6 +340,7 @@ function finalScore(s: EngineState, war?: { responsible?: Faction }) {
   s.result = { reason: war ? 'war' : 'points', winners: eligible.filter(f => compare(f, leader) === 0), scores: record(f => s.players[f].points),
     ...(war?.responsible ? { responsible: war.responsible } : {}) };
   s.phase = 'ended'; s.pending = null;
+  if (usesLatestRules(s)) (s.history ??= []).push({ ...snapshot(s), final: true });
   if (usesOfficialRules(s)) s.roundClosure = false;
   s.log.push(`Punteggio finale: ${FACTIONS.map(f => `${f} ${s.players[f].points} PV`).join(' · ')}. Vince: ${s.result.winners.join(', ')}.`);
 }
@@ -359,6 +368,7 @@ function scoreRound(s: EngineState) {
     p.points = Math.max(0, p.points + TRACKS.reduce((n, t) => n + (p.tracks[t] >= 8 ? 1 : p.tracks[t] <= 3 ? -1 : 0), 0));
     s.log.push(`${f}: PV di fine round ${before} → ${p.points}`);
   });
+  if (usesLatestRules(s)) (s.history ??= []).push(snapshot(s));
 }
 function rotateUnits(s: EngineState) {
   const expired = s.units.filter(u => u.rotated);

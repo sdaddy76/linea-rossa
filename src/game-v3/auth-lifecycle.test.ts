@@ -5,7 +5,6 @@ import { sessionListener } from '../integrations/supabase/session-listener';
 import { databaseFetch } from '../integrations/supabase/request';
 import { withTimeout } from '../lib/with-timeout';
 import { normalizeFaction } from '../lib/factions';
-import { useOnlineGameStore } from '../store/onlineGameStore';
 const session = (id: string) => ({ user: { id } }) as Session;
 
 test('auth callback releases the session lock before any database token lookup', async t => {
@@ -79,24 +78,4 @@ test('query timeout rejects once and never repeats a pending mutation', async t 
   t.mock.timers.tick(11);
   await assert.rejects(request, /Timeout mutation dopo 10ms/);
   assert.equal(calls, 1);
-});
-test('objective assignment accepts canonical and historical faction names, rejects unknown inputs', async () => {
-  useOnlineGameStore.setState({ game: null });
-  for (const name of ['Iran', 'Coalizione', 'Coalizione Occidentale', 'Russia', 'Cina', 'Europa', 'Unione Europea']) {
-    const faction = normalizeFaction(name);
-    const rows = await useOnlineGameStore.getState().assignObjectivesToFaction(name, 3);
-    assert.equal(rows.length, 3, name);
-    assert.ok(rows.every(o => o.faction === faction));
-  }
-  assert.equal(normalizeFaction('Arabia'), null);
-  await assert.rejects(useOnlineGameStore.getState().assignObjectivesToFaction('Arabia'), /Fazione non riconosciuta/);
-});
-test('manual objective completion and cancellation preserve the requested boolean', async () => {
-  useOnlineGameStore.setState({ game: null });
-  const [objective] = await useOnlineGameStore.getState().assignObjectivesToFaction('Iran');
-  await useOnlineGameStore.getState().markObjectiveComplete(objective.obj_id, true);
-  assert.equal(useOnlineGameStore.getState().myObjectives[0].completato, true);
-  await useOnlineGameStore.getState().markObjectiveComplete(objective.obj_id, false);
-  assert.equal(useOnlineGameStore.getState().myObjectives[0].completato, false);
-  assert.equal(useOnlineGameStore.getState().myObjectives[0].data_completamento, undefined);
 });

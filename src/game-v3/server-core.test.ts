@@ -117,3 +117,18 @@ test('equilibrio 2026-11-28: correlazioni verso la Russia e INIZIO della Coalizi
   assert.deepEqual(CORRELATIONS.Cina.Diplomazia.map(c => `${c.faction} ${c.track} ${c.delta}`), ['Russia Diplomazia -1', 'Europa Diplomazia 1']);
   assert.deepEqual(INITIAL_TRACKS.Coalizione, { Economia: 4, Militare: 7, Diplomazia: 4, Consenso: 5 });
 });
+
+test('riepilogo: una fotografia per round, punteggio finale e momenti decisivi', async () => {
+  const { pointSeries, keyMoments } = await import('./summary');
+  let x = 77; const rng = () => { x = (x * 1103515245 + 12345) % 2147483648; return x / 2147483648; };
+  const s = runBots(createGame({ bots: [...FACTIONS], mode: 'breve', rulesRevision: '2026-11-21', botInfluenceEdition: '2026-11-22' }, rng), rng, 100000);
+  assert.equal(s.phase, 'ended');
+  const h = s.history!;
+  assert.equal(h[0].round, 0); assert.ok(h[h.length - 1].final);
+  assert.equal(h.filter(r => !r.final).length, s.actualRound + 1);
+  const data = pointSeries(s)!;
+  assert.equal(data.rounds[0], 'Inizio'); assert.equal(data.rounds[data.rounds.length - 1], 'Finale');
+  for (const f of FACTIONS) assert.equal(data.series[f][data.series[f].length - 1], s.result!.scores[f]);
+  assert.ok(keyMoments(['Fine round 1 (1): x', 'Combattimento: Iran 7 / Coalizione 5 (dadi 3 / 2); vince Iran', 'Blocco di Hormuz attivato: Crisi Bellica −1, Opinione −1.'])
+    .every(m => m.round === 2));
+});

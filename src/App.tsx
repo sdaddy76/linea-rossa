@@ -14,7 +14,7 @@ import LobbyPage from "./pages/lobby/Index";
 import ReadabilityPreview from "./pages/lobby/ReadabilityPreview";
 import GameReadabilityPreview from "./game-v3/GameReadabilityPreview";
 import AdminMigration from '@/pages/admin/Migration';
-import GamePage from "./pages/game/Index";
+import LegacyGame from "./pages/game/LegacyGame";
 import TabletopGamePage from "./game-v3/TabletopGamePage";
 import GuidedGame from "./game-v3/tutorial/GuidedGame";
 import RulesLibrary from "./game-v3/tutorial/RulesLibrary";
@@ -203,7 +203,7 @@ function AppRouter() {
   if (view === 'game') return (
     readTabletop(gameState)
       ? <TabletopGamePage onBack={handleBackToLobby} />
-      : <GamePage onBack={handleBackToLobby} />
+      : <LegacyGame onBack={handleBackToLobby} />
   );
 
   // Cover page (default / home)

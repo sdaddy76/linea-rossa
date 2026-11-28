@@ -8,6 +8,7 @@ import { canDeploy, canPeek, attackCost, currentActor, deployCost, maintainableU
 import { commitCommand, readTabletop, resumeSeat, substituteSeat, syncTabletop, type SavedTabletop } from './online';
 import { HIDDEN, mergePrivate, TURN_LIMIT_MS, type PrivateView } from './server-core';
 import { GameChat } from './GameChat';
+import { GameSummary } from './GameSummary';
 import { PushToggle } from './PushToggle';
 import { isLineaRossaAdmin } from '@/lib/admin';
 import { objectiveStatus } from './objectives';
@@ -268,6 +269,7 @@ export default function TabletopGamePage({ onBack, previewState }: {
           return <div key={f} className="border border-slate-700 p-3 rounded-lg"><strong style={{ color: tone[f] }}>{f}: {s.result!.scores[f]} PV</strong>
             {s.result!.reason === 'points' && <p className="text-xs mt-2 text-slate-300">Round/dividendi: {s.players[f].points - unitPoints - objectivePoints - maximums}<br />{official ? 'Influenza' : 'Unità'}: {unitPoints} · Obiettivi: {objectivePoints} · Tracciati 10: {maximums}</p>}</div>;
         })}</div>
+        <GameSummary s={s} tone={tone} />
       </Panel>}
       <TabletopBoard globals={s.globals} round={s.round} elapsed={s.actualRound}
             units={s.units.map(u => ({ ...u, deployedAt: u.placedRound }))} influence={s.influence} gameState={s} pv={points} selected={selected} onSelect={setSelected} />
