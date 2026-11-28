@@ -1,18 +1,18 @@
 {
-  "release": "tabletop-2026-11-21-regolamento-v11",
-  "rulebook": "Linea_Rossa_Regolamento_illustrato_v3 (11)_7919.pdf",
-  "unitReference": "Linea_Rossa_Scheda_Unita_A4 (1).pdf",
+  "release": "tabletop-2026-11-28-regolamento-v12",
+  "rulebook": "Linea_Rossa_Regolamento_illustrato_v12.pdf",
+  "unitReference": "Linea_Rossa_Scheda_Unita_A4_v2.pdf",
   "boardSource": "LineaRossa_Plance.zip",
   "assets": {
     "/assets/tabletop-v3/aiuto-giocatore.pdf": "f9cf60848b755c5918c9d0c2489f3e24c35326d69e2befc8a6f025ed9bcfe6f9",
     "/assets/tabletop-v3/aiuto-giocatore-bianco.pdf": "3de69bfaf7aeb126e0b45945c56248697ec670a4a54fe27d3689436dd64d458e",
-    "/assets/tabletop-v3/regolamento.pdf": "cf5ba48d604be4690a26f38af8687d6e9784c1b1519febc3fb047a656a620990",
-    "/assets/tabletop-v3/scheda-unita.pdf": "4024c8e11474687b3df7975fa26d959da1732f90ae94d4c43a5425a91959f794",
-    "/assets/tabletop-v3/boards/Iran.jpg": "171cf23d93fd3bd446de5bf905c4ffc609ea8d3c22e70e955c6c5ea6f3cfdc4b",
-    "/assets/tabletop-v3/boards/Coalizione.jpg": "97e6c93da41897b693a5ef9b9ee2cfcca038794a279262f87cd578b40b3da673",
-    "/assets/tabletop-v3/boards/Russia.jpg": "e65d75a332e096ad4271806c68121657f8114d12d8767d46d69358edca0284cd",
-    "/assets/tabletop-v3/boards/Cina.jpg": "729655efe3b1d702b3efb58d75a5275fda62983d56792ae2313afe37c3102881",
-    "/assets/tabletop-v3/boards/Europa.jpg": "26ae9c005c46c5134b27525d09bcfb7fdc0b6afabd249ca45575affa23820efe",
+    "/assets/tabletop-v3/regolamento.pdf": "855abfc8468355addd12f84d682bd5b82fb5b36efeeafd7bb9f9cd44b36cb299",
+    "/assets/tabletop-v3/scheda-unita.pdf": "ba544c49f24b58aac1d717b7810895997bf56cc8925b207e6e6a057aca51b56f",
+    "/assets/tabletop-v3/boards/Iran.jpg": "9872880dbe9bac157b22acfe6a9db6e22236ab3c5f13227bbfddf5ec26a7dddd",
+    "/assets/tabletop-v3/boards/Coalizione.jpg": "dc9724970a6297e0e7952620239023db20266cdf767f518ade5df2e30f88e678",
+    "/assets/tabletop-v3/boards/Russia.jpg": "ae04922f686bc94a3b2054045dc34305e42e7e107fbe8b3ea8950569a27794c0",
+    "/assets/tabletop-v3/boards/Cina.jpg": "f746d6edd3d0cd48f71866f59738583202f4111c701e1a03e422449dcef963a1",
+    "/assets/tabletop-v3/boards/Europa.jpg": "845af61626bab374f90dc31d31088d907175b99f720691c8dd9248eb88da4072",
     "/assets/tabletop-v3/board.jpg": "71d4cb90f6b5c2d8f31c7cb2b51e333b265981f0b22c034e61a5965758a73cd8"
   }
 }

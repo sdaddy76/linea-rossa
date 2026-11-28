@@ -259,7 +259,7 @@ test('all official gameplay fronts/backs and PDFs resolve to real local deploy a
 });
 test('release binds the latest rulebook, unit reference, five faction boards and the main board', () => {
   const release = JSON.parse(readFileSync('public/assets/tabletop-v3/release.json', 'utf8'));
-  assert.equal(release.release, 'tabletop-2026-11-21-regolamento-v11');
+  assert.equal(release.release, 'tabletop-2026-11-28-regolamento-v12');
   assert.equal(Object.keys(release.assets).length, 10);
   for (const [url, expected] of Object.entries(release.assets)) {
     const actual = createHash('sha256').update(readFileSync(`public${url}`)).digest('hex');
