@@ -73,8 +73,9 @@ export function objectiveComplete(state: EngineState, objective: Objective | str
   return rules[f][o.number - 1] ?? false;
 }
 export function objectiveStatus(state: EngineState, faction: Faction) {
-  return state.players[faction].objectives.map(id => {
-    const objective = OBJECTIVES.find(o => o.id === id)!;
-    return { ...objective, complete: objectiveComplete(state, objective) };
+  // Gli obiettivi altrui arrivano oscurati ("?") dal server: si valutano solo quelli noti.
+  return state.players[faction].objectives.flatMap(id => {
+    const objective = OBJECTIVES.find(o => o.id === id);
+    return objective ? [{ ...objective, complete: objectiveComplete(state, objective) }] : [];
   });
 }

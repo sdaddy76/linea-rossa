@@ -6,7 +6,7 @@ import { FACTIONS, TRACKS, type Faction, type GlobalTrack, type TrackChange } fr
 import { BOT_CARDS, BOT_INFLUENCE, CORRELATIONS, EVENTS, FACTION_CARDS, TERRITORIES, UNITS } from './catalog';
 import { canDeploy, canPeek, attackCost, currentActor, deployCost, maintainableUnits, MAINTENANCE_COST, hormuzBlocked, influenceCost, canInfluence, territoryPresence, territoryController, occupiedSlots, MODE_THRESHOLDS, usesOfficialRules, usesLatestRules, reduce, type EngineState, type Command } from './engine';
 import { commitCommand, readTabletop, resumeSeat, substituteSeat, syncTabletop, type SavedTabletop } from './online';
-import { mergePrivate, TURN_LIMIT_MS, type PrivateView } from './server-core';
+import { HIDDEN, mergePrivate, TURN_LIMIT_MS, type PrivateView } from './server-core';
 import { GameChat } from './GameChat';
 import { PushToggle } from './PushToggle';
 import { isLineaRossaAdmin } from '@/lib/admin';
@@ -364,8 +364,10 @@ export default function TabletopGamePage({ onBack, previewState }: {
           <button className={button + ' mt-2'} disabled={!canAct || marked.length !== s.pending.count} onClick={() => send({ type: 'discard', cardIds: marked })}>Conferma scarto ({marked.length}/{s.pending.count})</button></div>}
         {!p.hand.length && <p className="text-slate-400">Mano vuota.{canAct && s.phase === 'activation' && <button className={button + ' ml-3'} onClick={() => send({ type: 'skip' })}>Passa attivazione</button>}</p>}
         <p className="text-xs text-slate-400">Questa è soltanto la tua mano. Cambiare la plancia consultata non mostra le carte degli altri giocatori. Tocca un fronte originale per ingrandirlo e scegliere evento o OP.</p>
+        {p.hand.includes(HIDDEN) && <p className="text-sm text-slate-400">Caricamento della tua mano dal server…</p>}
         <div className="tabletop-hand-grid">{p.hand.map(id => {
-          const c = FACTION_CARDS.find(x => x.id === id)!;
+          const c = FACTION_CARDS.find(x => x.id === id);
+          if (!c) return null;
           return <button key={id} className="tabletop-hand-card" aria-label={`${marked.includes(id) ? 'Selezionata · ' : ''}${c.id} · ${c.name} · ${c.cost} OP`} aria-pressed={marked.includes(id)}
             onClick={() => s.phase === 'discard' && actor === own ? toggle(id) : setCardId(id)}>
             <FactionCardFace card={c}/>
