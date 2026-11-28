@@ -25,7 +25,7 @@ function until(id: string) {
 }
 test('all recommended choices match authoritative final fixture, computed by real engine', () => {
   const t = play(), expected = {
-    Iran: [8, 7, 5, 3, 0], Coalizione: [5, 7, 4, 4, 0],
+    Iran: [8, 7, 5, 3, 0], Coalizione: [4, 7, 4, 5, 0],   // INIZIO Coalizione 4/7/4/5 dal 2026-11-28
     Russia: [6, 6, 6, 4, 0], Cina: [8, 4, 5, 4, 3], Europa: [6, 4, 8, 4, 2],
   };
   for (const f of FACTIONS) assert.deepEqual([...TRACKS.map(track => t.game.players[f].tracks[track]), t.game.players[f].points], expected[f], f);
@@ -53,7 +53,7 @@ test('guided E01 applies exactly the effects printed on the card', () => {
 });
 test('alternative event propagates boosts, correlation, dividend and later zones', () => {
   const standard = play(), alternative = play({ china: 'event:2' });
-  assert.equal(alternative.game.players.Coalizione.tracks.Economia, 7);
+  assert.equal(alternative.game.players.Coalizione.tracks.Economia, 6);
   assert.equal(alternative.game.players.Iran.tracks.Economia, 5);
   assert.equal(alternative.game.players.Cina.tracks.Economia, 7);
   assert.equal(alternative.game.players.Cina.points, 1);

@@ -102,3 +102,18 @@ test('il BOT sostituto risolve scarti, operazioni e scelte rimaste in sospeso', 
   assert.ok(after.log.some(l => l.includes('Operazioni lasciate in sospeso')));
   assert.notEqual(currentActor(after), a);
 });
+
+test('BOT Iran: la Flotta schierata nello Stretto arriva a 2 e attiva il Blocco di Hormuz (regola BOT 2026-11-28)', () => {
+  // Seme fisso: partita di soli BOT in cui la carta BOT-IR-M2 viene giocata.
+  let x = 1020; const rng = () => { x = (x * 1103515245 + 12345) % 2147483648; return x / 2147483648; };
+  const s = runBots(createGame({ bots: [...FACTIONS], mode: 'media', rulesRevision: '2026-11-21', botInfluenceEdition: '2026-11-22' }, rng), rng, 100000);
+  const i = s.log.findIndex(l => l.includes('Blocco di Hormuz attivato'));
+  assert.ok(i > 0);
+  assert.ok(s.log.slice(Math.max(0, i - 4), i).filter(l => l.includes('schiera Flotta veloce del Golfo in Stretto di Hormuz')).length >= 1);
+});
+test('equilibrio 2026-11-28: correlazioni verso la Russia e INIZIO della Coalizione', async () => {
+  const { CORRELATIONS, INITIAL_TRACKS } = await import('./catalog');
+  assert.deepEqual(CORRELATIONS.Iran.Diplomazia.map(c => `${c.faction} ${c.track} ${c.delta}`), ['Russia Diplomazia 1', 'Russia Consenso -1']);
+  assert.deepEqual(CORRELATIONS.Cina.Diplomazia.map(c => `${c.faction} ${c.track} ${c.delta}`), ['Russia Diplomazia -1', 'Europa Diplomazia 1']);
+  assert.deepEqual(INITIAL_TRACKS.Coalizione, { Economia: 4, Militare: 7, Diplomazia: 4, Consenso: 5 });
+});

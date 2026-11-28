@@ -259,7 +259,7 @@ test('all official gameplay fronts/backs and PDFs resolve to real local deploy a
 });
 test('release binds the latest rulebook, unit reference, five faction boards and the main board', () => {
   const release = JSON.parse(readFileSync('public/assets/tabletop-v3/release.json', 'utf8'));
-  assert.equal(release.release, 'tabletop-2026-11-28-regolamento-v12');
+  assert.equal(release.release, 'tabletop-2026-11-28-regolamento-v13');
   assert.equal(Object.keys(release.assets).length, 10);
   for (const [url, expected] of Object.entries(release.assets)) {
     const actual = createHash('sha256').update(readFileSync(`public${url}`)).digest('hex');
@@ -292,14 +292,14 @@ test('all 347 base cards use their exact original fronts, without digital or gen
     const html=renderToStaticMarkup(<FactionCardFace card={card}/>);
     assert.ok(html.includes(`data-card-id="${card.id}"`));
     assert.ok(html.includes('data-card-source="original"'),card.id);
-    assert.ok(html.includes(`/assets/tabletop-v3/faction-cards/${card.id}.jpg?v=2026-11-23-base`));
+    assert.ok(html.includes(`/assets/tabletop-v3/faction-cards/${card.id}.jpg?v=2026-11-28-base`));
     assert.ok(!html.includes('data-card-source="digital"'));
     assert.ok(!html.includes('/card-art/'));
   }
 });
 test('base artwork matches exact IDs and origins, with one supplied common back', () => {
   for(const card of FACTION_CARDS) {
-    assert.equal(getFactionCardFront(card.id,card.origin),`/assets/tabletop-v3/faction-cards/${card.id}.jpg?v=2026-11-23-base`);
+    assert.equal(getFactionCardFront(card.id,card.origin),`/assets/tabletop-v3/faction-cards/${card.id}.jpg?v=2026-11-28-base`);
     assert.equal(getFactionCardFront(card.id,'unknown'),null);
     assert.equal(getFactionCardBack(card.origin),FACTION_CARD_BACK);
   }

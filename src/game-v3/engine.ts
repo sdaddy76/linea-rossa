@@ -524,6 +524,7 @@ export function chooseBotMaintenance(s: EngineState, actor: Faction): PlacedUnit
   const priority = (u: PlacedUnit) => {
     const own = territoryPresence(s, actor, u.territory);
     const rival = Math.max(0, ...FACTIONS.filter(f => f !== actor).map(f => territoryPresence(s, f, u.territory)));
+    if (usesLatestRules(s) && named(u, 'Flotta veloce del Golfo') && inNamed(u, 'Hormuz')) return 4;   // il Blocco prima di tutto
     return own > rival ? own - 1 <= rival ? 3 : 1 : own === rival ? 2 : 0;
   };
   return maintainableUnits(s, actor).slice().sort((a, b) =>
@@ -675,6 +676,11 @@ function executeBotAction(s: EngineState, actor: Faction, track: Track, action: 
     }
     const target = cyber ? s.units.find(u => u.territory === selected && u.faction !== actor)!.faction : FACTIONS.find(f => f !== actor)!;
     deployment(s, actor, def.id, selected, target, 'opinion');
+    // Regola BOT (2026-11-28): la Flotta veloce schierata nello Stretto porta le Flotte iraniane a 2 (Blocco di Hormuz).
+    if (usesLatestRules(s) && !s.result && def.name === 'Flotta veloce del Golfo' && territoryDef(selected).name.includes('Hormuz')) {
+      const fleets = () => s.units.filter(u => u.territory === selected && u.faction === 'Iran' && named(u, 'Flotta veloce del Golfo')).length;
+      if (fleets() < 2 && canDeploy(s, actor, def.id, selected)) deployment(s, actor, def.id, selected, target, 'opinion');
+    }
   }
 }
 /** Presenza minima BOT (2026-11-25): unità base quando il BOT non ha unità sul tabellone. */

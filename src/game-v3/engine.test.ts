@@ -576,7 +576,7 @@ test('official combat loser also removes its leftmost Influence but not allied o
   s = reduce(s, 'Iran', { type: 'attack', territoryId: attacker.territory }, () => rolls++ === 0 ? 0.99 : 0);
   s = reduce(s, 'Coalizione', { type: 'casualties', unitIds: [defender.id] }, rng);
   assert.ok(!s.influence!.some(i => i.id === left.id)); assert.ok(s.influence!.some(i => i.id === right.id));
-  assert.equal(s.players.Coalizione.tracks.Consenso, 3);
+  assert.equal(s.players.Coalizione.tracks.Consenso, 4);   // INIZIO 5 dal 2026-11-28
 });
 test('official marker moves by played cost for highlighted event/OP/BOT cards, never for blocked or skipped activations', () => {
   const card = FACTION_CARDS.find(c => c.cost === 4)!;

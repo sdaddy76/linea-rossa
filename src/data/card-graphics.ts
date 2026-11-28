@@ -17,7 +17,7 @@ const OBJECTIVE_FACTIONS: Record<string, string> = {
 
 export function getFactionCardFront(cardId: string, faction: string): string | null {
   if (!CARD_ORIGINS.has(cardId) || CARD_ORIGINS.get(cardId) !== faction) return null;
-  return `/assets/tabletop-v3/faction-cards/${cardId}.jpg?v=2026-11-23-base`;
+  return `/assets/tabletop-v3/faction-cards/${cardId}.jpg?v=2026-11-28-base`;
 }
 
 export function getFactionCardBack(faction: string): string | null {

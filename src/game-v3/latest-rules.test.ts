@@ -215,9 +215,9 @@ test('Coalition occupation tension, control exclusion and consecutive-round nucl
   let s=setup();unit(s,'CO-U01','Coalizione');
   assert.equal(territoryController(s,'iran'),'Coalizione');
   s=close(s);
-  assert.equal(s.players.Iran.tracks.Consenso,6); assert.equal(s.players.Coalizione.tracks.Consenso,3);
+  assert.equal(s.players.Iran.tracks.Consenso,6); assert.equal(s.players.Coalizione.tracks.Consenso,4);
   assert.equal(s.players.Iran.tracks.Economia,3);assert.equal(s.players.Russia.tracks.Diplomazia,5);
-  assert.equal(s.players.Coalizione.tracks.Consenso,3,'no Iran control bonus to Coalition');
+  assert.equal(s.players.Coalizione.tracks.Consenso,4,'no Iran control bonus to Coalition');
   s.globals.Nucleare=8;s=close(s);
   assert.ok(s.log.includes('Globale: Nucleare 8 → 6')); assert.equal(s.units.length,0);
 });
