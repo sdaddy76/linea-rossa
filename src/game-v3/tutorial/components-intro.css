@@ -314,7 +314,7 @@
 /* ── Cellulari e tablet piccoli ──
    Il pannello occupa tutto lo schermo; la scena usa lo spazio rimasto e, se il contenuto
    è più alto, scorre al suo interno senza coprire testo e pulsanti. */
-@media (max-width: 720px), (max-height: 560px) {
+@media (max-width: 720px), (max-height: 560px), (pointer: coarse) and (max-width: 1100px) {
   .intro-overlay { padding: 0; }
   .intro-panel { height: 100%; max-height: none; border-radius: 0; border: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 8px; }
   .intro-stage { height: auto; min-height: 0; overflow-y: auto; overflow-x: hidden; align-items: flex-start; -webkit-overflow-scrolling: touch; }
@@ -344,7 +344,7 @@
   .combat-declare img { height: 22vh; }
   .rules-rows > div { padding: 9px 12px; }
 }
-@media (max-width: 720px) and (orientation: portrait) { .intro-panel { --stage-h: 40vh; } }
+@media (max-width: 720px) and (orientation: portrait), (pointer: coarse) and (max-width: 1100px) and (orientation: portrait) { .intro-panel { --stage-h: 40vh; } }
 /* Telefono in orizzontale: scena a sinistra, testo e pulsanti a destra. */
 @media (max-height: 560px) and (orientation: landscape) {
   .intro-panel { --stage-h: 62vh; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; column-gap: 14px; }
@@ -354,4 +354,45 @@
   .intro-controls { grid-column: 2; grid-row: 3; border-top: 0; }
   .round-split { flex-direction: row; }
   .round-split > .round-card { height: 100%; }
+}
+
+/* Cellulare: niente spostamenti laterali che escono dallo schermo; carte e valori più compatti. */
+@media (max-width: 720px), (max-height: 560px), (pointer: coarse) and (max-width: 1100px) {
+  .intro-panel { width: 100%; max-width: 100vw; overflow: hidden; }
+  .intro-stage > * { max-width: 100%; }
+  .rules-rows { width: 100%; }
+  .rules-rows > div.is-on { transform: none; }
+  .rules-rows span { text-align: right; }
+  .rules-setup-cards { gap: 10px; flex-wrap: wrap; justify-content: center; align-content: center; }
+  .rules-setup-cards figure { flex: 1 1 30%; min-width: 0; }
+  .rules-setup-cards .rules-cards { width: 100%; height: 110px; }
+  .rules-setup-cards .rules-cards img { left: calc(var(--k) * 14%); height: 100%; }
+  .rules-setup-cards figcaption { font-size: 14px; }
+  .rules-start { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .rules-start > div { padding: 6px 8px; gap: 1px; }
+  .rules-start > div > span:not(.rules-badge) { font-size: 13px; }
+  .rules-start .rules-badge { font-size: 14px; }
+  .rules-start .rules-badge img { width: 22px; height: 22px; }
+  .rules-badges { gap: 8px; }
+  .rules-badge { font-size: 16px; padding: 6px 12px 6px 6px; }
+  .rules-badge img { width: 32px; height: 32px; }
+  .rules-refill { gap: 6px; }
+  .rules-refill > div { min-width: 0; flex: 1; padding: 8px 6px; }
+  .rules-refill strong { font-size: 14px; text-align: center; }
+  .rules-refill .rules-cards { width: 90px; height: 80px; }
+  .rules-refill .rules-cards img { left: calc(var(--k) * 16px); }
+  .rules-decks { gap: 6px; flex-wrap: wrap; }
+  .rules-decks img { height: 18vh; }
+  .rules-units > div { gap: 6px; }
+  .rules-units figure { width: 64px; }
+  .rules-units figure figcaption { font-size: 11px; }
+  .rules-objectives { gap: 8px; width: 100%; height: auto; }
+  .rules-objectives figure { height: auto; flex: 1 1 0; min-width: 0; }
+  .rules-objectives img { width: 100%; height: auto; }
+  .rules-tally { min-width: 0; width: 100%; }
+  .intro-victory { grid-template-columns: 1fr; gap: 8px; }
+  .intro-victory div { padding: 10px 12px; }
+  .intro-powers span { min-width: 0; }
+  .round-order span { min-width: 0; padding: 6px 4px; }
+  .intro-unit-row img { width: 56px; }
 }
