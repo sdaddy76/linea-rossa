@@ -35,7 +35,7 @@ export interface EngineState {
   coalitionIranRounds?: number;
   /** Regole del 2026-11-26: Blocco di Hormuz attivo (per riconoscere l'attivazione), scudi economici usati
    *  (round) e Rete informativa già usata (attivazione). Assenti nei salvataggi precedenti. */
-  hormuzBlockade?: boolean; economyShield?: Partial<Record<Faction, number>>; peeked?: Partial<Record<Faction, number>>;
+  hormuzBlockade?: boolean; blockadeRounds?: number; economyShield?: Partial<Record<Faction, number>>; peeked?: Partial<Record<Faction, number>>;
   /** New BOT artwork supplies printed destinations; old saves keep their manual closure. */
   botInfluenceEdition?: '2026-11-22';
   influence?: PlacedInfluence[]; nextInfluence?: number;
@@ -160,12 +160,20 @@ function externalChange(s: EngineState, c: TrackChange): boolean {
 /** Blocco di Hormuz (2026-11-26): all'attivazione Crisi Bellica −1 e Opinione −1, a carico dell'Iran. */
 function updateBlockade(s: EngineState) {
   if (!usesLatestRules(s) || s.phase === 'ended') return;
+  // Token Blocco (2026-11-28): cade con un Carrier nello Stretto o senza Flotte veloci iraniane.
+  const token = s.units.find(u => u.faction === 'Iran' && named(u, 'Blocco di Hormuz'));
+  if (token) {
+    const local = s.units.filter(u => u.territory === token.territory);
+    const reason = local.some(u => named(u, 'Carrier Strike Group')) ? 'un Carrier Strike Group è nello Stretto'
+      : !local.some(u => u.faction === 'Iran' && named(u, 'Flotta veloce del Golfo')) ? 'nello Stretto non resta nessuna Flotta veloce iraniana' : '';
+    if (reason) { s.units = s.units.filter(u => u.id !== token.id); s.log.push(`Iran: il token Blocco di Hormuz torna nella riserva perché ${reason}.`); }
+  }
   const active = hormuzBlocked(s);
   if (active && !s.hormuzBlockade) {
     s.hormuzBlockade = true;
     s.log.push('Blocco di Hormuz attivato: Crisi Bellica −1, Opinione −1.');
     globals(s, [{ track: 'Crisi Bellica', delta: -1 }, { track: 'Opinione', delta: -1 }], 'Iran');
-  } else if (!active && s.hormuzBlockade) { s.hormuzBlockade = false; s.log.push('Blocco di Hormuz revocato.'); }
+  } else if (!active && s.hormuzBlockade) { s.hormuzBlockade = false; s.blockadeRounds = 0; s.log.push('Blocco di Hormuz revocato.'); }
 }
 export function territoryController(s: EngineState, territoryId: string): Faction | null {
   const counts = FACTIONS.map(f => ({ faction: f, count: territoryPresence(s, f, territoryId) })).sort((a, b) => b.count - a.count);
@@ -209,9 +217,12 @@ function record<T>(fn: (f: Faction) => T): Record<Faction, T> { return Object.fr
 export function currentActor(s: EngineState): Faction | null {
   return s.phase === 'ended' ? null : s.pending?.actor ?? s.ops?.actor ?? s.order[s.turnIndex] ?? null;
 }
+/** Stretto di Hormuz e Stati che vi si affacciano. */
+export const GULF = ['hormuz', 'iran', 'oman', 'emirati', 'qatar', 'bahrein', 'kuwait', 'arabia-saudita'];
 export function hormuzBlocked(s: EngineState): boolean {
   const local = s.units.filter(u => inNamed(u, 'Hormuz'));
-  return local.filter(u => u.faction === 'Iran' && named(u, 'Flotta veloce del Golfo')).length >= 2 &&
+  return (local.filter(u => u.faction === 'Iran' && named(u, 'Flotta veloce del Golfo')).length >= 2 ||
+    local.some(u => u.faction === 'Iran' && named(u, 'Blocco di Hormuz'))) &&
     !local.some(u => named(u, 'Carrier Strike Group'));
 }
 export function deployCost(s: EngineState, faction: Faction, unitId: string, territoryId: string): number {
@@ -380,9 +391,11 @@ function endRound(s: EngineState, rng: RNG) {
       s.log.push('Blocco di Hormuz attivo: effetti di fine round.');
       externalChange(s, { faction: 'Europa', track: 'Economia', delta: -1 });
       externalChange(s, { faction: 'Cina', track: 'Economia', delta: -1 });
-      changeTrack(s, { faction: 'Russia', track: 'Economia', delta: 1 });
-      changeTrack(s, { faction: 'Iran', track: 'Consenso', delta: 1 });
-      changeTrack(s, { faction: 'Iran', track: 'Economia', delta: -1 });
+      // 2026-11-28: la Russia guadagna solo se è presente nel Golfo; l'Iran ha Consenso +1 solo al primo round, poi Economia −1.
+      if (s.units.some(u => u.faction === 'Russia' && GULF.includes(u.territory))) changeTrack(s, { faction: 'Russia', track: 'Economia', delta: 1 });
+      s.blockadeRounds = (s.blockadeRounds ?? 0) + 1;
+      if (s.blockadeRounds === 1) changeTrack(s, { faction: 'Iran', track: 'Consenso', delta: 1 });
+      else changeTrack(s, { faction: 'Iran', track: 'Economia', delta: -1 });
     }
   }
   if (usesOfficialRules(s)) {
@@ -541,6 +554,8 @@ export function canDeploy(s: EngineState, faction: Faction, unitId: string, terr
   const u = UNITS.find(d => d.id === unitId), t = TERRITORIES.find(d => d.id === territoryId);
   if (!u || !t || u.faction !== faction || (u.naval && t.name.toLowerCase().includes('giordania'))) return false;
   const local = s.units.filter(x => x.territory === territoryId);
+  if (u.name === 'Blocco di Hormuz' && !(usesLatestRules(s) && t.name.includes('Hormuz') && local.some(x => x.faction === 'Iran' && named(x, 'Flotta veloce del Golfo'))
+    && !local.some(x => named(x, 'Carrier Strike Group')) && !s.units.some(x => x.type === u.id))) return false;
   const max = u.maxPerTerritory ?? (/missili balistici/i.test(u.name) ? 2 : /caschi blu/i.test(u.name) ? 3 : undefined);
   return !s.players[faction].neutral && (usesLatestRules(s) ? s.units.filter(x => x.type === unitId).length < 5 : occupiedSlots(s, territoryId).length < t.capacity) &&
     (!max || local.filter(x => x.type === unitId).length < max);

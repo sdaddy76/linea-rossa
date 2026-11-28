@@ -418,11 +418,11 @@ test('every faction sees graphical versions of only its assigned secret objectiv
   assert.ok(!render().includes('/assets/tabletop-v3/objectives/'));
 });
 
-test('the four uploaded decks bind all 337 exact front and back files by source hash', () => {
+test('the four uploaded decks bind all 337 exact (+ token Blocco) front and back files by source hash', () => {
   const manifest=JSON.parse(readFileSync('public/assets/tabletop-v3/deck-art-manifest.json','utf8'));
   assert.equal(manifest.edition,'2026-11-23');
   assert.equal(manifest.sources.length,4);
-  assert.equal(Object.keys(manifest.assets).length,337);
+  assert.equal(Object.keys(manifest.assets).length,338);
   for(const [url,hash] of Object.entries(manifest.assets)) {
     assert.equal(createHash('sha256').update(readFileSync(`public${url}`)).digest('hex'),hash,url);
   }

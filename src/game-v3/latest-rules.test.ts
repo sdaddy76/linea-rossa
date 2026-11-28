@@ -437,12 +437,37 @@ test('Blocco di Hormuz: activation costs Crisi Bellica and Opinione once; each r
   const after=close(s);
   assert.equal(after.players.Europa.tracks.Economia,before.Europa.tracks.Economia-1);
   assert.equal(after.players.Cina.tracks.Economia,before.Cina.tracks.Economia,'Flotta commerciale assorbe la perdita');
-  assert.equal(after.players.Russia.tracks.Economia,before.Russia.tracks.Economia+1);
-  assert.equal(after.players.Iran.tracks.Economia,before.Iran.tracks.Economia-1);
+  assert.equal(after.players.Russia.tracks.Economia,before.Russia.tracks.Economia,'Russia senza unità nel Golfo: nessun guadagno');
+  assert.equal(after.players.Iran.tracks.Economia,before.Iran.tracks.Economia,'primo round: solo Consenso +1');
   assert.equal(after.players.Iran.tracks.Consenso,before.Iran.tracks.Consenso+1);
+  // secondo round di Blocco, con la Russia presente in Oman: Iran Economia −1, Russia Economia +1
+  const r2=structuredClone(after); unit(r2,'RU-U01','Russia','oman');
+  const b2=structuredClone(r2.players); const after2=close(r2);
+  assert.equal(after2.players.Iran.tracks.Economia,b2.Iran.tracks.Economia-1);
+  assert.equal(after2.players.Iran.tracks.Consenso,b2.Iran.tracks.Consenso);
+  assert.equal(after2.players.Russia.tracks.Economia,b2.Russia.tracks.Economia+1);
   const broken=ops(structuredClone(after),'Coalizione'); broken.ops!.remaining=20;
   const freed=reduce(broken,'Coalizione',{type:'deploy',unitId:'CO-U04',territoryId:'hormuz'},rng);
   assert.ok(!hormuzBlocked(freed)); assert.equal(freed.hormuzBlockade,false);
+});
+test('token Blocco di Hormuz: serve una Flotta veloce nello Stretto, attiva il Blocco e cade con un Carrier', () => {
+  let s=ops(setup(),'Iran');
+  assert.equal(canDeploy(s,'Iran','IR-U09','hormuz'),false,'senza Flotta veloce non si piazza');
+  unit(s,'IR-U05','Iran','hormuz');
+  assert.equal(canDeploy(s,'Iran','IR-U09','oman'),false,'solo nello Stretto');
+  assert.equal(canDeploy(s,'Iran','IR-U09','hormuz'),true);
+  assert.ok(!hormuzBlocked(s));
+  s=reduce(s,'Iran',{type:'deploy',unitId:'IR-U09',territoryId:'hormuz'},rng);
+  assert.ok(hormuzBlocked(s)); assert.equal(s.globals['Crisi Bellica'],6); assert.equal(s.globals.Opinione,-1);
+  assert.equal(canDeploy(s,'Iran','IR-U09','hormuz'),false,'un solo token');
+  const coal=ops(structuredClone(s),'Coalizione');
+  const freed=reduce(coal,'Coalizione',{type:'deploy',unitId:'CO-U04',territoryId:'hormuz'},rng);
+  assert.ok(!hormuzBlocked(freed)); assert.ok(!freed.units.some(u=>u.type==='IR-U09'));
+  assert.ok(freed.log.some(l=>l.includes('token Blocco di Hormuz torna nella riserva')));
+  // senza Flotte veloci il token cade
+  const lost=structuredClone(s); lost.units=lost.units.filter(u=>u.type!=='IR-U05');
+  lost.ops!.remaining=20; const after=reduce(lost,'Iran',{type:'deploy',unitId:'IR-U01',territoryId:'iran'},rng);
+  assert.ok(!after.units.some(u=>u.type==='IR-U09')); assert.ok(!hormuzBlocked(after));
 });
 test('current rules: deployment has no one-shot effects; Rete informativa peeks once per activation where the target is present', () => {
   const s=ops(setup(),'Cina'); const before=structuredClone(s.players);

@@ -377,6 +377,10 @@
     "/assets/tabletop-v3/units/retro_Unita_Coalizione.jpg": "64fb4add101c30ac3b1483efaf16eb8cc74b3b90893899e2353daf4f4c4aaa16",
     "/assets/tabletop-v3/units/retro_Unita_Europa.jpg": "645736e3ebe37fd13bb523301f7b1b7510f1bfe4261238ae4c0ab208f34220dc",
     "/assets/tabletop-v3/units/retro_Unita_Iran.jpg": "9e5aaf0f52bd159e5b3c94a2d01e4e4403fc549b859094bcee720d2a9d0abeee",
-    "/assets/tabletop-v3/units/retro_Unita_Russia.jpg": "8ed145747451519822e796ca87d1a37c1a829704e314682ddf029a25d889474b"
+    "/assets/tabletop-v3/units/retro_Unita_Russia.jpg": "8ed145747451519822e796ca87d1a37c1a829704e314682ddf029a25d889474b",
+    "/assets/tabletop-v3/units/IR-U09.jpg": "0ff7916939eac8af994783954910a37dbcc9be8522578192b50d8f1edbead5d4"
+  },
+  "additions": {
+    "2026-11-28": "IR-U09 Blocco di Hormuz: token composto dalla Flotta veloce del Golfo"
   }
 }

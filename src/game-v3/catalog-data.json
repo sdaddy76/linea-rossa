@@ -22707,6 +22707,17 @@
       "effect": "In caso di vittoria: −1 Consenso della fazione sconfitta."
     },
     {
+      "id": "IR-U09",
+      "name": "Blocco di Hormuz",
+      "faction": "Iran",
+      "cost": 3,
+      "attack": 0,
+      "defense": 0,
+      "naval": true,
+      "maxPerTerritory": 1,
+      "effect": "Solo nello Stretto di Hormuz, con almeno una tua Flotta veloce presente; max 1. Attiva il Blocco di Hormuz. Un Carrier Strike Group nello Stretto lo rimuove."
+    },
+    {
       "id": "CO-U01",
       "name": "Convenzionale",
       "faction": "Coalizione",

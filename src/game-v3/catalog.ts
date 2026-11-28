@@ -40,7 +40,7 @@ export function assertCatalogComplete(): void {
   );
   const counts: [string, { id: string; name: string }[], number][] = [
     ['fazioni', FACTION_CARDS, 347], ['eventi', EVENTS, 75], ['BOT', BOT_CARDS, 120],
-    ['obiettivi', OBJECTIVES, 75], ['unità', UNITS, 31], ['territori', TERRITORIES, 16],
+    ['obiettivi', OBJECTIVES, 75], ['unità', UNITS, 32], ['territori', TERRITORIES, 16],
   ];
   for (const [label, rows, expected] of counts) {
     if (rows.length !== expected || new Set(rows.map(row => row.id)).size !== expected) {
@@ -77,7 +77,7 @@ export function assertCatalogComplete(): void {
     const objectives = OBJECTIVES.filter(o => o.faction === f);
     if (objectives.length !== 15 || Array.from({ length: 15 }, (_, i) => i + 1)
       .some(n => !objectives.some(o => o.number === n))) fail(`obiettivi ${f}`);
-    const expectedUnits = f === 'Iran' ? 7 : 6;
+    const expectedUnits = f === 'Iran' ? 8 : 6;   // Iran: 7 unità + token Blocco di Hormuz (2026-11-28)
     if (UNITS.filter(u => u.faction === f).length !== expectedUnits) fail(`unità ${f}`);
   }
   if (BOT_CARDS.some(b => !b.condition || !b.priority1 || !b.priority2)) fail('testo BOT mancante');

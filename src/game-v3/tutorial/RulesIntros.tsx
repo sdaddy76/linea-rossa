@@ -170,7 +170,7 @@ export const SCORING_SCENES: RuleScene[] = [
 ];
 
 /* ---------------- Blocco di Hormuz ---------------- */
-const FLEET = unit('IR-U05'), CARRIER = unit('CO-U04');
+const FLEET = unit('IR-U05'), CARRIER = unit('CO-U04'), TOKEN = unit('IR-U09');
 const HORMUZ: Focus = { x: 70, y: 46, w: 15, h: 12 };
 export const HORMUZ_SCENES: RuleScene[] = [
   { id: 'strait', kicker: 'Blocco di Hormuz', title: 'Lo Stretto', steps: [
@@ -178,16 +178,18 @@ export const HORMUZ_SCENES: RuleScene[] = [
   ], view: (_, focus) => <Framed src={BOARD_ART} alt="Il tabellone" focus={focus} ratio={BOARD} /> },
   { id: 'activate', kicker: 'Blocco di Hormuz', title: 'Come si attiva', steps: [
     { text: 'Se l’Iran ha 2 Flotte veloci del Golfo nello Stretto, scatta il Blocco.' },
+    { text: `Oppure l’Iran schiera il token ${TOKEN.name} (costo ${TOKEN.cost}): basta una Flotta veloce nello Stretto.` },
     { text: 'Appena si attiva: Crisi Bellica −1 e Opinione −1. Se la Crisi Bellica arriva a 1, la guerra l’ha provocata l’Iran.' },
-  ], view: step => <Split left={<div className="rules-presence"><Tile id={FLEET.id} label={FLEET.name} /><Tile id={FLEET.id} label={FLEET.name} /></div>}
-    right={step >= 1 ? <Rows step={9} items={[['Crisi Bellica', '−1'], ['Opinione', '−1']]} /> : <div className="rules-note">2 Flotte veloci nello Stretto = Blocco</div>} /> },
+  ], view: step => <Split left={<div className="rules-presence"><Tile id={FLEET.id} label={FLEET.name} />{step === 1 ? <Tile id={TOKEN.id} label={TOKEN.name} className="is-joining" /> : <Tile id={FLEET.id} label={FLEET.name} />}</div>}
+    right={step >= 2 ? <Rows step={9} items={[['Crisi Bellica', '−1'], ['Opinione', '−1']]} /> : <div className="rules-note">{step === 1 ? '1 Flotta veloce + token Blocco = Blocco' : '2 Flotte veloci nello Stretto = Blocco'}</div>} /> },
   { id: 'rounds', kicker: 'Blocco di Hormuz', title: 'A ogni fine round', steps: [
-    { text: 'Finché il Blocco dura, a ogni fine round: Europa e Cina −1 Economia, Russia +1 Economia, Iran +1 Consenso ma −1 Economia.' },
+    { text: 'Finché il Blocco dura, a ogni fine round: Europa e Cina −1 Economia. La Russia guadagna +1 Economia solo se ha unità nello Stretto o in uno Stato del Golfo.' },
+    { text: 'L’Iran ha +1 Consenso solo al primo fine round di Blocco; dai successivi perde 1 Economia.' },
     { text: 'Per la Coalizione ogni Schieramento costa 1 OP in più, in qualsiasi Stato.' },
     { text: 'La Flotta commerciale cinese e la Missione navale UE possono ignorare una perdita di Economia per round.' },
-  ], view: step => <Rows step={step === 0 ? 2 : step === 1 ? 3 : 4} items={[['Europa · Cina', 'Economia −1'], ['Russia', 'Economia +1'], ['Iran', 'Consenso +1 · Economia −1'], ['Coalizione', 'Schieramento +1 OP'], ['Flotta commerciale · Missione navale UE', 'ignorano 1 perdita di Economia']]} /> },
+  ], view: step => <Rows step={step === 0 ? 1 : step === 1 ? 2 : step === 2 ? 3 : 4} items={[['Europa · Cina', 'Economia −1'], ['Russia (se presente nel Golfo)', 'Economia +1'], ['Iran', '1° round Consenso +1 · poi Economia −1'], ['Coalizione', 'Schieramento +1 OP'], ['Flotta commerciale · Missione navale UE', 'ignorano 1 perdita di Economia']]} /> },
   { id: 'end', kicker: 'Blocco di Hormuz', title: 'Come finisce', steps: [
-    { text: `Il Blocco finisce se nello Stretto restano meno di 2 Flotte veloci, perché scadono o vengono sconfitte, oppure se arriva un ${CARRIER.name} della Coalizione.` },
+    { text: `Il Blocco finisce se nello Stretto restano meno di 2 Flotte veloci e nessun token, oppure se arriva un ${CARRIER.name} della Coalizione, che rimuove anche il token. Il token cade anche quando nello Stretto non resta nessuna Flotta veloce.` },
   ], view: () => <div className="rules-presence"><Tile id={FLEET.id} label={FLEET.name} className="is-dim" /><span className="rules-vs">✕</span><Tile id={CARRIER.id} label={CARRIER.name} className="is-joining" /></div> },
 ];
 
@@ -297,7 +299,7 @@ const UNIT_GROUPS: Record<Faction, UnitStep[]> = {
   Iran: [
     { ids: ['IR-U01', 'IR-U02'], text: 'Forze convenzionali: in Iran l’Influenza iraniana non può essere Destabilizzata. IRGC: l’élite, in Iran difende a 5.' },
     { ids: ['IR-U03', 'IR-U07'], text: 'Proxy regionali e Droni Shahed: se vincono, il vinto perde 1 Consenso in più. I Proxy rendono l’Influenza iraniana nel loro Stato più economica di 1 OP.' },
-    { ids: ['IR-U04', 'IR-U06', 'IR-U05'], text: 'Missili balistici: attacco 4, al massimo 2 per Stato, annullati dallo Scudo. Cyber Unit: −1 alla difesa avversaria. Flotta veloce: con 2 a Hormuz scatta il Blocco.' },
+    { ids: ['IR-U04', 'IR-U06', 'IR-U05', 'IR-U09'], text: 'Missili balistici: attacco 4, al massimo 2 per Stato, annullati dallo Scudo. Cyber Unit: −1 alla difesa avversaria. Flotta veloce: con 2 a Hormuz scatta il Blocco. Token Blocco: con una sola Flotta, costo 3.' },
   ],
   Coalizione: [
     { ids: ['CO-U01', 'CO-U02'], text: 'Convenzionale: Presidio, la tua Influenza in quello Stato non si può Destabilizzare. Forze Speciali: se vincono +1 Diplomazia, se perdono −1 Consenso.' },
