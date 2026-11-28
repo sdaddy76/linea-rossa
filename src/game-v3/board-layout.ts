@@ -26,6 +26,47 @@ export function territorySlot(territory: string, index: number) {
   return { x: layout.x + index * layout.step, y: layout.y };
 }
 
+// Spazi liberi della mappa (in % del tabellone) dove si appoggiano i segnalini
+// delle unità: scelti a mano su board.jpg per non coprire nomi degli Stati,
+// città, riquadri dell'Influenza e cerchi di allineamento.
+export const UNIT_ANCHORS: Record<string, { x: number; y: number }> = {
+  'turchia': { x: 30.12, y: 27.19 },
+  'siria': { x: 44.04, y: 35.25 },
+  'libano': { x: 21.08, y: 31.00 },
+  'israele': { x: 21.33, y: 47.11 },
+  'giordania': { x: 44.78, y: 46.01 },
+  'egitto': { x: 33.54, y: 58.47 },
+  'iraq': { x: 58.94, y: 36.86 },
+  'iran': { x: 73.11, y: 35.10 },
+  'kuwait': { x: 62.85, y: 40.01 },
+  'bahrein': { x: 57.97, y: 58.32 },
+  'qatar': { x: 78.48, y: 59.93 },
+  'emirati': { x: 62.85, y: 68.36 },
+  'oman': { x: 79.95, y: 63.96 },
+  'arabia-saudita': { x: 45.27, y: 57.96 },
+  'hormuz': { x: 78.97, y: 45.50 },
+  'yemen': { x: 69.69, y: 75.17 },
+};
+/** Dimensioni di un segnalino unità, in % di larghezza/altezza del tabellone. */
+export const UNIT_TOKEN = { width: 1.45, height: 2.18, step: 1.7 };
+
+/** Centro del segnalino i-esimo di n, centrati sull'ancora dello Stato. */
+export function unitStackPoint(territory: string, index: number, count: number) {
+  const anchor = UNIT_ANCHORS[territory];
+  if (!anchor) throw new Error(`Territorio senza spazio per le unità: ${territory}`);
+  return { x: anchor.x + (index - (count - 1) / 2) * UNIT_TOKEN.step, y: anchor.y };
+}
+
+/** Posizione descritta a parole rispetto ai riquadri dell'Influenza. */
+export function unitAnchorDescription(territory: string) {
+  const a = UNIT_ANCHORS[territory], s = TERRITORY_LAYOUT[territory];
+  if (!a || !s) return '';
+  const dx = a.x - s.x, dy = a.y - s.y;
+  const v = dy > 1.5 ? 'sotto' : dy < -1.5 ? 'sopra' : '';
+  const h = dx > 3 ? 'a destra' : dx < -3 ? 'a sinistra' : '';
+  return [v, h].filter(Boolean).join(' e ') || 'accanto';
+}
+
 // Measured on the supplied 3072 × 2048 artwork. The perimeter is not a
 // uniform grid: its first six top cells are wider than the later cells.
 const TOP_CENTRES = [298,413,527,642,758,872,984,1093,1203,1312,1423,1532,1641,1751,1861,1969,2077,2184,2292,2396,2502,2608,2716,2829,2942];
