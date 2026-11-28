@@ -1,7 +1,6 @@
 // Funzione "tabletop": motore di gioco sul server.
 // Sorgente: questo file + src/game-v3. `node scripts/build-edge.mjs` genera public/edge/tabletop-core.js,
 // che la funzione (index.ts) importa all'avvio; le librerie npm le passa index.ts.
-import { VAPID_PUBLIC_KEY } from '../../../src/game-v3/push-key';
 import { FACTIONS, type Faction } from '../../../src/game-v3/catalog-types';
 import { createGame, currentActor, type Command, type EngineState, type GameMode } from '../../../src/game-v3/engine';
 import { applyCommand, applyTimeout, isRedacted, planStart, privateView, redact, resume, runBots, substitute, turnKey, type Caller, type Seat } from '../../../src/game-v3/server-core';
@@ -75,17 +74,42 @@ async function publish(row: Row, prev: Row | null) {
   }
 }
 
-async function notify(userId: string, gameId: string, faction: Faction) {
-  const priv = env('VAPID_PRIVATE_KEY');
-  if (!priv) return;
-  webpush.setVapidDetails('mailto:' + ADMIN_EMAIL, VAPID_PUBLIC_KEY, priv);
-  const subs = must(await db.from('push_subscriptions').select('*').eq('user_id', userId)) as { id: string; subscription: unknown }[];
-  const game = must(await db.from('games').select('name, code').eq('id', gameId).maybeSingle()) as { name?: string; code?: string } | null;
-  const payload = JSON.stringify({ title: 'Linea Rossa · tocca a te', body: `${game?.name ?? 'Partita ' + (game?.code ?? '')}: tocca a ${faction}.`, url: '/', gameId });
-  for (const sub of subs) {
-    try { await webpush.sendNotification(sub.subscription as never, payload, { TTL: 86400 }); }
-    catch (e) { const code = (e as { statusCode?: number }).statusCode; if (code === 404 || code === 410) await db.from('push_subscriptions').delete().eq('id', sub.id); }
+/** Chiavi VAPID: generate dal server al primo uso e conservate in una tabella leggibile solo dal server. */
+let vapid: { publicKey: string; privateKey: string } | null = null;
+async function vapidKeys() {
+  if (vapid) return vapid;
+  const read = async () => must(await db.from('push_config').select('public_key, private_key').eq('id', 1).maybeSingle()) as { public_key: string; private_key: string } | null;
+  let row = await read();
+  if (!row) {
+    const k = webpush.generateVAPIDKeys();
+    await db.from('push_config').upsert({ id: 1, public_key: k.publicKey, private_key: k.privateKey }, { onConflict: 'id', ignoreDuplicates: true });
+    row = await read();   // in caso di due avvii contemporanei vale la prima chiave salvata
   }
+  if (!row) throw new Error('Chiavi delle notifiche non disponibili.');
+  vapid = { publicKey: row.public_key, privateKey: row.private_key };
+  webpush.setVapidDetails('mailto:' + ADMIN_EMAIL, vapid.publicKey, vapid.privateKey);
+  return vapid;
+}
+
+async function push(userId: string, message: { title: string; body: string; url: string; gameId?: string }) {
+  await vapidKeys();
+  const subs = must(await db.from('push_subscriptions').select('*').eq('user_id', userId)) as { id: string; subscription: unknown }[];
+  let sent = 0;
+  for (const sub of subs) {
+    try { await webpush.sendNotification(sub.subscription as never, JSON.stringify(message), { TTL: 86400 }); sent++; }
+    catch (e) {
+      const code = (e as { statusCode?: number }).statusCode;
+      // Iscrizione scaduta o creata con una chiave diversa: si rimuove, il browser si iscriverà di nuovo.
+      if (code === 403 || code === 404 || code === 410) await db.from('push_subscriptions').delete().eq('id', sub.id);
+      else console.warn('push', code, (e as Error).message);
+    }
+  }
+  return { devices: subs.length, sent };
+}
+
+async function notify(userId: string, gameId: string, faction: Faction) {
+  const game = must(await db.from('games').select('name, code').eq('id', gameId).maybeSingle()) as { name?: string; code?: string } | null;
+  await push(userId, { title: 'Linea Rossa · tocca a te', body: `${game?.name || 'Partita ' + (game?.code ?? '')}: tocca a ${faction}.`, url: '/', gameId });
 }
 
 function view(row: Row, caller: Caller) {
@@ -123,6 +147,8 @@ async function handle(req: Request): Promise<Response> {
     const auth = await db.auth.getUser(token);
     if (auth.error || !auth.data.user) throw new HttpError('Accesso richiesto.', 401);
     const body = await req.json() as { action: string; gameId: string; actor?: Faction; command?: Command; revision?: number; faction?: Faction; mode?: GameMode; neutrals?: Faction[] };
+    if (body.action === 'vapid') return json({ publicKey: (await vapidKeys()).publicKey });
+    if (body.action === 'test-push') return json(await push(auth.data.user.id, { title: 'Linea Rossa · prova', body: 'Le notifiche funzionano: ti avviseremo quando tocca a te.', url: '/' }));
     if (!body.gameId) throw new HttpError('Partita mancante.');
     const caller = await callerFor(body.gameId, auth.data.user.id, auth.data.user.email ?? '');
     if (!caller.member) throw new HttpError('Non partecipi a questa partita.', 403);

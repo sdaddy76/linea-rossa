@@ -52,3 +52,14 @@ revoke all on function public.linea_rossa_my_games(integer) from public, anon;
 revoke all on function public.linea_rossa_leaderboard(integer) from public, anon;
 grant execute on function public.linea_rossa_my_games(integer) to authenticated;
 grant execute on function public.linea_rossa_leaderboard(integer) to authenticated;
+
+-- Notifiche push: la funzione "tabletop" genera al primo uso la coppia di chiavi VAPID e la conserva qui.
+-- Nessuna regola di accesso: la leggono e la scrivono solo il server e l'amministratore del database.
+create table if not exists public.push_config (
+  id integer primary key check (id = 1),
+  public_key text not null,
+  private_key text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.push_config enable row level security;
+revoke all on table public.push_config from anon, authenticated;
