@@ -18,6 +18,8 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
   pv:Record<Faction,number>;selected:string;onSelect:(id:string)=>void;
 }) {
   const [zoom,setZoom]=useState(100);
+  const [openStack,setOpenStack]=useState<{territory:string;faction:Faction}|null>(null);
+  useEffect(()=>{ if(!openStack) return; const close=(e:KeyboardEvent)=>{ if(e.key==='Escape') setOpenStack(null); }; window.addEventListener('keydown',close); return ()=>window.removeEventListener('keydown',close); },[openStack]);
   const latest = !!gameState && usesLatestRules(gameState);
   const territory=TERRITORIES.find(t=>t.id===selected);
   const perimeterMarkers=FACTIONS.map(f=>({value:pv[f],label:`${f}: ${pv[f]} PV`,text:SHORT[f],color:COLORS[f]}));
@@ -73,13 +75,15 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
         {latest && TERRITORIES.flatMap(t => FACTIONS.flatMap((f, index) => {
           const stack = units.filter(u => u.territory === t.id && u.faction === f);
           if (!stack.length) return [];
+          // Sotto i riquadri dell'Influenza: il nome dello Stato resta leggibile.
           const position = territorySlot(t.id, 0);
           const rotated = stack.every(u => u.rotated);
           const label = `${t.name}: ${f}, ${stack.length} unità accanto allo Stato`;
           return [<button key={`${t.id}-${f}-units`} data-unit-stack={t.id} data-faction={f}
             aria-label={label} title={label + ' · ' + stack.map(u => (UNITS.find(d => d.id === u.type)?.name ?? u.type) + (u.rotated ? ' (ruotata)' : '')).join(', ')}
-            onClick={()=>onSelect(t.id)} className="absolute -translate-x-1/2 -translate-y-1/2 rounded border-2 focus-visible:outline-white"
-            style={{left:`${position.x + index * 1.85}%`,top:`${position.y - 3.2}%`,width:'1.7%',height:'2.55%',borderColor:COLORS[f],background:COLORS[f]}}>
+            onClick={()=>{onSelect(t.id);setOpenStack({territory:t.id,faction:f});}} aria-haspopup="dialog"
+            className="board-unit-stack absolute -translate-x-1/2 -translate-y-1/2 rounded border-2 shadow-lg shadow-black/60 hover:scale-125 hover:z-10 transition-transform focus-visible:outline-white"
+            style={{left:`${position.x + index * 2.35}%`,top:`${position.y + 3.4}%`,width:'2.1%',height:'3.15%',borderColor:COLORS[f],background:COLORS[f]}}>
             <img src={unitFrontArt(stack[0].type)} alt="" className="w-full h-full object-contain" style={{transform:rotated?'rotate(90deg)':'none'}}/>
             <span className="absolute -bottom-1 -right-1 text-slate-950 font-black leading-tight rounded-sm"
               style={{background:COLORS[f],fontSize:'clamp(7px,0.65vw,12px)'}}>{SHORT[f]}×{stack.length}</span>
@@ -87,6 +91,17 @@ export function TabletopBoard({globals,elapsed,units,influence=[],gameState,pv,s
         }))}
       </div>
     </div>
+    {openStack && (()=>{
+      const t=TERRITORIES.find(x=>x.id===openStack.territory)!, stack=units.filter(u=>u.territory===openStack.territory&&u.faction===openStack.faction);
+      return <div role="dialog" aria-modal="true" aria-label={`Unità di ${openStack.faction} in ${t.name}`} className="fixed inset-0 z-40 bg-black/80 flex items-center justify-center p-4" onClick={()=>setOpenStack(null)}>
+        <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-slate-600 bg-slate-900 p-5 space-y-4" onClick={e=>e.stopPropagation()}>
+          <div className="flex items-center justify-between gap-3"><h3 className="text-lg font-bold"><span style={{color:COLORS[openStack.faction]}}>{openStack.faction}</span> · {t.name} · {stack.length} {stack.length===1?'unità':'unità'}</h3>
+            <button autoFocus className="rounded-lg border border-slate-500 px-3 py-1.5 text-sm" onClick={()=>setOpenStack(null)}>Chiudi</button></div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">{stack.map(u=>{const d=UNITS.find(x=>x.id===u.type);return <figure key={u.id} className="rounded-lg border border-slate-700 p-2 space-y-1">
+            <img src={unitFrontArt(u.type)} alt={d?.name??u.type} className="w-full h-auto rounded" style={{transform:u.rotated?'rotate(90deg)':'none'}}/>
+            <figcaption className="text-sm"><strong>{d?.name??u.type}</strong><br/><span className="text-xs text-slate-400">{u.rotated?'Ruotata: rientra a fine round, salvo Mantenimento':'Attiva'} · {u.id}</span>
+              {d&&<span className="block text-xs text-slate-300 mt-1">{d.effect}</span>}</figcaption></figure>;})}</div>
+        </div></div>;})()}
     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs" aria-label="Colori delle fazioni">{FACTIONS.map(f=><span key={f} className="faction-legend-item" style={{'--faction-color':COLORS[f]} as CSSProperties}>{SHORT[f]} · {f} · {units.filter(u=>u.faction===f).length} unità</span>)}</div>
     <p className="my-2 text-xs text-slate-400">{latest ? 'I riquadri sono riservati all’Influenza. Le unità sono raggruppate per fazione accanto allo Stato: il numero indica quante sono; seleziona per vedere ogni unità.' : 'Unità e Influenza condividono i riquadri in questo salvataggio precedente.'} L’Influenza è permanente. Le unità ruotate rientrano a fine round, salvo Mantenimento: giocatori 1 OP per unità nelle Operazioni; BOT gratis, 1 unità ruotata per attivazione.</p>
     <div data-board-territories className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">{TERRITORIES.map(t=><button key={t.id} onClick={()=>onSelect(t.id)} aria-pressed={selected===t.id} className={`text-xs text-left rounded-lg border px-3 py-2 min-h-11 ${selected===t.id?'border-emerald-400 bg-emerald-950':'border-slate-700 bg-slate-900'}`}>{t.name} · {units.filter(u=>u.territory===t.id).length} unità · {influence.filter(i=>i.territory===t.id).length}/{t.capacity} Influenza</button>)}</div>
