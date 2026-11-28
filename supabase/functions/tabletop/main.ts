@@ -1,18 +1,20 @@
 // Funzione "tabletop": motore di gioco sul server.
-// Sorgente: questo file + src/game-v3. Il file index.js si rigenera con `node scripts/build-edge.mjs`.
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import webpush from 'npm:web-push@3.6.7';
+// Sorgente: questo file + src/game-v3. `node scripts/build-edge.mjs` genera public/edge/tabletop-core.js,
+// che la funzione (index.ts) importa all'avvio; le librerie npm le passa index.ts.
+import { VAPID_PUBLIC_KEY } from '../../../src/game-v3/push-key';
 import { FACTIONS, type Faction } from '../../../src/game-v3/catalog-types';
 import { createGame, currentActor, type Command, type EngineState, type GameMode } from '../../../src/game-v3/engine';
 import { applyCommand, applyTimeout, isRedacted, planStart, privateView, redact, resume, runBots, substitute, turnKey, type Caller, type Seat } from '../../../src/game-v3/server-core';
 
-declare const Deno: { env: { get(name: string): string | undefined }; serve(handler: (req: Request) => Promise<Response>): void };
+// deno-lint-ignore no-explicit-any
+type Deps = { createClient: (url: string, key: string, options: unknown) => any; webpush: any; env: (name: string) => string | undefined };
+// deno-lint-ignore no-explicit-any
+let db: any, webpush: any, env: Deps['env'];
 const ADMIN_EMAIL = 'sdaddino@yahoo.it';
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 class HttpError extends Error { constructor(message: string, public status = 400, public extra?: unknown) { super(message); } }
 
-const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
 const must = <T>(r: { data: T; error: { message: string } | null }) => { if (r.error) throw new Error(r.error.message); return r.data; };
 
 interface Row { game_id: string; revision: number; state: EngineState; turn_key: string; turn_started_at: string }
@@ -74,9 +76,9 @@ async function publish(row: Row, prev: Row | null) {
 }
 
 async function notify(userId: string, gameId: string, faction: Faction) {
-  const pub = Deno.env.get('VAPID_PUBLIC_KEY'), priv = Deno.env.get('VAPID_PRIVATE_KEY');
-  if (!pub || !priv) return;
-  webpush.setVapidDetails('mailto:' + ADMIN_EMAIL, pub, priv);
+  const priv = env('VAPID_PRIVATE_KEY');
+  if (!priv) return;
+  webpush.setVapidDetails('mailto:' + ADMIN_EMAIL, VAPID_PUBLIC_KEY, priv);
   const subs = must(await db.from('push_subscriptions').select('*').eq('user_id', userId)) as { id: string; subscription: unknown }[];
   const game = must(await db.from('games').select('name, code').eq('id', gameId).maybeSingle()) as { name?: string; code?: string } | null;
   const payload = JSON.stringify({ title: 'Linea Rossa · tocca a te', body: `${game?.name ?? 'Partita ' + (game?.code ?? '')}: tocca a ${faction}.`, url: '/', gameId });
@@ -109,7 +111,12 @@ async function start(gameId: string, caller: Caller & { game: Record<string, unk
   return row;
 }
 
-Deno.serve(async (req: Request) => {
+export function createHandler(deps: Deps) {
+  db = deps.createClient(deps.env('SUPABASE_URL')!, deps.env('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
+  webpush = deps.webpush; env = deps.env;
+  return handle;
+}
+async function handle(req: Request): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
   try {
     const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
@@ -140,4 +147,4 @@ Deno.serve(async (req: Request) => {
     const err = e instanceof HttpError ? e : new HttpError((e as Error).message ?? 'Errore', 400);
     return json({ error: err.message, view: err.extra ?? null }, err.status);
   }
-});
+}

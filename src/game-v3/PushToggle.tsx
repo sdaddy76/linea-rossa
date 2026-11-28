@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-/** Chiave pubblica VAPID: la privata sta solo nei segreti della funzione "tabletop". */
-export const VAPID_PUBLIC_KEY = 'BL9Uz-tzsSkPZ1IHaFCTChrz1ZI8fr7x4q1ChrnlcaOt7uUy-wgLEECeCx2cWvIo9-Z1hDYlVbf8Z1Ma7YR_4Us';
+import { VAPID_PUBLIC_KEY } from './push-key';
 export const PUSH_WORKER = '/push-sw.js';
 
 type Status = 'unsupported' | 'denied' | 'off' | 'on' | 'working';
